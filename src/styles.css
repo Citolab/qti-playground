@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+
+@theme {
+  --max-w-80vw-1200px: min(80vw, 1200px);
+  --color-citolab-DEFAULT: #00A748;
+  --color-citolab-50: #EAFEF5;
+  --color-citolab-100: #C6FFE3;
+  --color-citolab-200: #C6FFE3;
+  --color-citolab-300: #7EFFBE;
+  --color-citolab-400: #37FF96;
+  --color-citolab-500: #00EE6C;
+  --color-citolab-600: #00A748;
+  --color-citolab-700: #00742F;
+  --color-citolab-800: #004119;
+  --color-citolab-900: #000000;
+  --color-primary-light: #C6FFE3;
+  --color-primary-DEFAULT: #00A748;
+  --color-primary-dark: #004119;
+  --font-header: "Poppins", "Roboto", sans-serif;
+  --font-body: "Anonymous", "Verdana", sans-serif;
+}
+
+@import 'react-tooltip/dist/react-tooltip.css';
+/* You can add global styles to this file, and also import other style files */
+#root {
+  @apply h-screen w-screen;
+
+}
+
+main {
+  @apply min-h-screen min-w-screen bg-gray-100;
+}
+
+.item-preview {
+  zoom: 0.3;
+}
+
+item-container {
+  --qti-bg-active: #C6FFE3;
+  --qti-border-active: #00A748;
+}
+
+test-container {
+  --qti-bg-active: #C6FFE3;
+  --qti-border-active: #00A748;
+}
+
+
+qti-item {
+  @apply p-4;
+}
+
+.footer .link {
+  font-weight: 600; /* Equivalent to font-semibold */
+  outline: none; /* Equivalent to focus:outline-none */
+}
+
+.footer .link:hover {
+  background-color: var(--color-citolab); /* Equivalent to hover:bg-citolab */
+}
+
+.footer .link:focus {
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.75); /* Equivalent to focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 */
+}
+
+@layer base {
+  .all-unset {
+    all: unset;
+  }
+}
+
+.onvolledig {
+  background: repeating-linear-gradient(
+    45deg,
+    #ffffff,
+    #ffffff 5px,
+    #f0f0f0 5px,
+    #f0f0f0 10px
+  );
+}
+
+/* For Webkit-based browsers (Chrome, Safari and Opera) */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* For IE, Edge and Firefox */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.feedback::before {
+  content: '';
+  position: absolute;
+  left: -18px;
+  top: 50%;
+  margin-top: -10px;
+  border-width: 10px;
+  border-style: solid;
+  border-color: transparent white transparent transparent;
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+  .scrollbar-gutter-stable {
+    scrollbar-gutter: stable;
+  }
+  .btn {
+    @apply cursor-pointer select-none whitespace-nowrap rounded-md border-0 bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50;
+  }
+}
+
+test-view-toggle {
+  label,
+  input {
+    @apply hidden;
+  }
+}
+
+test-scoring-buttons {
+  &[view].show {
+    @apply flex gap-4;
+  }
+
+  form {
+    @apply flex gap-0.5;
+  }
+  input {
+    @apply appearance-none;
+  }
+  input:checked + label {
+    @apply bg-gray-400;
+  }
+  label {
+    @apply border-[3px] p-1 border-gray-300 shadow-none w-9 h-9 cursor-pointer select-none whitespace-nowrap rounded-full bg-white text-sm font-semibold text-gray-900 hover:bg-gray-50 flex flex-col justify-center items-center;
+  }
+
+  input:checked + label {
+    @apply border-green-400 text-green-500 bg-green-100;
+  }
+
+  input:checked + label:first-of-type {
+    @apply border-red-400 text-red-500 bg-red-100;
+  }
+
+  &[disabled='true'] label {
+    @apply cursor-default text-slate-200 border-slate-200;
+  }
+}

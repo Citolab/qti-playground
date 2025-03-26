@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<manifest xmlns="http://www.imsglobal.org/xsd/qti/qtiv3p0/imscp_v1p1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://ltsc.ieee.org/xsd/LOM https://purl.imsglobal.org/spec/md/v1p3/schema/xsd/imsmd_loose_v1p3p2.xsd
+                http://www.imsglobal.org/xsd/qti/qtiv3p0/imscp_v1p1 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqtiv3p0_imscpv1p2_v1p0.xsd
+                http://www.imsglobal.org/xsd/imsqti_metadata_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_metadatav3p0_v1p0.xsd" identifier="MANIFEST-tao67868ae5223167-16787525" xmlns:imsmd="http://ltsc.ieee.org/xsd/LOM" xmlns:imsqti="http://www.imsglobal.org/xsd/imsqti_metadata_v3p0">
+    <metadata>
+        <schema>QTI Package</schema>
+        <schemaversion>3.0.0</schemaversion>
+    </metadata>
+    <organizations/>
+    <resources>
+                <resource identifier="i678687e92e17580cc19f204dbb2af8" type="imsqti_item_xmlv3p0" href="i678687e92e17580cc19f204dbb2af8/qti.xml">
+            <metadata><imsmd:lom><imsmd:classification><imsmd:taxonPath><imsmd:source><imsmd:string xml:lang="en-US">http://www.w3.org/2000/01/rdf-schema#label</imsmd:string></imsmd:source><imsmd:taxon><imsmd:entry><imsmd:string xml:lang="en-US">block</imsmd:string></imsmd:entry></imsmd:taxon></imsmd:taxonPath></imsmd:classification></imsmd:lom></metadata><file href="i678687e92e17580cc19f204dbb2af8/qti.xml"/>
+                        <file href="interaction/runtime/js/index.js"/>
+                        <file href="i678687e92e17580cc19f204dbb2af8/style/custom/tao-user-styles.css"/>
+                    </resource>
+            </resources>
+</manifest>

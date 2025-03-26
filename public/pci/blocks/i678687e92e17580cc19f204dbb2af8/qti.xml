@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<qti-assessment-item xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="i678687e92e17580cc19f204dbb2af8" title="block" label="block" xml:lang="en-US"
+  adaptive="false" time-dependent="false" tool-name="TAO" tool-version="3.4.0-sprint121">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string">
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float" />
+  <qti-stylesheet href="style/custom/tao-user-styles.css" type="text/css" media="all" title="" />
+  <qti-item-body>
+    <div class="grid-row">
+      <div class="col-12">
+        <p>We also provide tooling that empowers software developers with a head start in building
+      PCIs by generating boilerplate code using a simple CLI.</p>
+      </div>
+    </div>
+    <div class="grid-row">
+      <div class="col-12">
+        <qti-portable-custom-interaction custom-interaction-type-identifier="blocks"
+          data-version="1.0.0" data-grid-divisions="10" data-cube-pixel-size="100" data-width="600"
+          data-height="600" module="blocks" response-identifier="RESPONSE">
+          <qti-interaction-modules>
+            <qti-interaction-module id="blocks" primary-path="../interaction/runtime/js/index.js" />
+          </qti-interaction-modules>
+          <qti-interaction-markup>
+            <div class="pciInteraction">
+              <div class="prompt" />
+              <ul class="pci" />
+            </div>
+          </qti-interaction-markup>
+        </qti-portable-custom-interaction>
+      </div>
+    </div>
+  </qti-item-body>
+  <qti-response-processing
+    template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/match_correct.xml" />
+</qti-assessment-item>
