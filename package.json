@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+     "deploy:app": "firebase use qti-convert && firebase deploy --only hosting:convert-online"
   },
   "dependencies": {
     "@citolab/qti-api": "^7.0.13",

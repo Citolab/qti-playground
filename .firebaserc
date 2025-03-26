@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "qti-convert"
+  },
+  "targets": {
+    "qti-convert": {
+      "hosting": {
+        "convert-online": [
+          "qti-convert"
+        ]
+      }
+    }
+  }
+}
