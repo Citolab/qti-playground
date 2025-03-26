@@ -70,10 +70,10 @@ export const ModifyPackagePage: React.FC = () => {
 
         setError(null);
 
-        if (file.size > 10485760 * 3) {
-            setError('File size should not exceed 30MB');
-            return false;
-        }
+        // if (file.size > 10485760 * 3) {
+        //     setError('File size should not exceed 30MB');
+        //     return false;
+        // }
 
         if (!file.name.endsWith('.zip')) {
             setError('Only .zip files are allowed');
@@ -243,7 +243,7 @@ export const ModifyPackagePage: React.FC = () => {
 
     return (
         <div className="flex flex-col items-center min-h-screen bg-gray-50 p-4">
-            <div className="max-w-3xl w-full bg-white rounded-xl shadow-md overflow-hidden" style={{ height: '70vh' }}>
+            <div className="max-w-3xl w-full bg-white rounded-xl shadow-md overflow-hidden" style={{ minHeight: '80vh' }}>
                 <div className="bg-citolab-600 text-white p-6">
                     <h1 className="text-2xl font-bold">QTI Package Modifier</h1>
                     <p className="text-citolab-100 mt-1">
@@ -601,8 +601,11 @@ export const ModifyPackagePage: React.FC = () => {
 
                                             <p className="text-xs text-gray-400">
                                                 {activeTab === 'upgrade'
-                                                    ? 'QTI 2.x ZIP files are supported (MAX. 30MB)'
-                                                    : 'QTI 2.x and 3 ZIP files are supported (MAX. 30MB)'}
+                                                    ? 'QTI 2.x ZIP files are supported'
+                                                    : 'QTI 2.x and 3 ZIP files are supported'}
+                                            </p>
+                                            <p className="text-xs text-gray-400">
+                                                * When uploading you agree to our Terms and Conditions at the end of the page.
                                             </p>
                                         </div>
                                     </label>

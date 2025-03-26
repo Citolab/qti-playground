@@ -281,6 +281,9 @@ export const UploadPage: React.FC = () => {
                             <p className="text-xs text-gray-400">
                                 QTI 2x and 3 ZIP files are supported (MAX. 30MB)
                             </p>
+                            <p className="text-xs text-gray-400">
+                                * When uploading you agree to our Terms and Conditions at the end of the page.
+                            </p>
                         </div>
                     </label>
 
