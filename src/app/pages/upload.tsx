@@ -221,7 +221,7 @@ export const UploadPage: React.FC = () => {
                                         className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-end justify-center"
                                     >
                                         <div className="w-full p-3 text-white font-medium flex items-center justify-center">
-                                            <span>View Item</span>
+                                            <span>{item.identifier}</span>
                                             <ChevronRight className="w-4 h-4 ml-1" />
                                         </div>
                                     </div>

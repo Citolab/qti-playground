@@ -3,7 +3,7 @@ import { UseStoreContext } from '../store/store-context';
 import { initialState, OnEditItemAction, SelectAssessmentAction } from '../store/store';
 import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import { CustomElements } from '@citolab/qti-components/react';
-import { TestNavigation } from '@citolab/qti-components';
+import { QtiTest, TestNavigation } from '@citolab/qti-components';
 import { ChevronLeft, Edit, Code, ChevronRight, CheckCircle } from 'lucide-react';
 
 import DraggablePopup from '../components/draggable-popup';
@@ -21,14 +21,14 @@ declare module 'react' {
 export const AssessmentPage: React.FC = () => {
     const navigate = useNavigate();
     const qtiTestNavigationRef = useRef<TestNavigation>(null);
+    const qtiTestRef = useRef<QtiTest>(null);
     const [queryParams] = useSearchParams();
     const [state, setState] = useState(initialState);
     const { store } = UseStoreContext();
-    const [navItemId, setNavItemId] = useState<string | undefined>(undefined);
     const [showVariables, setShowVariables] = useState(false);
 
     useEffect(() => {
-        const subs = store.subscribe(setState);
+        const subs = store.subscribe((setState));
         return () => subs?.unsubscribe();
     }, [store]);
 
@@ -47,8 +47,21 @@ export const AssessmentPage: React.FC = () => {
             }
         }
         const itemId = queryParams.get('item');
-        if (itemId && qtiTestNavigationRef.current) {
-            setNavItemId(itemId);
+        if (qtiTestNavigationRef.current) {
+            qtiTestRef.current?.addEventListener('qti-assessment-test-connected', () => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                if (itemId) {
+                    (qtiTestRef.current as any)?.navigateTo('item', itemId);
+                } else {
+                    const selectedAssessment = state.assessments.find(a => a.assessmentId === state.selectedAssessment);
+                    const firstItem = selectedAssessment?.items?.length ? selectedAssessment?.items[0] : null;
+                    if (firstItem !== null) {
+                        (qtiTestRef.current as any).navigateTo('item', firstItem.identifier);
+                    }
+
+                }
+
+            })
         }
     }, [selectedAssessment, assessmentId, navigate, store, queryParams]);
 
@@ -120,7 +133,7 @@ export const AssessmentPage: React.FC = () => {
 
             {/* Main content */}
             <div className="relative flex h-full w-full flex-col bg-white p-4 overflow-auto mt-16 lg:max-h-[85vh] lg:max-w-6xl lg:rounded-lg lg:shadow-lg">
-                <qti-test cache-transform nav-item-id={navItemId} className="h-full">
+                <qti-test ref={qtiTestRef} cache-transform className="h-full">
                     <test-navigation
                         initContext={items.map((item) => ({
                             identifier: item.identifier,
@@ -155,9 +168,10 @@ export const AssessmentPage: React.FC = () => {
                             isOpen={showVariables}
                             onClose={() => setShowVariables(false)}
                             setIsOpen={setShowVariables}
-                            title="Item Variables"
+                            title={`Item Variable`}
                         >
                             <div className="bg-gray-50 p-3 rounded">
+                                <test-stamp><template dangerouslySetInnerHTML={{ __html: `{{ item.identifier }}` }}></template></test-stamp>
                                 <test-print-item-variables></test-print-item-variables>
                             </div>
                         </DraggablePopup>

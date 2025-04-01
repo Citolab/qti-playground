@@ -170,8 +170,10 @@ export const PreviewPage = () => {
         <>
           {state.qti3ForPreview ?
             <qti-item ref={qtiItemRef}>
-              <item-container itemDoc={qtiTransformItem().parse(
-                state.qti3ForPreview).extendElementsWithClass("type")
+              <item-container itemDoc={qtiTransformItem()
+                .parse(
+                  state.qti3ForPreview)
+                .extendElementsWithClass("type")
                 .convertCDATAtoComment().htmlDoc()}>
               </item-container>
             </qti-item>

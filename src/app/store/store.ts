@@ -252,7 +252,10 @@ export class ProcessPackageAction
           content: assessmentData.content,
           packageId: assessmentData.identifier,
           name: assessmentData.identifier,
-          items: items.map((i) => {
+          items: assessmentData.itemRefs
+            .map((i) => items.find((it) => it.identifier === i.identifier))
+            .filter((i) => i !== undefined)
+            .map((i) => {
             return {
               identifier: i.identifier,
               title: i.title,
@@ -423,11 +426,11 @@ const replaceMediaWithMissingImagePlaceholder = async (
     for (const node of Array.from(srcAttributes)) {
       const srcValue = node.getAttribute(attribute)!;
 
-      const imageExists = urlsChecked.has(srcValue)
+      const imageExists = urlsChecked.has(srcValue) 
         ? urlsChecked.get(srcValue)
         : await checkFileExists(srcValue);
 
-      if (!imageExists) {
+      if (!imageExists && !(srcValue.startsWith('data:') || srcValue.startsWith('blob:'))) {
         node.setAttribute(attribute, '/missing.png');
       }
     }
