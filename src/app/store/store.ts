@@ -234,6 +234,7 @@ export class ProcessPackageAction
       'https://raw.githubusercontent.com/Citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json',
       true,
       (itemData) => {
+        
         const filename = itemData.relativePath.split('/').pop();
         const fullKey = encodeURI(filename || '');
         sessionStorage.setItem(fullKey, itemData.content);

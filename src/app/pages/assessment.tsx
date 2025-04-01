@@ -51,14 +51,15 @@ export const AssessmentPage: React.FC = () => {
             qtiTestRef.current?.addEventListener('qti-assessment-test-connected', () => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 if (itemId) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     (qtiTestRef.current as any)?.navigateTo('item', itemId);
                 } else {
                     const selectedAssessment = state.assessments.find(a => a.assessmentId === state.selectedAssessment);
                     const firstItem = selectedAssessment?.items?.length ? selectedAssessment?.items[0] : null;
                     if (firstItem !== null) {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         (qtiTestRef.current as any).navigateTo('item', firstItem.identifier);
                     }
-
                 }
 
             })
