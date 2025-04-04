@@ -146,6 +146,7 @@ export const AssessmentPage: React.FC = () => {
                         className="flex justify-center h-full overflow-hidden"
                     >
                         <div className="flex flex-col flex-1">
+                            <test-view-toggle class-for-input="block">Nakijken</test-view-toggle>
                             <test-container
                                 className="flex-1 overflow-auto p-6 bg-white rounded-lg"
                                 testXML={assessment?.content}

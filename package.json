@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@citolab/qti-api": "^7.0.13",
-    "@citolab/qti-components": "https://pkg.pr.new/Citolab/qti-components/@citolab/qti-components@9f383c7",
+    "@citolab/qti-components": "7.2.1",
     "@citolab/qti-convert": "0.3.4",
     "@headlessui/react": "^2.2.0",
     "@lit-labs/react": "^2.1.3",

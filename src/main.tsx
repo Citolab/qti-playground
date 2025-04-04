@@ -12,6 +12,7 @@ import "@citolab/qti-components/qti-test/components/test-end-attempt";
 import "@citolab/qti-components/qti-test/components/test-paging-buttons-stamp";
 import "@citolab/qti-components/qti-test/components/test-item-link";
 import "@citolab/qti-components/qti-test/components/test-view";
+import "@citolab/qti-components/qti-test/components/test-view-toggle";
 import "@citolab/qti-components/qti-test/components/test-print-item-variables";
 import "@citolab/qti-components/qti-test/components/test-print-context";
 

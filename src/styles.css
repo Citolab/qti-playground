@@ -118,13 +118,6 @@ qti-item {
   }
 }
 
-test-view-toggle {
-  label,
-  input {
-    @apply hidden;
-  }
-}
-
 test-scoring-buttons {
   &[view].show {
     @apply flex gap-4;
