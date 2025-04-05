@@ -16,7 +16,7 @@
           data-height="200" module="blocks" response-identifier="RESPONSE2">
           <qti-interaction-modules>
             <qti-interaction-module id="blocks"
-              primary-path="/pci/blocks/interaction/runtime/js/index.js" />
+              primary-path="pci/blocks/interaction/runtime/js/index.js" />
           </qti-interaction-modules>
           <qti-interaction-markup>
             <div class="pciInteraction">
