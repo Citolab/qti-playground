@@ -10,6 +10,7 @@ import {
     AlertCircle,
     ChevronRight,
     X,
+    AlertTriangle,
 } from 'lucide-react';
 import { forceMemoryCleanup } from '@citolab/qti-convert/qti-helper';
 import { Terms } from '../components/terms';
@@ -21,6 +22,9 @@ export const UploadPage: React.FC = () => {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
     const [state, setState] = useState(initialState);
+    const [removeStylesheets, setRemoveStylesheets] = useState(false);
+    const [showValidationDetails, setShowValidationDetails] = useState(false);
+    const [validationErrors, setValidationErrors] = useState<string[]>([]);
     const { store } = UseStoreContext();
 
     useEffect(() => {
@@ -62,8 +66,8 @@ export const UploadPage: React.FC = () => {
     const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
         event.preventDefault();
         setIsDragging(false);
-        const selectedFile = event.dataTransfer?.files[0] || null;
-        await handleFileSelected(selectedFile);
+        const file = event.dataTransfer?.files[0] || null;
+        await handleFileSelected(file);
     };
 
     const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
@@ -76,16 +80,16 @@ export const UploadPage: React.FC = () => {
         setIsDragging(false);
     };
 
-    const handleFileSelected = async (selectedFile: File | null) => {
-        if (selectedFile) {
-            if (selectedFile.size > 10485760 * 3) { // 30 MB in bytes
-                setError('File size should not exceed 30MB.');
-            } else if (!selectedFile.name.endsWith('.zip')) {
+    const handleFileSelected = async (file: File | null, skipValidation = false) => {
+        if (file) {
+            if (!file.name.endsWith('.zip')) {
                 setError('Only .zip files are allowed.');
             } else {
                 setError('');
                 setInProgress('Processing...');
                 setUploadProgress(0);
+                setValidationErrors([]);
+                setShowValidationDetails(false);
 
                 try {
                     // Simulate progress for better UX
@@ -95,13 +99,25 @@ export const UploadPage: React.FC = () => {
                             return newProgress > 90 ? 90 : newProgress;
                         });
                     }, 300);
-                    await store.dispatch(new ProcessPackageAction({ file: selectedFile }));
-
+                    const result = await store.dispatch(new ProcessPackageAction({
+                        file,
+                        options: {
+                            removeStylesheets,
+                            skipValidation,
+                        }
+                    }));
                     clearInterval(progressInterval);
                     setUploadProgress(100);
-                    setInProgress('');
-                } catch {
-                    setError('An error occurred during processing.');
+
+                    // Check for validation errors
+                    if (result && result.importErrors && result.importErrors.length > 0) {
+                        setValidationErrors(result.importErrors);
+                        setInProgress('');
+                    } else {
+                        setInProgress('');
+                    }
+                } catch (e) {
+                    setError(e instanceof Error ? e.message : 'An error occurred during processing.');
                     setInProgress('');
                     setUploadProgress(0);
                 }
@@ -110,8 +126,12 @@ export const UploadPage: React.FC = () => {
     };
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedFile = event.target.files ? event.target.files[0] : null;
-        await handleFileSelected(selectedFile);
+        const file = event.target.files ? event.target.files[0] : null;
+        await handleFileSelected(file);
+    };
+
+    const toggleValidationDetails = () => {
+        setShowValidationDetails(!showValidationDetails);
     };
 
     // Rendering states
@@ -169,6 +189,46 @@ export const UploadPage: React.FC = () => {
                         ))}
                     </div>
                 </div>
+
+                {/* Warning Alert for Import Errors */}
+                {validationErrors.length > 0 && (
+                    <div className="mx-6 mt-4">
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                    <AlertTriangle className="w-5 h-5 text-amber-500 mr-2" />
+                                    <h3 className="text-lg font-medium text-amber-800">
+                                        XML Validation Issues
+                                    </h3>
+                                </div>
+                                <button
+                                    onClick={toggleValidationDetails}
+                                    className="text-amber-700 hover:text-amber-900 font-medium"
+                                >
+                                    {showValidationDetails ? 'Hide Details' : 'Show Details'}
+                                </button>
+                            </div>
+
+                            <p className="text-amber-700 mt-1">
+                                {validationErrors.length === 1
+                                    ? "1 file contains validation issues"
+                                    : `${validationErrors.length} files contain validation issues`}. Some content may not display correctly.
+                            </p>
+
+                            {showValidationDetails && (
+                                <div className="mt-3 space-y-2 max-h-60 overflow-y-auto">
+                                    <div className="px-4 py-2 bg-amber-100 rounded text-sm">
+                                        <ul className="list-disc pl-5 space-y-1 text-amber-800">
+                                            {validationErrors.map((err, errIdx) => (
+                                                <li key={errIdx}>{err}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* Item Grid */}
                 <div className="p-6">
@@ -286,6 +346,58 @@ export const UploadPage: React.FC = () => {
                             </p>
                         </div>
                     </label>
+
+                    {/* Processing options */}
+                    <div className="px-10 pb-6 space-y-2">
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                className="form-checkbox h-4 w-4 text-citolab-600 rounded border-gray-300 focus:ring-citolab-500"
+                                checked={removeStylesheets}
+                                onChange={(e) => setRemoveStylesheets(e.target.checked)}
+                            />
+                            <span className="text-sm text-gray-700">Remove stylesheets from package</span>
+                        </label>
+                    </div>
+
+                    {/* Display validation errors for initial state */}
+                    {validationErrors.length > 0 && (
+                        <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                            <div className="flex items-center mb-3">
+                                <AlertTriangle className="w-5 h-5 text-amber-500 mr-2" />
+                                <h3 className="text-lg font-medium text-amber-800">
+                                    XML Validation Issues
+                                </h3>
+                            </div>
+
+                            <p className="text-amber-700 mb-3">
+                                {validationErrors.length === 1
+                                    ? "1 file contains validation issues"
+                                    : `${validationErrors.length} files contain validation issues`}. Click on 'Show Details' to see the errors.
+                            </p>
+
+                            <div className="flex justify-between">
+                                <button
+                                    className="px-4 py-2 bg-amber-100 text-amber-800 hover:bg-amber-200 rounded-lg flex items-center font-medium transition-colors"
+                                    onClick={toggleValidationDetails}
+                                >
+                                    {showValidationDetails ? "Hide Details" : "Show Details"}
+                                </button>
+                            </div>
+
+                            {showValidationDetails && (
+                                <div className="mt-3 space-y-2 max-h-60 overflow-y-auto">
+                                    <div className="px-4 py-2 bg-amber-100 rounded text-sm">
+                                        <ul className="list-disc pl-5 space-y-1 text-amber-800">
+                                            {validationErrors.map((err, errIdx) => (
+                                                <li key={errIdx}>{err}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {error && (
                         <div className="bg-red-50 text-red-700 p-4 rounded-lg mt-4 flex items-center">

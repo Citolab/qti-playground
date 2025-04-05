@@ -30,6 +30,7 @@ export interface StateModel {
   errorMessage: string;
   fillSource: boolean;
   assessments: AssessmentInfoWithContent[];
+  importErrors: string[];
   selectedAssessment?: string;
   testContexts: ({ assessmentId: string } & ExtendedTestContext)[];
   itemsPerAssessment: { assessmentId: string; items: ItemInfoWithContent[] }[];
@@ -50,6 +51,7 @@ export const initialState: StateModel = {
   testContexts: [],
   assessments: [],
   itemsPerAssessment: [],
+  importErrors: [],
 };
 
 export class RestoreStateAction implements ActionType<StateModel, never> {
@@ -218,23 +220,36 @@ export class LoadItemsAction implements ActionType<StateModel, never> {
 
 export class ProcessPackageAction
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  implements ActionType<StateModel, { file: any }>
+  implements ActionType<StateModel, { file: any, options: {
+                            removeStylesheets: boolean,
+                            skipValidation: boolean,
+                        } }>
 {
   type = 'LOAD_ASSESSMENTS';
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(public payload: { file: any }) {}
+  constructor(public payload: {  file: any, options: {
+                            removeStylesheets: boolean,
+                            skipValidation: boolean,
+                        } }) {}
 
   async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
     sessionStorage.clear();
     const assessments: AssessmentInfoWithContent[] = [];
     const items: ItemInfoWithContent[] = [];
-    await processPackage(
+
+    const skipValidation = this.payload.options.skipValidation === false ? false : true;
+    const removeStylesheets = this.payload.options.removeStylesheets || false;
+
+    const result = await processPackage(
       this.payload.file,
       'https://raw.githubusercontent.com/Citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json',
-      true,
+      true, 
+       {
+        removeStylesheets,
+        skipValidation,
+      },
       (itemData) => {
-        
         const filename = itemData.relativePath.split('/').pop();
         const fullKey = encodeURI(filename || '');
         sessionStorage.setItem(fullKey, itemData.content);
@@ -269,8 +284,10 @@ export class ProcessPackageAction
         });
       }
     );
+  
     return ctx.patchState({
       assessments,
+      importErrors: result.errors,
       itemsPerAssessment: assessments.map((a) => {
         return {
           assessmentId: a.assessmentId,
