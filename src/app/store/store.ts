@@ -241,6 +241,7 @@ export class ProcessPackageAction
     const skipValidation = this.payload.options.skipValidation === false ? false : true;
     const removeStylesheets = this.payload.options.removeStylesheets || false;
 
+    // create a dictionary of items key = identifier, value = content
     const result = await processPackage(
       this.payload.file,
       'https://raw.githubusercontent.com/Citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json',
@@ -250,9 +251,6 @@ export class ProcessPackageAction
         skipValidation,
       },
       (itemData) => {
-        const filename = itemData.relativePath.split('/').pop();
-        const fullKey = encodeURI(filename || '');
-        sessionStorage.setItem(fullKey, itemData.content);
         items.push({
           identifier: itemData.identifier,
           content: itemData.content,
@@ -284,6 +282,17 @@ export class ProcessPackageAction
         });
       }
     );
+
+    for (const assessment of assessments) {
+      for (const itemRef of assessment.items || []) {
+        const matchingItem = items.find(i => i.identifier === itemRef.identifier);
+        if (matchingItem) {
+          const fullKey = encodeURI(itemRef.href || '');
+          sessionStorage.setItem(fullKey, matchingItem.content);
+        }
+      }
+    }
+
   
     return ctx.patchState({
       assessments,

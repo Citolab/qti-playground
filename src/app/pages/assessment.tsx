@@ -173,7 +173,7 @@ export const AssessmentPage: React.FC = () => {
                             title={`Item Variable`}
                         >
                             <div className="bg-gray-50 p-3 rounded">
-                                <test-stamp><template dangerouslySetInnerHTML={{ __html: `{{ item.identifier }}` }}></template></test-stamp>
+                                Item Id: <test-stamp><template dangerouslySetInnerHTML={{ __html: `{{ item.identifier }}` }}></template></test-stamp>
                                 <test-print-item-variables></test-print-item-variables>
                             </div>
                         </DraggablePopup>
