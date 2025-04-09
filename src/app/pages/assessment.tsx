@@ -4,9 +4,10 @@ import { initialState, OnEditItemAction, SelectAssessmentAction } from '../store
 import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import { CustomElements } from '@citolab/qti-components/react';
 import { QtiTest, TestNavigation } from '@citolab/qti-components';
-import { ChevronLeft, Edit, Code, ChevronRight, CheckCircle } from 'lucide-react';
+import { ChevronLeft, Edit, Code, ChevronRight } from 'lucide-react';
 
 import DraggablePopup from '../components/draggable-popup';
+import ModeSwitch from '../components/mode-switcher';
 /* React */
 declare module 'react' {
     // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -37,6 +38,18 @@ export const AssessmentPage: React.FC = () => {
     }>();
     const selectedAssessment = state.assessments?.find(a => a.assessmentId === state.selectedAssessment);
     const assessment = state.assessments?.find(a => a.assessmentId === assessmentId);
+
+
+    const handleToggle = (mode: string) => {
+        if (qtiTestRef.current)
+            qtiTestRef.current.dispatchEvent(
+                new CustomEvent('on-test-switch-view', {
+                    composed: true,
+                    bubbles: true,
+                    detail: mode
+                })
+            );
+    };
 
     useLayoutEffect(() => {
         if (selectedAssessment?.assessmentId !== assessmentId) {
@@ -146,7 +159,9 @@ export const AssessmentPage: React.FC = () => {
                         className="flex justify-center h-full overflow-hidden"
                     >
                         <div className="flex flex-col flex-1">
-                            <test-view-toggle class-for-input="block">Nakijken</test-view-toggle>
+                            <ModeSwitch initialMode='candidate' onCheck={(mode) => {
+                                handleToggle(mode);
+                            }} />
                             <test-container
                                 className="flex-1 overflow-auto p-6 bg-white rounded-lg"
                                 testXML={assessment?.content}
@@ -156,10 +171,6 @@ export const AssessmentPage: React.FC = () => {
                                     <ChevronLeft className="mr-1 h-4 w-4" />
                                     Previous
                                 </test-prev>
-                                <test-show-correct-response className="inline-flex items-center rounded-md bg-green-100 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-200 transition-colors">
-                                    <CheckCircle className="mr-1 h-4 w-4" />
-                                    Show Correct
-                                </test-show-correct-response>
                                 <test-next className="inline-flex items-center rounded-md bg-citolab-600 px-4 py-2 text-sm font-medium text-white hover:bg-citolab-500 transition-colors">
                                     Next
                                     <ChevronRight className="ml-1 h-4 w-4" />

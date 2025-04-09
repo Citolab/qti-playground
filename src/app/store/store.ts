@@ -2,7 +2,7 @@ import { ActionType, StateContextType } from 'rx-basic-store';
 import axios from 'axios';
 import { qtiTransform } from '@citolab/qti-convert/qti-transformer';
 import { CheerioAPI } from 'cheerio';
-import { isValidXml, qtiConversionFixes } from '../utils';
+import { getRelativePath, isValidXml, qtiConversionFixes } from '../utils';
 import {
   AssessmentInfo,
   ExtendedTestContext,
@@ -265,6 +265,7 @@ export class ProcessPackageAction
           assessmentId: assessmentData.identifier,
           content: assessmentData.content,
           packageId: assessmentData.identifier,
+          assessmentHref: assessmentData.relativePath,
           name: assessmentData.identifier,
           items: assessmentData.itemRefs
             .map((i) => items.find((it) => it.identifier === i.identifier))
@@ -275,7 +276,7 @@ export class ProcessPackageAction
               title: i.title,
               type: i.type,
               categories: i.categories,
-              href: i.href,
+              href: getRelativePath(assessmentData.relativePath, i.href || ''),
               content: i.content,
             };
           }),

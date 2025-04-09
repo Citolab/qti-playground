@@ -12,6 +12,48 @@ export const isValidXml = (xmlString: string): boolean => {
   }
 };
 
+/**
+ * Calculates the relative path from the source file path to the target file path.
+ * @param source - The source file path
+ * @param target - The target file path
+ * @returns The relative path from source to target
+ */
+export function getRelativePath(source: string, target: string): string {
+  // Normalize paths by removing trailing slashes and splitting into segments
+  const sourceParts = source.replace(/\/$/, '').split('/');
+  const targetParts = target.replace(/\/$/, '').split('/');
+  
+  // Remove the filename from source path
+  sourceParts.pop();
+  
+  // Find common path segments
+  let commonParts = 0;
+  for (let i = 0; i < Math.min(sourceParts.length, targetParts.length); i++) {
+    if (sourceParts[i] === targetParts[i]) {
+      commonParts++;
+    } else {
+      break;
+    }
+  }
+  
+  // Build the relative path
+  const upDirs = sourceParts.length - commonParts;
+  const remainingTarget = targetParts.slice(commonParts);
+  
+  // Create the relative path
+  let relativePath = '';
+  
+  // Add "../" for each directory we need to go up
+  for (let i = 0; i < upDirs; i++) {
+    relativePath += '../';
+  }
+  
+  // Add the remaining target path
+  relativePath += remainingTarget.join('/');
+  
+  return relativePath;
+}
+
 export const qtiConversionFixes = async (qti3: string, itemXmlPath: string) => {
   const transform = qtiTransform(qti3);
 
