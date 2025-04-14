@@ -1,16 +1,16 @@
-import { ActionType, StateContextType } from 'rx-basic-store';
-import axios from 'axios';
-import { qtiTransform } from '@citolab/qti-convert/qti-transformer';
-import { CheerioAPI } from 'cheerio';
-import { getRelativePath, isValidXml, qtiConversionFixes } from '../utils';
+import { ActionType, StateContextType } from "rx-basic-store";
+import axios from "axios";
+import { qtiTransform } from "@citolab/qti-convert/qti-transformer";
+import { CheerioAPI } from "cheerio";
+import { getRelativePath, isValidXml, qtiConversionFixes } from "../utils";
 import {
   AssessmentInfo,
   ExtendedTestContext,
   ItemInfoWithContent,
   QtiApi,
-} from '@citolab/qti-api';
-import { convertQti2toQti3 } from '@citolab/qti-convert/qti-convert';
-import { processPackage } from '@citolab/qti-convert/qti-helper';
+} from "@citolab/qti-api";
+import { convertQti2toQti3 } from "@citolab/qti-convert/qti-convert";
+import { processPackage } from "@citolab/qti-convert/qti-helper";
 
 export interface AssessmentInfoWithContent extends AssessmentInfo {
   content: string;
@@ -38,16 +38,16 @@ export interface StateModel {
 
 export const initialState: StateModel = {
   init: false,
-  qtiInput: '',
-  qti3: '',
-  downloadUrl: '',
-  downloadUrlQti3: '',
-  qti3ForPreview: '',
+  qtiInput: "",
+  qti3: "",
+  downloadUrl: "",
+  downloadUrlQti3: "",
+  qti3ForPreview: "",
   isConverting: false,
   isPreparingForPreview: false,
   fillSource: false,
   loadingItems: false,
-  errorMessage: '',
+  errorMessage: "",
   testContexts: [],
   assessments: [],
   itemsPerAssessment: [],
@@ -55,15 +55,15 @@ export const initialState: StateModel = {
 };
 
 export class RestoreStateAction implements ActionType<StateModel, never> {
-  type = 'RESTORE_STATE';
+  type = "RESTORE_STATE";
 
   async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
-   return (ctx.dataApi?.getState() || initialState) as StateModel;
+    return (ctx.dataApi?.getState() || initialState) as StateModel;
   }
 }
 
 export class LoadQtiAction implements ActionType<StateModel, { href: string }> {
-  type = 'LOAD_QTI_ACTION';
+  type = "LOAD_QTI_ACTION";
 
   constructor(public payload: { href: string }) {}
 
@@ -71,10 +71,10 @@ export class LoadQtiAction implements ActionType<StateModel, { href: string }> {
     try {
       await ctx.patchState({
         isConverting: true,
-        errorMessage: '',
+        errorMessage: "",
       });
       const qtiResultData = await axios.get(this.payload.href, {
-        responseType: 'text',
+        responseType: "text",
       });
       await ctx.patchState({
         qtiInput: qtiResultData.data,
@@ -95,7 +95,7 @@ export class SetSelectedItemAction
   implements
     ActionType<StateModel, { identifier: string; assessmentId: string }>
 {
-  type = 'SET_SELECTED_ITEM';
+  type = "SET_SELECTED_ITEM";
 
   constructor(public payload: { identifier: string; assessmentId: string }) {}
 
@@ -123,7 +123,7 @@ export class SetSelectedItemAction
 export class OnEditItemAction
   implements ActionType<StateModel, { identifier: string }>
 {
-  type = 'ON_EDIT_ITEM';
+  type = "ON_EDIT_ITEM";
 
   constructor(public payload: { identifier: string }) {}
 
@@ -146,7 +146,7 @@ export class TestContextChangedAction
   implements
     ActionType<StateModel, { assessmentId: string } & ExtendedTestContext>
 {
-  type = 'TEST_CONTEXT_CHANGED';
+  type = "TEST_CONTEXT_CHANGED";
 
   constructor(public payload: { assessmentId: string } & ExtendedTestContext) {}
 
@@ -163,7 +163,7 @@ export class TestContextChangedAction
 export class SelectAssessmentAction
   implements ActionType<StateModel, { assessmentId: string }>
 {
-  type = 'SELECT_ASSESSMENT';
+  type = "SELECT_ASSESSMENT";
 
   constructor(public payload: { assessmentId: string }) {}
 
@@ -173,14 +173,14 @@ export class SelectAssessmentAction
 }
 
 export class LoadItemsAction implements ActionType<StateModel, never> {
-  type = 'LOAD_ITEMS';
+  type = "LOAD_ITEMS";
 
   async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
     let currentState = ctx.getState();
     await ctx.patchState({
       loadingItems: true,
     });
-    const qtiApi = ctx.getContext('qtiApi') as QtiApi;
+    const qtiApi = ctx.getContext("qtiApi") as QtiApi;
     for (const assessment of currentState.assessments) {
       let shouldRemove = false;
       try {
@@ -199,7 +199,7 @@ export class LoadItemsAction implements ActionType<StateModel, never> {
         } else {
           shouldRemove = true;
         }
-      } catch  {
+      } catch {
         // assessment can be deleted so remove from state
         shouldRemove = true;
       }
@@ -219,34 +219,47 @@ export class LoadItemsAction implements ActionType<StateModel, never> {
 }
 
 export class ProcessPackageAction
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  implements ActionType<StateModel, { file: any, options: {
-                            removeStylesheets: boolean,
-                            skipValidation: boolean,
-                        } }>
+  implements
+    ActionType<
+      StateModel,
+      {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        file: any;
+        options: {
+          removeStylesheets: boolean;
+          skipValidation: boolean;
+        };
+      }
+    >
 {
-  type = 'LOAD_ASSESSMENTS';
+  type = "LOAD_ASSESSMENTS";
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(public payload: {  file: any, options: {
-                            removeStylesheets: boolean,
-                            skipValidation: boolean,
-                        } }) {}
+  constructor(
+    public payload: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      file: any;
+      options: {
+        removeStylesheets: boolean;
+        skipValidation: boolean;
+      };
+    }
+  ) {}
 
   async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
     sessionStorage.clear();
     const assessments: AssessmentInfoWithContent[] = [];
     const items: ItemInfoWithContent[] = [];
 
-    const skipValidation = this.payload.options.skipValidation === false ? false : true;
+    const skipValidation =
+      this.payload.options.skipValidation === false ? false : true;
     const removeStylesheets = this.payload.options.removeStylesheets || false;
 
     // create a dictionary of items key = identifier, value = content
     const result = await processPackage(
       this.payload.file,
-      'https://raw.githubusercontent.com/Citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json',
-      true, 
-       {
+      "https://raw.githubusercontent.com/Citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json",
+      true,
+      {
         removeStylesheets,
         skipValidation,
       },
@@ -255,7 +268,7 @@ export class ProcessPackageAction
           identifier: itemData.identifier,
           content: itemData.content,
           title: itemData.identifier,
-          type: itemData.content.includes('interaction>') ? 'regular' : 'info',
+          type: itemData.content.includes("interaction>") ? "regular" : "info",
           categories: [],
           href: itemData.relativePath,
         });
@@ -268,33 +281,49 @@ export class ProcessPackageAction
           assessmentHref: assessmentData.relativePath,
           name: assessmentData.identifier,
           items: assessmentData.itemRefs
-            .map((i) => items.find((it) => it.identifier === i.identifier))
+            .map((i) => {
+              const matchedItem = items.find(
+                (it) => it.identifier === i.identifier
+              );
+              if (matchedItem) {
+                return {
+                  ...matchedItem,
+                  itemRefIdentifier: i.itemRefIdentifier,
+                };
+              }
+              return undefined;
+            })
             .filter((i) => i !== undefined)
             .map((i) => {
-            return {
-              identifier: i.identifier,
-              title: i.title,
-              type: i.type,
-              categories: i.categories,
-              href: getRelativePath(assessmentData.relativePath, i.href || ''),
-              content: i.content,
-            };
-          }),
+              return {
+                identifier: i.identifier,
+                itemRefIdentifier: i.itemRefIdentifier,
+                title: i.title,
+                type: i.type,
+                categories: i.categories,
+                href: getRelativePath(
+                  assessmentData.relativePath,
+                  i.href || ""
+                ),
+                content: i.content,
+              };
+            }),
         });
       }
     );
 
     for (const assessment of assessments) {
       for (const itemRef of assessment.items || []) {
-        const matchingItem = items.find(i => i.identifier === itemRef.identifier);
+        const matchingItem = items.find(
+          (i) => i.identifier === itemRef.identifier
+        );
         if (matchingItem) {
-          const fullKey = encodeURI(itemRef.href || '');
+          const fullKey = encodeURI(itemRef.href || "");
           sessionStorage.setItem(fullKey, matchingItem.content);
         }
       }
     }
 
-  
     return ctx.patchState({
       assessments,
       importErrors: result.errors,
@@ -320,7 +349,7 @@ export class ProcessPackageAction
 export class StartAssessmentAction
   implements ActionType<StateModel, { assessmentId: string }>
 {
-  type = 'START_ASSESSMENT_ACTION';
+  type = "START_ASSESSMENT_ACTION";
 
   constructor(public payload: { assessmentId: string }) {}
 
@@ -370,7 +399,7 @@ export class StartAssessmentAction
 export class Qti3ChangedAction
   implements ActionType<StateModel, { qti: string }>
 {
-  type = 'QTI3_CHANGED_ACTION';
+  type = "QTI3_CHANGED_ACTION";
 
   constructor(public payload: { qti: string }) {}
 
@@ -385,7 +414,7 @@ export class Qti3ChangedAction
 export class PrepareForPreviewAction
   implements ActionType<StateModel, { replaceImage?: boolean }>
 {
-  type = 'PREPARE_FOR_PREVIEW_ACTION';
+  type = "PREPARE_FOR_PREVIEW_ACTION";
 
   constructor(public payload: { replaceImage?: boolean } = {}) {}
 
@@ -393,17 +422,17 @@ export class PrepareForPreviewAction
     const currentstate = ctx.getState();
     await ctx.patchState({
       isPreparingForPreview: true,
-      errorMessage: '',
+      errorMessage: "",
     });
     if (!currentstate.qti3) {
       return ctx.patchState({
-        errorMessage: '',
+        errorMessage: "",
         isPreparingForPreview: false,
       });
     }
     if (!isValidXml(currentstate.qti3)) {
       return ctx.patchState({
-        errorMessage: 'Invalid QTI XML',
+        errorMessage: "Invalid QTI XML",
         isPreparingForPreview: false,
       });
     }
@@ -412,9 +441,9 @@ export class PrepareForPreviewAction
         await replaceMediaWithMissingImagePlaceholder(currentstate.qti3);
       const transformedXml = qtiTransform(qtiWithReplacementMedia)
         .fnCh(($: CheerioAPI) =>
-          $('qti-inline-choice span').contents().unwrap()
+          $("qti-inline-choice span").contents().unwrap()
         )
-        .fnCh(($: CheerioAPI) => $('*').remove('qti-stylesheet'))
+        .fnCh(($: CheerioAPI) => $("*").remove("qti-stylesheet"))
         .xml();
       return ctx.patchState({
         qti3ForPreview: transformedXml,
@@ -432,34 +461,37 @@ export class PrepareForPreviewAction
 
 async function checkFileExists(url: string): Promise<boolean> {
   try {
-    if (url.startsWith('http') || url.startsWith('//')) {
+    if (url.startsWith("http") || url.startsWith("//")) {
       return true;
     }
     const response = await axios.head(url);
     return response.status === 200;
-  } catch  {
+  } catch {
     return false; // assumes any error means the image doesn't exist
   }
 }
 
 const replaceMediaWithMissingImagePlaceholder = async (
   xmlString: string,
-  attributes = ['src', 'href', 'data']
+  attributes = ["src", "href", "data"]
 ): Promise<string> => {
-  const newXMlDocument = new DOMParser().parseFromString(xmlString, 'text/xml');
+  const newXMlDocument = new DOMParser().parseFromString(xmlString, "text/xml");
   for (const attribute of attributes) {
     const srcAttributes = newXMlDocument.querySelectorAll(
-      '[' + attribute + ']'
+      "[" + attribute + "]"
     );
     for (const node of Array.from(srcAttributes)) {
       const srcValue = node.getAttribute(attribute)!;
 
-      const imageExists = urlsChecked.has(srcValue) 
+      const imageExists = urlsChecked.has(srcValue)
         ? urlsChecked.get(srcValue)
         : await checkFileExists(srcValue);
 
-      if (!imageExists && !(srcValue.startsWith('data:') || srcValue.startsWith('blob:'))) {
-        node.setAttribute(attribute, '/missing.png');
+      if (
+        !imageExists &&
+        !(srcValue.startsWith("data:") || srcValue.startsWith("blob:"))
+      ) {
+        node.setAttribute(attribute, "/missing.png");
       }
     }
   }
@@ -470,7 +502,7 @@ const replaceMediaWithMissingImagePlaceholder = async (
 export class ConvertQtiAction
   implements ActionType<StateModel, { qti: string }>
 {
-  type = 'CONVERT_QTI_ACTION';
+  type = "CONVERT_QTI_ACTION";
 
   constructor(public payload: { qti: string }) {}
 
@@ -478,19 +510,19 @@ export class ConvertQtiAction
     try {
       await ctx.patchState({
         isConverting: true,
-        errorMessage: '',
+        errorMessage: "",
       });
       if (!this.payload.qti || !isValidXml(this.payload.qti)) {
         return ctx.patchState({
-          errorMessage: 'Invalid QTI XML',
+          errorMessage: "Invalid QTI XML",
           isConverting: false,
         });
       }
       let qti3 = await convertQti2toQti3(
         this.payload.qti,
-        'https://raw.githubusercontent.com/Citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json'
+        "https://raw.githubusercontent.com/Citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json"
       );
-      qti3 = await qtiConversionFixes(qti3, '');
+      qti3 = await qtiConversionFixes(qti3, "");
       return ctx.patchState({
         qti3,
         isConverting: false,
