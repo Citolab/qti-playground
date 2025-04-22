@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { GitCommit, Book, ArrowRight, Mail, Code, Repeat, Shield, Package } from 'lucide-react';
 import { blocksQtiResponse, qtiLandingChoice, qtiLandingFeatures } from './items';
 import itemCss from './item.css?inline'
-import { QtiAssessmentItem, QtiItem } from '@citolab/qti-components';
+import { QtiAssessmentItem, QtiItem, QtiPortableCustomInteraction } from '@citolab/qti-components';
 export const LandingPage: React.FC = () => {
     const navigate = useNavigate();
     const qtiLandingChoiceRef = useRef<QtiItem>(null);
@@ -13,17 +13,20 @@ export const LandingPage: React.FC = () => {
             // NORMALLY YOU WOULD NOT RESTORE THE RESPONSE IN A SINGLE QTI ITEM. 
             // FOR QTI-TEST THERE IS A PROPER WAY TO DO THIS, BUT FOR THIS DEMO IT IS OK
             const qtiItem = qtiLandingChoiceRef.current as QtiItem;
+            qtiItem.addEventListener('qti-assessment-item-connected', (e) => {
+                const assessmentItem = (e as CustomEvent<QtiAssessmentItem>).detail;
+                assessmentItem.updateResponseVariable('RESPONSE2', JSON.stringify(blocksQtiResponse));
+            });
             setTimeout(() => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const assessmentItem = (qtiItem as any)._qtiAssessmentItem as QtiAssessmentItem;
-                const interaction = assessmentItem.querySelector('qti-portable-custom-interaction[response-identifier="RESPONSE2"]');
+                const interaction = assessmentItem.querySelector('qti-portable-custom-interaction[response-identifier="RESPONSE2"]') as QtiPortableCustomInteraction;
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const pci = (interaction as any).pci;
+                // const pci = (interaction as any).pci;
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const response = { base: {} } as any;
-                response.base['string'] = JSON.stringify(blocksQtiResponse);
-                pci?.setResponse(response);
-
+                if (interaction) {
+                    interaction.value = JSON.stringify(blocksQtiResponse);
+                }
             }, 200);
         }
     }, [qtiLandingChoiceRef,]);

@@ -82,7 +82,7 @@ h3 {
 }
 
 .bg-citolab-500 {
-  background-color: #00EE6C; /* This is an approximation as citolab-500 is custom */
+  background-color: #00ee6c; /* This is an approximation as citolab-500 is custom */
 }
 
 /* Border utilities */
@@ -91,12 +91,13 @@ h3 {
 }
 
 qti-prompt {
-    font-size: 1.5rem;
-    font-weight: bolder;
-    margin-bottom: 1rem;
+  font-size: 1.5rem;
+  font-weight: bolder;
+  margin-bottom: 1rem;
 }
 
 qti-simple-choice {
-    width: 100%!important;
-    white-space: normal;
+  width: 100% !important;
+  white-space: normal;
+  box-sizing: border-box;
 }
