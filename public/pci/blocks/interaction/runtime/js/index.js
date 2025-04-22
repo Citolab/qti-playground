@@ -24299,11 +24299,11 @@
           })),
           i &&
             setTimeout(() => {
-              i.restoreObjects(s.cubes),
+              null == i || i.restoreObjects(s.cubes),
                 n.subscribe((t) => {
-                  i.restoreObjects(t.cubes);
+                  null == i || i.restoreObjects(t.cubes);
                 }),
-                i.onWindowResize();
+                null == i || i.onWindowResize();
             }, 10),
           null == r ||
             r.addEventListener("onPositionsChanged", (t) => {
@@ -24380,7 +24380,7 @@
           this.canvasWidth,
           this.canvasHeight,
           0,
-          -150,
+          0,
           this.canvasWidth,
           this.canvasHeight
         ),
@@ -24711,22 +24711,23 @@
             (this.config = e);
           const i = n ? JSON.parse(n) : null,
             r = n ? JSON.parse(n).log : null;
-          (this.store = ((t, e) => {
-            const n = new oh(t, e);
-            return (
-              n.addReducer("ADDED_CUBE", (t, e) => {
-                const n = [...t.cubes, e];
-                return Object.assign(Object.assign({}, t), { cubes: n });
-              }),
-              n.addReducer("REMOVED_CUBE", (t, e) => {
-                const n = t.cubes.filter(
-                  (t) => !(t.x === e.x && t.y === e.y && t.z === e.z)
-                );
-                return Object.assign(Object.assign({}, t), { cubes: n });
-              }),
-              n
-            );
-          })(this.initialState)),
+          if (
+            ((this.store = ((t, e) => {
+              const n = new oh(t, e);
+              return (
+                n.addReducer("ADDED_CUBE", (t, e) => {
+                  const n = [...t.cubes, e];
+                  return Object.assign(Object.assign({}, t), { cubes: n });
+                }),
+                n.addReducer("REMOVED_CUBE", (t, e) => {
+                  const n = t.cubes.filter(
+                    (t) => !(t.x === e.x && t.y === e.y && t.z === e.z)
+                  );
+                  return Object.assign(Object.assign({}, t), { cubes: n });
+                }),
+                n
+              );
+            })(this.initialState)),
             (i || r) && this.store.restoreState(i.state, r),
             (this.shadowdom = t.shadowRoot
               ? t.shadowRoot
@@ -24742,7 +24743,18 @@
                 n = new CustomEvent("qti-interaction-changed", { detail: e });
               t.dispatchEvent(n);
             }),
-            e.onready && e.onready(this);
+            this.config.boundTo && Object.keys(this.config.boundTo).length > 0)
+          ) {
+            const t = Object.keys(this.config.boundTo)[0],
+              e = this.config.boundTo[t],
+              n = Object.values(e).some((t) =>
+                "object" == typeof t
+                  ? Object.values(t).some((t) => void 0 !== t)
+                  : void 0 !== t
+              );
+            n && this.setResponse(e);
+          }
+          e.onready && e.onready(this);
         }),
         (this.render = () => {
           U(null, this.shadowdom);
