@@ -292,7 +292,7 @@ export const LandingPage: React.FC = () => {
             {/* Contact */}
             <div className="bg-white">
                 <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:py-16 lg:px-8">
-                    <div className="lg:grid lg:grid-cols-2 lg:gap-8 lg:items-center">
+                    <div className="lg:grid lg:grid-cols-3 lg:gap-8 lg:items-center">
                         <div className='bg-citolab-700 rounded-lg p-4 text-w'>
                             <h2 className="text-3xl font-extrabold text-white sm:text-4xl">
                                 Need Help?
@@ -353,6 +353,10 @@ export const LandingPage: React.FC = () => {
                                 </div>
                             </div>
                         </div>
+                        
+                        <a href="https://site.imsglobal.org/certifications/cito/cito-qti-player">
+                            <img src="/public/1edtech_trusted-apps-certified.svg" alt="1EdTech Trusted Apps Certified" className="m-12 w-auto" />
+                        </a>
                     </div>
                 </div>
             </div>
