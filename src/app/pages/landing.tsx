@@ -355,7 +355,7 @@ export const LandingPage: React.FC = () => {
                         </div>
                         
                         <a href="https://site.imsglobal.org/certifications/cito/cito-qti-player">
-                            <img src="/public/1edtech_trusted-apps-certified.svg" alt="1EdTech Trusted Apps Certified" className="m-12 w-auto" />
+                            <img src="/1edtech_trusted-apps-certified.svg" alt="1EdTech Trusted Apps Certified" className="m-12 w-auto" />
                         </a>
                     </div>
                 </div>
