@@ -39,7 +39,7 @@ export const LandingPage: React.FC = () => {
                     {/* Text Content */}
                     <div className="lg:w-1/2">
                         <h1 className="text-4xl font-extrabold text-gray-900 sm:text-5xl sm:tracking-tight lg:text-6xl">
-                            Citolab open-source QTI tooling
+                            CitoLab open-source QTI tooling
                         </h1>
                         <p className="mt-6 max-w-2xl text-xl text-gray-500">
                             Convert and display QTI packages with our open-source QTI components and conversion tools
@@ -76,7 +76,7 @@ export const LandingPage: React.FC = () => {
                     <div className="text-center">
                         <h2 className="text-base font-semibold text-citolab-600 tracking-wide uppercase">Open Source Libraries</h2>
                         <p className="mt-2 text-3xl font-extrabold text-gray-900 sm:text-4xl">
-                            Powered by Citolab
+                            Powered by CitoLab
                         </p>
                     </div>
 
@@ -96,7 +96,7 @@ export const LandingPage: React.FC = () => {
                                         </p>
                                         <div className="mt-6 flex space-x-4">
                                             <a
-                                                href="https://github.com/Citolab/qti-components"
+                                                href="https://github.com/citolab/qti-components"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
@@ -141,7 +141,7 @@ export const LandingPage: React.FC = () => {
                                         </p>
                                         <div className="mt-6">
                                             <a
-                                                href="https://github.com/Citolab/qti-convert"
+                                                href="https://github.com/citolab/qti-convert"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500 mr-5"
@@ -179,7 +179,7 @@ export const LandingPage: React.FC = () => {
                                         </p>
                                         <div className="mt-6">
                                             <a
-                                                href="https://github.com/Citolab/tspci"
+                                                href="https://github.com/citolab/tspci"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500 mr-5"
@@ -197,7 +197,7 @@ export const LandingPage: React.FC = () => {
                                                 npm
                                             </a>
                                             <a
-                                                href="https://github.com/Citolab/tspci-examples"
+                                                href="https://github.com/citolab/tspci-examples"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
@@ -223,7 +223,7 @@ export const LandingPage: React.FC = () => {
                                         </p>
                                         <div className="mt-6">
                                             <a
-                                                href="https://github.com/Citolab/qti-playground"
+                                                href="https://github.com/citolab/qti-playground"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
@@ -265,7 +265,7 @@ export const LandingPage: React.FC = () => {
                     <div className="text-center">
                         <h2 className="text-base font-semibold text-citolab-600 tracking-wide uppercase">Features</h2>
                         <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
-                            This application uses powerful open-source libraries developed by Citolab
+                            This application uses powerful open-source libraries developed by CitoLab
                         </p>
 
                         {/* Client-side processing callout */}
@@ -362,7 +362,7 @@ export const LandingPage: React.FC = () => {
                 <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:py-12 lg:px-8">
                     <div className="pb-6 border-b border-gray-200">
                         <p className="text-center text-base text-gray-400">
-                            &copy; {new Date().getFullYear()} Citolab. All rights reserved.
+                            &copy; {new Date().getFullYear()} CitoLab. All rights reserved.
                         </p>
                     </div>
                 </div>

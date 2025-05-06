@@ -26,7 +26,7 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
                       <img
                         className="block h-16 w-auto"
                         src="/citolab.jpeg"
-                        alt="Citolab"
+                        alt="CitoLab"
                       />
                     </div>
                     <div className="hidden md:block">

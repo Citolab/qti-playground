@@ -201,7 +201,7 @@ export const ModifyPackagePage: React.FC = () => {
                 newZipName = `${newName}-items-${startIndex}-${endIndex}.zip`;
             } else if (activeTab === 'upgrade') {
                 // Handle QTI2 to QTI3 conversion
-                blob = await convertPackage(selectedFile, 'https://raw.githubusercontent.com/Citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json');
+                blob = await convertPackage(selectedFile, 'https://raw.githubusercontent.com/citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json');
                 newZipName = `${newName}-qti3.zip`;
             }
 

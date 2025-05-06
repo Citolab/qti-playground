@@ -257,7 +257,7 @@ export class ProcessPackageAction
     // create a dictionary of items key = identifier, value = content
     const result = await processPackage(
       this.payload.file,
-      "https://raw.githubusercontent.com/Citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json",
+      "https://raw.githubusercontent.com/citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json",
       true,
       {
         removeStylesheets,
@@ -520,7 +520,7 @@ export class ConvertQtiAction
       }
       let qti3 = await convertQti2toQti3(
         this.payload.qti,
-        "https://raw.githubusercontent.com/Citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json"
+        "https://raw.githubusercontent.com/citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json"
       );
       qti3 = await qtiConversionFixes(qti3, "");
       return ctx.patchState({
