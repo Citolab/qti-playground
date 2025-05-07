@@ -1,9 +1,9 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { RefCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { UseStoreContext } from '../store/store-context';
 import { initialState, OnEditItemAction, SelectAssessmentAction } from '../store/store';
 import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import { CustomElements } from '@citolab/qti-components/react';
-import { QtiTest, TestNavigation } from '@citolab/qti-components';
+import { QtiAssessmentItem, QtiTest, TestNavigation } from '@citolab/qti-components';
 import { ChevronLeft, Edit, Code, ChevronRight } from 'lucide-react';
 
 import DraggablePopup from '../components/draggable-popup';
@@ -27,11 +27,40 @@ export const AssessmentPage: React.FC = () => {
     const [state, setState] = useState(initialState);
     const { store } = UseStoreContext();
     const [showVariables, setShowVariables] = useState(false);
+    const [currentItemIdentifier, setCurrentItemIdentifier] = useState('');
 
     useEffect(() => {
         const subs = store.subscribe((setState));
         return () => subs?.unsubscribe();
     }, [store]);
+
+    // Create a ref callback that can be passed directly to the element
+    const refCallback: RefCallback<QtiTest> = (element) => {
+        if (element) {
+            // Store element in ref
+            qtiTestRef.current = element;
+
+            // Set up event listeners immediately
+            element.addEventListener('qti-assessment-item-connected', handleItemConnected);
+        }
+    };
+
+    // Define event handler
+    const handleItemConnected = (event: Event) => {
+        const qtiAssessmentItem = (event as CustomEvent<QtiAssessmentItem>)?.detail;
+        const itemId = qtiAssessmentItem?.identifier;
+        setCurrentItemIdentifier(itemId);
+    };
+
+    // Clean up on unmount
+    useEffect(() => {
+        return () => {
+            if (qtiTestRef.current) {
+                qtiTestRef.current.removeEventListener('qti-assessment-item-connected', handleItemConnected);
+            }
+        };
+    }, []);
+
 
     const { assessmentId } = useParams<{
         assessmentId: string;
@@ -84,10 +113,8 @@ export const AssessmentPage: React.FC = () => {
     const items = state.itemsPerAssessment.find(i => i.assessmentId === assessmentId)?.items || [];
 
     const onEditItem = async () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const itemId = (qtiTestNavigationRef.current as any)?._sessionContext?.navItemId || '';
         await store.dispatch(new OnEditItemAction({
-            identifier: itemId || ''
+            identifier: currentItemIdentifier,
         }));
         navigate('/preview');
     };
@@ -149,13 +176,14 @@ export const AssessmentPage: React.FC = () => {
 
             {/* Main content */}
             <div className="relative flex h-full w-full flex-col bg-white p-4 overflow-auto mt-16 lg:max-h-[85vh] lg:max-w-6xl lg:rounded-lg lg:shadow-lg">
-                <qti-test ref={qtiTestRef} cache-transform className="h-full">
+                <qti-test ref={refCallback} cache-transform className="h-full">
                     <test-navigation
                         initContext={items.map((item) => ({
                             identifier: item.identifier,
                             title: item.title,
                             externalScored: item.interactionType === 'extendedTextEntry'
                         }))}
+
                         ref={qtiTestNavigationRef}
                         auto-score-items
                         className="flex justify-center h-full overflow-hidden"
@@ -186,7 +214,7 @@ export const AssessmentPage: React.FC = () => {
                             title={`Item Variable`}
                         >
                             <div className="bg-gray-50 p-3 rounded">
-                                Item Id: <test-stamp><template dangerouslySetInnerHTML={{ __html: `{{ item.identifier }}` }}></template></test-stamp>
+                                Item Id: {currentItemIdentifier}
                                 <test-print-item-variables></test-print-item-variables>
                             </div>
                         </DraggablePopup>
