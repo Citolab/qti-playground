@@ -3,11 +3,12 @@ import { UseStoreContext } from '../store/store-context';
 import { initialState, OnEditItemAction, SelectAssessmentAction } from '../store/store';
 import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import { CustomElements } from '@citolab/qti-components/react';
-import { QtiAssessmentItem, QtiTest, TestNavigation } from '@citolab/qti-components';
+import { QtiAssessmentItem, TestNavigation } from '@citolab/qti-components';
 import { ChevronLeft, Edit, Code, ChevronRight } from 'lucide-react';
 
 import DraggablePopup from '../components/draggable-popup';
 import ModeSwitch from '../components/mode-switcher';
+import { QtiTest } from '@citolab/qti-components/exports/qti-test.js';
 /* React */
 declare module 'react' {
     // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -92,7 +93,6 @@ export const AssessmentPage: React.FC = () => {
         if (qtiTestNavigationRef.current) {
             const selectedAssessment = state.assessments.find(a => a.assessmentId === state.selectedAssessment);
             qtiTestRef.current?.addEventListener('qti-assessment-test-connected', () => {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 if (itemId) {
                     const matchingItem = selectedAssessment?.items?.find(i => i.identifier === itemId);
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -100,9 +100,8 @@ export const AssessmentPage: React.FC = () => {
                 } else {
 
                     const firstItem = selectedAssessment?.items?.length ? selectedAssessment?.items[0] : null;
-                    if (firstItem !== null) {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        (qtiTestRef.current as any).navigateTo('item', firstItem.itemRefIdentifier);
+                    if (firstItem !== null && qtiTestRef.current) {
+                        qtiTestRef.current.navigateTo('item', firstItem.itemRefIdentifier);
                     }
                 }
 
