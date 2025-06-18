@@ -80,8 +80,55 @@ export const LandingPage: React.FC = () => {
                         </p>
                     </div>
 
+
+
                     <div className="mt-12">
+
+
                         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+
+                            <div className="pt-6 bg-gray-100 relative col-span-2">
+                                <div className="flow-root rounded-lg px-6 pb-8">
+                                    <div className="-mt-6">
+                                        <div>
+                                            <span className="inline-flex items-center justify-center p-3 bg-[#f6c900] rounded-md shadow-lg">
+                                                <Repeat className="h-6 w-6" />
+                                            </span>
+                                        </div>
+
+                                        <a href="https://site.imsglobal.org/certifications/cito/cito-qti-player">
+                                            <img src="/1edtech_trusted-apps-certified.svg" alt="1EdTech Trusted Apps Certified" className="absolute bottom-4 right-4 w-24" />
+                                        </a>
+                                        <h3 className="mt-8 text-lg font-medium text-gray-900 tracking-tight">QTI Player</h3>
+                                        <p className="mt-5 text-base text-gray-500">
+                                            a minimal, fully functional example of a QTI Player using @citolab/qti-components. It serves as a "Hello World" or cookbook-style reference for implementing a QTI player
+                                        </p>
+                                        <div className="mt-18">
+                                            <a
+                                                href="https://github.com/Citolab/qti-player"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500 mr-5"
+                                            >
+                                                <GitCommit className="h-5 w-5 mr-2" />
+                                                GitHub
+                                            </a>
+
+                                            <a
+                                                href="https://stackblitz.com/~/github.com/Citolab/qti-player?file=index.html"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
+                                            >
+                                                <Book className="h-5 w-5 mr-2" />
+                                                Stackblitz
+                                            </a>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="pt-6 bg-gray-100 ">
                                 <div className="flow-root rounded-lg px-6 pb-8">
                                     <div className="-mt-6">
@@ -163,6 +210,35 @@ export const LandingPage: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
+
+
+                            <div className="pt-6 bg-gray-100">
+                                <div className="flow-root rounded-lg px-6 pb-8">
+                                    <div className="-mt-6">
+                                        <div>
+                                            <span className="inline-flex items-center justify-center p-3 bg-[#f6c900] rounded-md shadow-lg">
+                                                <Repeat className="h-6 w-6" />
+                                            </span>
+                                        </div>
+                                        <h3 className="mt-8 text-lg font-medium text-gray-900 tracking-tight">QTI Playground</h3>
+                                        <p className="mt-5 text-base text-gray-500">
+                                            The application you are seeing now is open source as well
+                                        </p>
+                                        <div className="mt-6">
+                                            <a
+                                                href="https://github.com/citolab/qti-playground"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
+                                            >
+                                                <GitCommit className="h-5 w-5 mr-2" />
+                                                GitHub
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="pt-6 bg-gray-100">
                                 <div className="flow-root rounded-lg px-6 pb-8">
                                     <div className="-mt-6">
@@ -209,34 +285,12 @@ export const LandingPage: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
-                            <div className="pt-6 bg-gray-100">
-                                <div className="flow-root rounded-lg px-6 pb-8">
-                                    <div className="-mt-6">
-                                        <div>
-                                            <span className="inline-flex items-center justify-center p-3 bg-[#f6c900] rounded-md shadow-lg">
-                                                <Repeat className="h-6 w-6" />
-                                            </span>
-                                        </div>
-                                        <h3 className="mt-8 text-lg font-medium text-gray-900 tracking-tight">QTI Playground</h3>
-                                        <p className="mt-5 text-base text-gray-500">
-                                            The application you are seeing now is open source as well
-                                        </p>
-                                        <div className="mt-6">
-                                            <a
-                                                href="https://github.com/citolab/qti-playground"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                                            >
-                                                <GitCommit className="h-5 w-5 mr-2" />
-                                                GitHub
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
+
+
                     </div>
+
+
                 </div>
             </div>
 
@@ -353,7 +407,7 @@ export const LandingPage: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                        
+
                         <a href="https://site.imsglobal.org/certifications/cito/cito-qti-player">
                             <img src="/1edtech_trusted-apps-certified.svg" alt="1EdTech Trusted Apps Certified" className="m-12 w-auto" />
                         </a>
