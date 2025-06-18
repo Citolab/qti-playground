@@ -80,14 +80,14 @@ export const LandingPage: React.FC = () => {
                         </p>
                     </div>
 
-
-
                     <div className="mt-12">
-
-
+                        {/* 
+                          On mobile: 1 column
+                          On small screens: 2 columns, except QTI Player (spans 2)
+                        */}
                         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
-
-                            <div className="pt-6 bg-gray-100 relative col-span-2">
+                            {/* QTI Player - always full width */}
+                            <div className="pt-6 bg-gray-100 relative sm:col-span-2">
                                 <div className="flow-root rounded-lg px-6 pb-8">
                                     <div className="-mt-6">
                                         <div>
@@ -95,7 +95,6 @@ export const LandingPage: React.FC = () => {
                                                 <Repeat className="h-6 w-6" />
                                             </span>
                                         </div>
-
                                         <a href="https://site.imsglobal.org/certifications/cito/cito-qti-player">
                                             <img src="/1edtech_trusted-apps-certified.svg" alt="1EdTech Trusted Apps Certified" className="absolute bottom-4 right-4 w-24" />
                                         </a>
@@ -113,7 +112,6 @@ export const LandingPage: React.FC = () => {
                                                 <GitCommit className="h-5 w-5 mr-2" />
                                                 GitHub
                                             </a>
-
                                             <a
                                                 href="https://stackblitz.com/~/github.com/Citolab/qti-player?file=index.html"
                                                 target="_blank"
@@ -123,13 +121,13 @@ export const LandingPage: React.FC = () => {
                                                 <Book className="h-5 w-5 mr-2" />
                                                 Stackblitz
                                             </a>
-
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="pt-6 bg-gray-100 ">
+                            {/* QTI Components */}
+                            <div className="pt-6 bg-gray-100">
                                 <div className="flow-root rounded-lg px-6 pb-8">
                                     <div className="-mt-6">
                                         <div>
@@ -174,6 +172,7 @@ export const LandingPage: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* QTI Convert */}
                             <div className="pt-6 bg-gray-100">
                                 <div className="flow-root rounded-lg px-6 pb-8">
                                     <div className="-mt-6">
@@ -205,13 +204,12 @@ export const LandingPage: React.FC = () => {
                                                 <Package className="h-5 w-5 mr-2" />
                                                 npm
                                             </a>
-
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-
+                            {/* QTI Playground */}
                             <div className="pt-6 bg-gray-100">
                                 <div className="flow-root rounded-lg px-6 pb-8">
                                     <div className="-mt-6">
@@ -239,6 +237,7 @@ export const LandingPage: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* tspci */}
                             <div className="pt-6 bg-gray-100">
                                 <div className="flow-root rounded-lg px-6 pb-8">
                                     <div className="-mt-6">
@@ -286,11 +285,7 @@ export const LandingPage: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-
-
                     </div>
-
-
                 </div>
             </div>
 
