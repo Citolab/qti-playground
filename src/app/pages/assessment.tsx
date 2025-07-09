@@ -123,12 +123,12 @@ export const AssessmentPage: React.FC = () => {
             <div className="flex h-screen items-center justify-center">
                 <div className="rounded-lg bg-white p-8 shadow-lg">
                     <h2 className="mb-4 text-xl font-medium text-gray-700">No Assessment Selected</h2>
-                    <p className="mb-6 text-gray-600">Please upload an assessment first to continue.</p>
+                    <p className="mb-6 text-gray-600">Please select an assessment first to continue.</p>
                     <button
-                        onClick={() => navigate('/upload')}
+                        onClick={() => navigate('/package')}
                         className="inline-flex items-center rounded-md bg-citolab-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-citolab-500 transition-colors"
                     >
-                        Go to Upload
+                        Select new package
                     </button>
                 </div>
             </div>
@@ -143,7 +143,7 @@ export const AssessmentPage: React.FC = () => {
                 <div className="flex items-center space-x-3">
                     <button
                         className="inline-flex items-center rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
-                        onClick={() => navigate('/upload')}
+                        onClick={() => navigate('/package')}
                     >
                         <ChevronLeft className="mr-1 h-4 w-4" />
                         Back

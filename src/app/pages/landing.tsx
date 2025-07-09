@@ -46,10 +46,10 @@ export const LandingPage: React.FC = () => {
                         </p>
                         <div className="mt-10">
                             <button
-                                onClick={() => navigate('/upload')}
+                                onClick={() => navigate('/package')}
                                 className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-citolab-600 hover:bg-citolab-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-citolab-500"
                             >
-                                Upload your QTI package
+                                Select your QTI package
                                 <ArrowRight className="ml-2 h-5 w-5" />
                             </button>
                         </div>
@@ -299,7 +299,7 @@ export const LandingPage: React.FC = () => {
                         Start using our converter today - it's free and powered by open-source technology.
                     </p>
                     <button
-                        onClick={() => navigate('/upload')}
+                        onClick={() => navigate('/package')}
                         className="mt-8 w-full inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-citolab-600 bg-white hover:bg-gray-100 sm:w-auto"
                     >
                         Get Started

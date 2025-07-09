@@ -17,7 +17,7 @@ export function Terms() {
 
             <div className="flex">
                 <span className="font-medium mr-2">3.</span>
-                <p>Session Storage: Your uploaded files and converted content are temporarily stored in your browser's memory and local storage. This data will be cleared when you close your browser or clear your browser data.</p>
+                <p>Session Storage: Your files and converted content are temporarily stored in your browser's memory and local storage. This data will be cleared when you close your browser or clear your browser data.</p>
             </div>
 
             <div className="flex">
@@ -27,7 +27,7 @@ export function Terms() {
 
             <div className="flex">
                 <span className="font-medium mr-2">5.</span>
-                <p>Acceptance: By uploading a file, you acknowledge that you have read, understood, and agreed to these terms and conditions.</p>
+                <p>Acceptance: By previewing a file, you acknowledge that you have read, understood, and agreed to these terms and conditions.</p>
             </div>
         </div>
     </div>

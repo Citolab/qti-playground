@@ -476,7 +476,7 @@ export const ModifyPackagePage: React.FC = () => {
                                     ) : (
                                         <div className="text-center p-4 bg-citolab-50 rounded">
                                             <p className="text-sm text-gray-600">
-                                                Please upload a QTI package to begin
+                                                Please select a QTI package to begin
                                             </p>
                                         </div>
                                     )}
@@ -489,7 +489,7 @@ export const ModifyPackagePage: React.FC = () => {
                                         <h2 className="text-lg font-semibold text-gray-800">QTI2 to QTI3 Upgrade</h2>
                                     </div>
                                     <p className="text-sm text-gray-600 mb-4">
-                                        Upload a QTI2x package to convert it to the QTI3 format.
+                                        Select a QTI2x package to convert it to the QTI3 format.
                                     </p>
 
                                     {processComplete && (
@@ -593,7 +593,7 @@ export const ModifyPackagePage: React.FC = () => {
                                             </div>
 
                                             <h3 className="mb-2 text-xl font-semibold text-gray-700">
-                                                {isDragging ? "Drop to upload" : `Upload QTI ${activeTab === 'upgrade' ? '2' : ''} Package`}
+                                                {isDragging ? "Drop to preview" : `Select QTI ${activeTab === 'upgrade' ? '2' : ''} Package`}
                                             </h3>
                                             <p className="mb-4 text-sm text-gray-500">
                                                 <span className="font-medium">Click to browse</span> or drag and drop your QTI ZIP file
@@ -605,7 +605,7 @@ export const ModifyPackagePage: React.FC = () => {
                                                     : 'QTI 2.x and 3 ZIP files are supported'}
                                             </p>
                                             <p className="text-xs text-gray-400">
-                                                * When uploading you agree to our Terms and Conditions at the end of the page.
+                                                * When previewing you agree to our Terms and Conditions at the end of the page.
                                             </p>
                                         </div>
                                     </label>

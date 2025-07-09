@@ -28,7 +28,8 @@ export function App() {
       <PageLayout>
         <Routes>
           <Route path="/landing" element={<LandingPage />} />
-          <Route path="/upload" element={<UploadPage />} />
+          <Route path="/package" element={<UploadPage />} />
+          <Route path="/upload" element={<Navigate to="/package" replace />} />
           <Route path="/convert" element={<ConvertPage />} />
           <Route path="/preview" element={<PreviewPage />} />
           <Route path="/modify" element={<ModifyPackagePage />} />

@@ -173,7 +173,7 @@ export const UploadPage: React.FC = () => {
                         }}
                     >
                         <Upload className="w-5 h-5 mr-2" />
-                        <span>Upload New Package</span>
+                        <span>Select New Package</span>
                     </button>
 
                     <div className='flex gap-2'>
@@ -232,7 +232,7 @@ export const UploadPage: React.FC = () => {
 
                 {/* Item Grid */}
                 <div className="p-6">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Uploaded Items</h2>
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Items</h2>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                         {items.map((item, index) => {
                             const qti = qtiTransform(item.content)
@@ -298,7 +298,7 @@ export const UploadPage: React.FC = () => {
     return (
         <div className="flex flex-col items-center justify-center w-full py-10 md:px-20">
             <div className="max-w-2xl w-full">
-                <h1 className="text-2xl font-bold text-gray-800 text-center mb-2">Upload, convert and display the items in your package</h1>
+                <h1 className="text-2xl font-bold text-gray-800 text-center mb-2">Preview, convert and display the items in your package</h1>
                 <p className='text-sm italic text-center mb-4'>QTI2.x packages will automatically be converted to QTI3.<br />All processing happens locally in your browser - files are not sent to any server.</p>
                 <div
                     className={`
@@ -331,7 +331,7 @@ export const UploadPage: React.FC = () => {
                             </div>
 
                             <h3 className="mb-2 text-xl font-semibold text-gray-700">
-                                {isDragging ? "Drop to upload" : "Upload QTI Package"}
+                                {isDragging ? "Drop to upload" : "Select QTI Package"}
                             </h3>
 
                             <p className="mb-4 text-sm text-gray-500">
