@@ -1,4 +1,4 @@
-import { DataApi, StoreSyncOptions } from 'rx-basic-store';
+import { DataApi, StoreSyncOptions } from "rx-basic-store";
 
 export class LocalStorageApi<T> implements DataApi<T> {
   syncOptions: StoreSyncOptions = {
@@ -10,7 +10,7 @@ export class LocalStorageApi<T> implements DataApi<T> {
     },
   };
 
-  getUserId = () => 'default_user';
+  getUserId = () => "default_user";
 
   getState = async () => {
     const state = await this.getStateFromLocalStorage();
@@ -27,7 +27,7 @@ export class LocalStorageApi<T> implements DataApi<T> {
   };
 
   getStateFromLocalStorage = () => {
-    const collectionName = 'state';
+    const collectionName = "state";
     const userId = this.getUserId();
     const state = localStorage.getItem(`${collectionName}_${userId}`);
     try {
@@ -41,7 +41,7 @@ export class LocalStorageApi<T> implements DataApi<T> {
   };
 
   setStateFromLocalStorage = (doc: T) => {
-    const collectionName = 'state';
+    const collectionName = "state";
     const userId = this.getUserId();
     localStorage.setItem(`${collectionName}_${userId}`, JSON.stringify(doc));
   };

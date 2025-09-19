@@ -3,19 +3,21 @@ import axios from "axios";
 import { qtiTransform } from "@citolab/qti-convert/qti-transformer";
 import { CheerioAPI } from "cheerio";
 import { getRelativePath, isValidXml, qtiConversionFixes } from "../utils";
-import {
-  AssessmentInfo,
-  ExtendedTestContext,
-  ItemInfoWithContent,
-  QtiApi,
-} from "@citolab/qti-api";
+import { Assessment, ExtendedTestContext, ItemInfo } from "@citolab/qti-api";
 import { convertQti2toQti3 } from "@citolab/qti-convert/qti-convert";
 import { processPackage } from "@citolab/qti-convert/qti-helper";
 
-export interface AssessmentInfoWithContent extends AssessmentInfo {
+// omit items
+export interface AssessmentInfoWithContent extends Omit<Assessment, "items"> {
   content: string;
+  items: ItemInfoWithContent[];
 }
 const urlsChecked = new Map<string, boolean>();
+
+export interface ItemInfoWithContent extends ItemInfo {
+  content: string;
+  itemRefIdentifier?: string;
+}
 
 export interface StateModel {
   init: boolean;
@@ -172,52 +174,6 @@ export class SelectAssessmentAction
   }
 }
 
-export class LoadItemsAction implements ActionType<StateModel, never> {
-  type = "LOAD_ITEMS";
-
-  async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
-    let currentState = ctx.getState();
-    await ctx.patchState({
-      loadingItems: true,
-    });
-    const qtiApi = ctx.getContext("qtiApi") as QtiApi;
-    for (const assessment of currentState.assessments) {
-      let shouldRemove = false;
-      try {
-        const items = await qtiApi.getItemsByAssessmentId(
-          assessment.assessmentId
-        );
-        if (items && items.length > 0) {
-          currentState = await ctx.patchState({
-            itemsPerAssessment: currentState.itemsPerAssessment
-              .filter((i) => i.assessmentId !== assessment.assessmentId)
-              .concat({
-                assessmentId: assessment.assessmentId,
-                items,
-              }),
-          });
-        } else {
-          shouldRemove = true;
-        }
-      } catch {
-        // assessment can be deleted so remove from state
-        shouldRemove = true;
-      }
-
-      if (shouldRemove) {
-        await ctx.patchState({
-          assessments: currentState.assessments.filter(
-            (a) => a.assessmentId !== assessment.assessmentId
-          ),
-        });
-      }
-    }
-    return await ctx.patchState({
-      loadingItems: false,
-    });
-  }
-}
-
 export class ProcessPackageAction
   implements
     ActionType<
@@ -275,7 +231,7 @@ export class ProcessPackageAction
       },
       (assessmentData) => {
         assessments.push({
-          assessmentId: assessmentData.identifier,
+          id: assessmentData.identifier,
           content: assessmentData.content,
           packageId: assessmentData.identifier,
           assessmentHref: assessmentData.relativePath,
@@ -308,6 +264,9 @@ export class ProcessPackageAction
                 content: i.content,
               };
             }),
+          createdAt: new Date().getTime(),
+          updatedAt: new Date().getTime(),
+          createdBy: "user",
         });
       }
     );
@@ -329,7 +288,7 @@ export class ProcessPackageAction
       importErrors: result.errors,
       itemsPerAssessment: assessments.map((a) => {
         return {
-          assessmentId: a.assessmentId,
+          assessmentId: a.id,
           items: (a.items || []).map((i) => {
             return {
               identifier: i.identifier,

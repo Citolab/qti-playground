@@ -1,4 +1,4 @@
-import { ItemInfoWithContent } from '@citolab/qti-api';
+import { ItemInfoWithContent } from "../app/store/store";
 
 export interface ItemInfoExt extends ItemInfoWithContent {
   answered?: boolean;
