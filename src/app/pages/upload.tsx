@@ -3,17 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { UseStoreContext } from "../store/store-context";
 import { ProcessPackageAction } from "../store/store";
 import { initialState } from "../store/store";
-import { qtiTransform } from "@citolab/qti-convert/qti-transformer";
-import {
-  Upload,
-  FileText,
-  AlertCircle,
-  ChevronRight,
-  X,
-  AlertTriangle,
-} from "lucide-react";
+import { Upload, FileText, AlertCircle, X, AlertTriangle } from "lucide-react";
 import { forceMemoryCleanup } from "@citolab/qti-convert/qti-helper";
 import { Terms } from "../components/terms";
+import { ItemPreview } from "../components/item-preview";
 
 export const UploadPage: React.FC = () => {
   const navigate = useNavigate();
@@ -39,32 +32,6 @@ export const UploadPage: React.FC = () => {
       ) || [],
     [state.itemsPerAssessment]
   );
-
-  useEffect(() => {
-    const itemContainers = Array.from(
-      document.querySelectorAll("item-container")
-    );
-    for (const itemContainer of itemContainers) {
-      const styleElement = document.createElement("style");
-      styleElement.textContent = `
-                qti-assessment-item {
-                    margin-top: -50px;
-                    padding: 1rem;
-                    display: block;
-                    aspect-ratio: 4 / 3;
-                    width: 800px;
-                    transform: scale(0.25);
-                    transform-origin: top left;
-                }
-            `;
-      itemContainer.shadowRoot?.appendChild(styleElement);
-    }
-    return () => {
-      for (const itemContainer of itemContainers) {
-        itemContainer.shadowRoot?.querySelector("style")?.remove();
-      }
-    };
-  }, [items]);
 
   const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -249,69 +216,13 @@ export const UploadPage: React.FC = () => {
         <div className="p-6">
           <h2 className="text-xl font-semibold mb-4 text-gray-800">Items</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {items.map((item, index) => {
-              const qti = qtiTransform(item.content)
-                .fnCh(($) => {
-                  // Process type classes
-                  $(`[class*="type:"]`).each((_, element) => {
-                    const $el = $(element);
-                    const classes = $el.attr("class");
-                    if (classes) {
-                      const tagName = $el[0].tagName;
-                      const match = classes.match(/type:(\w+)/);
-                      if (match) {
-                        const type = match[1];
-                        const newTag = `${tagName}-${type}`;
-                        const newClasses = classes
-                          .replace(`type:${type}`, "")
-                          .trim();
-                        const $newElement = $(
-                          `<${newTag} class="${newClasses}">${$el.html()}</${newTag}>`
-                        );
-                        $el[0].attributes.forEach((attr) => {
-                          if (attr.name !== "class") {
-                            $newElement.attr(attr.name, attr.value);
-                          }
-                        });
-                        $el.replaceWith($newElement);
-                      }
-                    }
-                  });
-                })
-                .fnCh(($) => {
-                  // Remove media
-                  $(`qti-media-interaction, audio, video`).replaceWith(`
-                                        <div>Removed media</div>`);
-                })
-                .browser.htmldoc();
-
-              return (
-                <div
-                  key={index}
-                  className="relative bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow group"
-                >
-                  <div className="aspect-[4/3] overflow-hidden m-3">
-                    <qti-item>
-                      <item-container itemDoc={qti}></item-container>
-                    </qti-item>
-                  </div>
-
-                  <div
-                    onClick={() =>
-                      navigate(
-                        `/assessment/${item.assessmentId}/?item=${item.identifier}`
-                      )
-                    }
-                    className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-end justify-center"
-                  >
-                    <div className="w-full p-3 text-white font-medium flex items-center justify-center">
-                      <span>{item.identifier}</span>
-                      <ChevronRight className="w-4 h-4 ml-1" />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {items.map((item, index) => (
+              <ItemPreview
+                key={`${item.assessmentId}-${item.identifier}`}
+                item={item}
+                index={index}
+              />
+            ))}
           </div>
         </div>
       </div>

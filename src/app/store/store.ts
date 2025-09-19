@@ -6,17 +6,19 @@ import { getRelativePath, isValidXml, qtiConversionFixes } from "../utils";
 import { Assessment, ExtendedTestContext, ItemInfo } from "@citolab/qti-api";
 import { convertQti2toQti3 } from "@citolab/qti-convert/qti-convert";
 import { processPackage } from "@citolab/qti-convert/qti-helper";
+import { itemBlobManager } from "./item-blob-manager";
 
 // omit items
 export interface AssessmentInfoWithContent extends Omit<Assessment, "items"> {
   content: string;
-  items: ItemInfoWithContent[];
+  items: ItemInfoWithBlobRef[];
 }
 const urlsChecked = new Map<string, boolean>();
 
-export interface ItemInfoWithContent extends ItemInfo {
-  content: string;
+export interface ItemInfoWithBlobRef extends Omit<ItemInfo, "href"> {
+  href: string; // This will now be a blob URL
   itemRefIdentifier?: string;
+  originalHref?: string; // Keep track of original href for reference
 }
 
 export interface StateModel {
@@ -35,7 +37,7 @@ export interface StateModel {
   importErrors: string[];
   selectedAssessment?: string;
   testContexts: ({ assessmentId: string } & ExtendedTestContext)[];
-  itemsPerAssessment: { assessmentId: string; items: ItemInfoWithContent[] }[];
+  itemsPerAssessment: { assessmentId: string; items: ItemInfoWithBlobRef[] }[];
 }
 
 export const initialState: StateModel = {
@@ -61,6 +63,15 @@ export class RestoreStateAction implements ActionType<StateModel, never> {
 
   async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
     return (ctx.dataApi?.getState() || initialState) as StateModel;
+  }
+}
+
+export class CleanupBlobsAction implements ActionType<StateModel, never> {
+  type = "CLEANUP_BLOBS";
+
+  async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
+    itemBlobManager.cleanup();
+    return ctx.getState();
   }
 }
 
@@ -134,11 +145,20 @@ export class OnEditItemAction
     const allItems = currentState.itemsPerAssessment.flatMap((i) => i.items);
     const item = allItems.find((i) => i.identifier === this.payload.identifier);
     if (item) {
-      return ctx.patchState({
-        fillSource: true,
-        qti3: item.content,
-        qti3ForPreview: item.content,
-      });
+      // Fetch content from blob URL
+      try {
+        const content = await itemBlobManager.getItemFromBlob(item.href);
+        return ctx.patchState({
+          fillSource: true,
+          qti3: content,
+          qti3ForPreview: content,
+        });
+      } catch (error) {
+        console.error("Failed to load item content:", error);
+        return ctx.patchState({
+          errorMessage: "Failed to load item content",
+        });
+      }
     }
     return currentState;
   }
@@ -202,9 +222,19 @@ export class ProcessPackageAction
   ) {}
 
   async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
+    // Clear old storage
     sessionStorage.clear();
+    itemBlobManager.cleanup();
+
     const assessments: AssessmentInfoWithContent[] = [];
-    const items: ItemInfoWithContent[] = [];
+    const itemsWithContent: {
+      identifier: string;
+      content: string;
+      title: string;
+      type: string;
+      categories: string[];
+      href: string;
+    }[] = [];
 
     const skipValidation =
       this.payload.options.skipValidation === false ? false : true;
@@ -220,7 +250,7 @@ export class ProcessPackageAction
         skipValidation,
       },
       (itemData) => {
-        items.push({
+        itemsWithContent.push({
           identifier: itemData.identifier,
           content: itemData.content,
           title: itemData.identifier,
@@ -230,40 +260,54 @@ export class ProcessPackageAction
         });
       },
       (assessmentData) => {
+        const itemBlobMap = new Map<string, string>();
+
+        // Create blob URLs for items and store them
+        const itemsWithBlobRefs = assessmentData.itemRefs
+          .map((i) => {
+            const matchedItem = itemsWithContent.find(
+              (it) => it.identifier === i.identifier
+            );
+            if (matchedItem) {
+              const originalHref = getRelativePath(
+                assessmentData.relativePath,
+                matchedItem.href || ""
+              );
+              // Store item content as blob and get blob URL
+              const blobUrl = itemBlobManager.storeItemAsBlob(
+                matchedItem.content,
+                originalHref
+              );
+              itemBlobMap.set(originalHref, blobUrl);
+
+              return {
+                identifier: matchedItem.identifier,
+                itemRefIdentifier: i.itemRefIdentifier,
+                title: matchedItem.title,
+                type: matchedItem.type,
+                categories: matchedItem.categories,
+                href: blobUrl,
+                originalHref: originalHref,
+              } as ItemInfoWithBlobRef;
+            }
+            return undefined;
+          })
+          .filter((i) => i !== undefined);
+
+        // Update assessment content to use blob URLs for item references
+        const updatedAssessmentContent =
+          itemBlobManager.updateAssessmentTestWithBlobUrefs(
+            assessmentData.content,
+            itemBlobMap
+          );
+
         assessments.push({
           id: assessmentData.identifier,
-          content: assessmentData.content,
+          content: updatedAssessmentContent,
           packageId: assessmentData.identifier,
           assessmentHref: assessmentData.relativePath,
           name: assessmentData.identifier,
-          items: assessmentData.itemRefs
-            .map((i) => {
-              const matchedItem = items.find(
-                (it) => it.identifier === i.identifier
-              );
-              if (matchedItem) {
-                return {
-                  ...matchedItem,
-                  itemRefIdentifier: i.itemRefIdentifier,
-                };
-              }
-              return undefined;
-            })
-            .filter((i) => i !== undefined)
-            .map((i) => {
-              return {
-                identifier: i.identifier,
-                itemRefIdentifier: i.itemRefIdentifier,
-                title: i.title,
-                type: i.type,
-                categories: i.categories,
-                href: getRelativePath(
-                  assessmentData.relativePath,
-                  i.href || ""
-                ),
-                content: i.content,
-              };
-            }),
+          items: itemsWithBlobRefs,
           createdAt: new Date().getTime(),
           updatedAt: new Date().getTime(),
           createdBy: "user",
@@ -271,34 +315,13 @@ export class ProcessPackageAction
       }
     );
 
-    for (const assessment of assessments) {
-      for (const itemRef of assessment.items || []) {
-        const matchingItem = items.find(
-          (i) => i.identifier === itemRef.identifier
-        );
-        if (matchingItem) {
-          const fullKey = encodeURI(itemRef.href || "");
-          sessionStorage.setItem(fullKey, matchingItem.content);
-        }
-      }
-    }
-
     return ctx.patchState({
       assessments,
       importErrors: result.errors,
       itemsPerAssessment: assessments.map((a) => {
         return {
           assessmentId: a.id,
-          items: (a.items || []).map((i) => {
-            return {
-              identifier: i.identifier,
-              content: i.content,
-              title: i.title,
-              type: i.type,
-              categories: i.categories || [],
-              href: i.href,
-            } as ItemInfoWithContent;
-          }),
+          items: a.items || [],
         };
       }),
     });

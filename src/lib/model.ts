@@ -1,6 +1,6 @@
-import { ItemInfoWithContent } from "../app/store/store";
+import { ItemInfoWithBlobRef } from "../app/store/store";
 
-export interface ItemInfoExt extends ItemInfoWithContent {
+export interface ItemInfoExt extends ItemInfoWithBlobRef {
   answered?: boolean;
   score?: number;
   thumbnail?: string;

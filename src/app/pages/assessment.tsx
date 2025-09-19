@@ -16,6 +16,7 @@ import { CustomElements } from "@citolab/qti-components/react";
 import { QtiAssessmentItem } from "@citolab/qti-components";
 import { QtiTest as QtiTestType } from "@citolab/qti-components/exports/qti-test.js";
 import { ChevronLeft, Edit, Code, ChevronRight } from "lucide-react";
+import { itemBlobManager } from "../store/item-blob-manager";
 
 import DraggablePopup from "../components/draggable-popup";
 import ModeSwitch from "../components/mode-switcher";
@@ -256,6 +257,21 @@ export const AssessmentPage: React.FC = () => {
                     <test-container
                       className="w-full max-w-4xl"
                       testXML={assessment?.content}
+                      onqti-item-ref-uri-callback={async (
+                        event: CustomEvent
+                      ) => {
+                        // Handle any legacy href-based item requests
+                        const uri = event.detail?.uri;
+                        if (uri && !uri.startsWith("blob:")) {
+                          // Try to resolve from blob manager for backward compatibility
+                          const content = await itemBlobManager.getItemByHref(
+                            uri
+                          );
+                          if (content) {
+                            event.detail.resolveWith(content);
+                          }
+                        }
+                      }}
                     />
                   </div>
                 </div>
