@@ -28,7 +28,7 @@ export function NavigationBar({ stampContext, onClick }: NavigationBarProps) {
   // Create display items with proper numbering
   const displayItems = items.map((item: any, index: number) => {
     const isInfo = item.categories?.some((cat: string) =>
-      cat.toLowerCase().includes("info"),
+      cat.toLowerCase().includes("info")
     );
 
     // Calculate display number (excluding info items from numbering)
@@ -39,8 +39,8 @@ export function NavigationBar({ stampContext, onClick }: NavigationBarProps) {
         .filter(
           (prevItem: any) =>
             !prevItem.categories?.some((cat: string) =>
-              cat.toLowerCase().includes("info"),
-            ),
+              cat.toLowerCase().includes("info")
+            )
         );
       displayNumber = previousNonInfoItems.length + 1;
     }
@@ -58,16 +58,25 @@ export function NavigationBar({ stampContext, onClick }: NavigationBarProps) {
     };
   });
 
-  // Calculate available space (rough estimate) - now responsive
-  const containerWidth = windowWidth - 200; // Account for prev/next buttons and padding
-  const itemWidth = 50; // Approximate width per item including margins
-  const maxVisibleItems = Math.floor(containerWidth / itemWidth);
+  // Calculate available space more accurately
+  // The navigation is in a flex justify-between layout with prev/next buttons
+  // Use a more conservative estimate to prevent overflow
+  const maxContainerWidth = Math.min(windowWidth, 896); // max-w-4xl = 896px
+  const prevNextButtonsWidth = 240; // More conservative estimate for prev/next buttons with padding
+  const containerPadding = 64; // Account for various paddings and margins
+  const availableWidth =
+    maxContainerWidth - prevNextButtonsWidth - containerPadding;
+
+  // Each item: w-10 (40px) + gap-1 (4px) = 44px per item
+  const itemWidth = 44;
+
+  const maxVisibleItems = Math.max(1, Math.floor(availableWidth / itemWidth));
 
   const shouldShowAll = displayItems.length <= maxVisibleItems;
-  const shouldShowNumbers = maxVisibleItems >= 7;
+  const shouldShowNumbers = maxVisibleItems >= 5; // Lower threshold for better mobile experience
 
-  if (!shouldShowNumbers) {
-    return null; // Don't show navigation if less than 7 items fit
+  if (!shouldShowNumbers || displayItems.length === 0) {
+    return null; // Don't show navigation if less than 5 items fit or no items
   }
 
   let visibleItems = displayItems;
@@ -93,7 +102,7 @@ export function NavigationBar({ stampContext, onClick }: NavigationBarProps) {
         // Hit left boundary, extend right
         endIdx = Math.min(
           displayItems.length - 2,
-          startIdx + availableSlots - 1,
+          startIdx + availableSlots - 1
         );
       } else if (endIdx === displayItems.length - 2) {
         // Hit right boundary, extend left
@@ -133,7 +142,7 @@ export function NavigationBar({ stampContext, onClick }: NavigationBarProps) {
   };
 
   return (
-    <div className="flex items-center justify-center gap-1 px-2">
+    <div className="flex items-center justify-center gap-1 px-2 overflow-hidden max-w-full">
       {visibleItems.map((item: any) => {
         if (item.isDots) {
           return (
