@@ -1,16 +1,12 @@
 import React, {
   RefCallback,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
+  useCallback,
 } from "react";
 import { UseStoreContext } from "../store/store-context";
-import {
-  initialState,
-  OnEditItemAction,
-  SelectAssessmentAction,
-} from "../store/store";
+import { initialState, OnEditItemAction } from "../store/store";
 import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { CustomElements } from "@citolab/qti-components/react";
 import { QtiAssessmentItem } from "@citolab/qti-components";
@@ -47,34 +43,39 @@ export const AssessmentPage: React.FC = () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [stampContext, setStampContext] = useState<any>(null);
 
+  // Store subscription with stable dependencies
   useEffect(() => {
-    const subs = store.subscribe(setState);
-    console.log("assessment?.content", assessment?.content);
-    return () => subs?.unsubscribe();
+    const subs = store.subscribe((newState) => {
+      setState(newState);
+    });
+
+    return () => {
+      subs?.unsubscribe();
+    };
   }, [store]);
 
-  // Create a ref callback that can be passed directly to the element
-  const refCallback: RefCallback<QtiTestType> = (element) => {
-    if (element) {
-      // Store element in ref
-      qtiTestRef.current = element;
-
-      // Set up event listeners immediately
-      element.addEventListener(
-        "qti-assessment-item-connected",
-        handleItemConnected
-      );
-    }
-  };
-
-  // Define event handler
-  const handleItemConnected = (event: Event) => {
+  // Stable event handler for QTI item connection
+  const handleItemConnected = useCallback((event: Event) => {
     const qtiAssessmentItem = (event as CustomEvent<QtiAssessmentItem>)?.detail;
     const itemId = qtiAssessmentItem?.identifier;
     setCurrentItemIdentifier(itemId);
-  };
+  }, []);
 
-  // Clean up on unmount
+  // Stable ref callback for QTI test element
+  const refCallback: RefCallback<QtiTestType> = useCallback(
+    (element) => {
+      if (element) {
+        qtiTestRef.current = element;
+        element.addEventListener(
+          "qti-assessment-item-connected",
+          handleItemConnected
+        );
+      }
+    },
+    [handleItemConnected]
+  );
+
+  // Cleanup event listeners on unmount
   useEffect(() => {
     return () => {
       if (qtiTestRef.current) {
@@ -89,12 +90,13 @@ export const AssessmentPage: React.FC = () => {
   const { assessmentId } = useParams<{
     assessmentId: string;
   }>();
+
   const selectedAssessment = state.assessments?.find(
     (a) => a.id === state.selectedAssessment
   );
   const assessment = state.assessments?.find((a) => a.id === assessmentId);
 
-  const handleToggle = (mode: string) => {
+  const handleToggle = useCallback((mode: string) => {
     if (qtiTestRef.current)
       qtiTestRef.current.dispatchEvent(
         new CustomEvent("on-test-switch-view", {
@@ -103,73 +105,93 @@ export const AssessmentPage: React.FC = () => {
           detail: mode,
         })
       );
-  };
+  }, []);
 
-  useLayoutEffect(() => {
-    if (selectedAssessment?.id !== assessmentId) {
-      if (assessmentId) {
-        store.dispatch(new SelectAssessmentAction({ assessmentId }));
-      } else {
-        navigate(`/assessment/${selectedAssessment?.id}`);
-      }
-    }
+  // QTI test setup effect
+  useEffect(() => {
+    if (!qtiTestRef.current || !assessment?.content) return;
+
     const itemId = queryParams.get("item");
-    if (qtiTestRef.current) {
-      const selectedAssessment = state.assessments.find(
-        (a) => a.id === state.selectedAssessment
-      );
-      qtiTestRef.current?.addEventListener(
-        "qti-assessment-test-connected",
-        () => {
-          if (itemId) {
-            const matchingItem = selectedAssessment?.items?.find(
-              (i) => i.identifier === itemId
-            );
-            if (qtiTestRef.current && matchingItem) {
-              const qtiTest = qtiTestRef.current;
-              qtiTest.navigateTo("item", matchingItem.itemRefIdentifier);
-            }
-          } else {
-            const firstItem = selectedAssessment?.items?.length
-              ? selectedAssessment?.items[0]
-              : null;
-            if (firstItem !== null && qtiTestRef.current) {
-              qtiTestRef.current.navigateTo(
-                "item",
-                firstItem.itemRefIdentifier
-              );
-            }
-          }
+
+    const handleTestConnected = () => {
+      if (itemId && assessment.items) {
+        const matchingItem = assessment.items.find(
+          (i) => i.identifier === itemId
+        );
+        if (qtiTestRef.current && matchingItem) {
+          qtiTestRef.current.navigateTo("item", matchingItem.itemRefIdentifier);
         }
-      );
-    }
-  }, [selectedAssessment, assessmentId, navigate, store, queryParams]);
+      }
+    };
+
+    qtiTestRef.current.addEventListener(
+      "qti-assessment-test-connected",
+      handleTestConnected
+    );
+
+    return () => {
+      if (qtiTestRef.current) {
+        qtiTestRef.current.removeEventListener(
+          "qti-assessment-test-connected",
+          handleTestConnected
+        );
+      }
+    };
+  }, [assessment?.content, assessment?.items, queryParams]);
 
   const items =
     state.itemsPerAssessment.find((i) => i.assessmentId === assessmentId)
       ?.items || [];
 
-  const onEditItem = async () => {
-    await store.dispatch(
-      new OnEditItemAction({
-        identifier: currentItemIdentifier,
-      })
-    );
-    navigate("/preview");
-  };
+  // Navigation handlers
+  const onEditItem = useCallback(async () => {
+    try {
+      await store.dispatch(
+        new OnEditItemAction({
+          identifier: currentItemIdentifier,
+        })
+      );
+      navigate("/preview");
+    } catch (error) {
+      console.error("Edit item error:", error);
+    }
+  }, [currentItemIdentifier, store, navigate]);
 
-  if (!selectedAssessment) {
+  const handleBackNavigation = useCallback(() => {
+    navigate("/package");
+  }, [navigate]);
+
+  const handleNavigationBarClick = useCallback((id: string) => {
+    if (qtiTestRef.current) {
+      qtiTestRef.current.navigateTo("item", id);
+    }
+  }, []);
+
+  // Stamp context handler with change detection to prevent unnecessary re-renders
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleStampContextUpdate = useCallback((e: any) => {
+    const newContext = e.detail;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setStampContext((prevContext: any) => {
+      if (JSON.stringify(prevContext) === JSON.stringify(newContext)) {
+        return prevContext;
+      }
+      return newContext;
+    });
+  }, []);
+
+  if (!assessment) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="rounded-lg bg-white p-8 shadow-lg">
           <h2 className="mb-4 text-xl font-medium text-gray-700">
-            No Assessment Selected
+            Assessment Not Found
           </h2>
           <p className="mb-6 text-gray-600">
-            Please select an assessment first to continue.
+            The requested assessment could not be found.
           </p>
           <button
-            onClick={() => navigate("/package")}
+            onClick={handleBackNavigation}
             className="inline-flex items-center rounded-md bg-citolab-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-citolab-500 transition-colors"
           >
             Select new package
@@ -180,13 +202,13 @@ export const AssessmentPage: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen w-full flex-col bg-gray-50 fixed top-0">
+    <div className="flex h-full w-full flex-col bg-gray-50">
       {/* Fixed Header - Always visible */}
-      <div className="flex-shrink-0 flex items-center justify-between bg-white px-4 py-3 shadow-md z-50">
+      <div className="flex-shrink-0 flex items-center justify-between bg-white px-4 py-3 shadow-md z-10">
         <div className="flex items-center space-x-3">
           <button
             className="inline-flex items-center rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
-            onClick={() => navigate("/package")}
+            onClick={handleBackNavigation}
           >
             <ChevronLeft className="mr-1 h-4 w-4" />
             Back
@@ -236,19 +258,11 @@ export const AssessmentPage: React.FC = () => {
             >
               <test-stamp
                 class="h-full flex flex-col"
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onqti-stamp-context-updated={(e: any) => {
-                  setStampContext(e.detail);
-                }}
+                onqti-stamp-context-updated={handleStampContextUpdate}
               >
                 {/* Mode Switch - Fixed at top of content */}
                 <div className="flex-shrink-0 flex justify-center p-4 bg-gray-50 border-b">
-                  <ModeSwitch
-                    initialMode="candidate"
-                    onCheck={(mode) => {
-                      handleToggle(mode);
-                    }}
-                  />
+                  <ModeSwitch initialMode="candidate" onCheck={handleToggle} />
                 </div>
 
                 {/* Scrollable content area */}
@@ -284,11 +298,7 @@ export const AssessmentPage: React.FC = () => {
                     </test-prev>
                     <div className="flex-1 min-w-0 flex justify-center">
                       <NavigationBar
-                        onClick={(id) => {
-                          if (qtiTestRef.current) {
-                            qtiTestRef.current.navigateTo("item", id);
-                          }
-                        }}
+                        onClick={handleNavigationBarClick}
                         stampContext={stampContext}
                       />
                     </div>

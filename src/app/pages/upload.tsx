@@ -28,9 +28,9 @@ export const UploadPage: React.FC = () => {
   const items = React.useMemo(
     () =>
       state.itemsPerAssessment?.flatMap((a) =>
-        a.items.map((i) => ({ ...i, assessmentId: a.assessmentId })),
+        a.items.map((i) => ({ ...i, assessmentId: a.assessmentId }))
       ) || [],
-    [state.itemsPerAssessment],
+    [state.itemsPerAssessment]
   );
 
   const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
@@ -52,7 +52,7 @@ export const UploadPage: React.FC = () => {
 
   const handleFileSelected = async (
     file: File | null,
-    skipValidation = false,
+    skipValidation = false
   ) => {
     if (file) {
       if (!file.name.endsWith(".zip")) {
@@ -79,7 +79,7 @@ export const UploadPage: React.FC = () => {
                 removeStylesheets,
                 skipValidation,
               },
-            }),
+            })
           );
           clearInterval(progressInterval);
           setUploadProgress(100);
@@ -95,7 +95,7 @@ export const UploadPage: React.FC = () => {
           setError(
             e instanceof Error
               ? e.message
-              : "An error occurred during processing.",
+              : "An error occurred during processing."
           );
           setInProgress("");
           setUploadProgress(0);
@@ -105,7 +105,7 @@ export const UploadPage: React.FC = () => {
   };
 
   const handleFileChange = async (
-    event: React.ChangeEvent<HTMLInputElement>,
+    event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files ? event.target.files[0] : null;
     await handleFileSelected(file);
