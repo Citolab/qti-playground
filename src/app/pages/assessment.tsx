@@ -62,7 +62,7 @@ export const AssessmentPage: React.FC = () => {
       // Set up event listeners immediately
       element.addEventListener(
         "qti-assessment-item-connected",
-        handleItemConnected
+        handleItemConnected,
       );
     }
   };
@@ -80,7 +80,7 @@ export const AssessmentPage: React.FC = () => {
       if (qtiTestRef.current) {
         qtiTestRef.current.removeEventListener(
           "qti-assessment-item-connected",
-          handleItemConnected
+          handleItemConnected,
         );
       }
     };
@@ -90,7 +90,7 @@ export const AssessmentPage: React.FC = () => {
     assessmentId: string;
   }>();
   const selectedAssessment = state.assessments?.find(
-    (a) => a.id === state.selectedAssessment
+    (a) => a.id === state.selectedAssessment,
   );
   const assessment = state.assessments?.find((a) => a.id === assessmentId);
 
@@ -101,7 +101,7 @@ export const AssessmentPage: React.FC = () => {
           composed: true,
           bubbles: true,
           detail: mode,
-        })
+        }),
       );
   };
 
@@ -116,14 +116,14 @@ export const AssessmentPage: React.FC = () => {
     const itemId = queryParams.get("item");
     if (qtiTestRef.current) {
       const selectedAssessment = state.assessments.find(
-        (a) => a.id === state.selectedAssessment
+        (a) => a.id === state.selectedAssessment,
       );
       qtiTestRef.current?.addEventListener(
         "qti-assessment-test-connected",
         () => {
           if (itemId) {
             const matchingItem = selectedAssessment?.items?.find(
-              (i) => i.identifier === itemId
+              (i) => i.identifier === itemId,
             );
             if (qtiTestRef.current && matchingItem) {
               const qtiTest = qtiTestRef.current;
@@ -136,11 +136,11 @@ export const AssessmentPage: React.FC = () => {
             if (firstItem !== null && qtiTestRef.current) {
               qtiTestRef.current.navigateTo(
                 "item",
-                firstItem.itemRefIdentifier
+                firstItem.itemRefIdentifier,
               );
             }
           }
-        }
+        },
       );
     }
   }, [selectedAssessment, assessmentId, navigate, store, queryParams]);
@@ -153,7 +153,7 @@ export const AssessmentPage: React.FC = () => {
     await store.dispatch(
       new OnEditItemAction({
         identifier: currentItemIdentifier,
-      })
+      }),
     );
     navigate("/preview");
   };
@@ -258,15 +258,14 @@ export const AssessmentPage: React.FC = () => {
                       className="w-full max-w-4xl"
                       testXML={assessment?.content}
                       onqti-item-ref-uri-callback={async (
-                        event: CustomEvent
+                        event: CustomEvent,
                       ) => {
                         // Handle any legacy href-based item requests
                         const uri = event.detail?.uri;
                         if (uri && !uri.startsWith("blob:")) {
                           // Try to resolve from blob manager for backward compatibility
-                          const content = await itemBlobManager.getItemByHref(
-                            uri
-                          );
+                          const content =
+                            await itemBlobManager.getItemByHref(uri);
                           if (content) {
                             event.detail.resolveWith(content);
                           }

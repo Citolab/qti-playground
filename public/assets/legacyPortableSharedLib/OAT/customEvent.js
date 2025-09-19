@@ -19,92 +19,102 @@
  * @author Jean-Sébastien Conan <jean-sebastien.conan@vesperiagroup.com>
  */
 define([], function () {
-    'use strict';
+  "use strict";
 
-    var createEvent;
-    var dispatchEvent;
+  var createEvent;
+  var dispatchEvent;
 
-    /**
-     * Creates an event
-     * @function createEvent
-     * @param {String} eventName
-     * @param {*} data
-     */
-    if (window.CustomEvent) {
-        createEvent = function createEventUsingCustomEvent(eventName, data) {
-            var event;
-            try {
-                event = new CustomEvent(eventName, {
-                    detail: data,
-                    bubbles: true,
-                    cancelable: true
-                });
-            } catch (e) {
-                event = document.createEvent('CustomEvent');
-                event.initCustomEvent(eventName, true, true, data);
-            }
-            return event;
-        };
-    } else if (document.createEvent) {
-        createEvent = function createEventUsingCreateEvent(eventName, data) {
-            var event = document.createEvent('Event');
-            event.initEvent(eventName, true, true);
-            event.detail = data;
-            return event;
-        };
-    } else if (document.createEventObject) {
-        createEvent = function createEventUsingCreateEventObject(eventName, data) {
-            var event = document.createEventObject();
-            event.detail = data;
-            return event;
-        };
-    } else {
-        createEvent = function createEventDummy() {
-        };
-    }
-
-    /**
-     * Dispatches an event
-     * @function dispatchEvent
-     * @param {HTMLElement} element
-     * @param {String} eventName
-     * @param {Event} event
-     * @return {Boolean} Returns `true` if the event has been dispatched
-     */
-    if (document.dispatchEvent) {
-        dispatchEvent = function dispatchEventUsingDispatchEvent(element, eventName, event) {
-            if (element) {
-                element.dispatchEvent(event);
-                return true;
-            }
-            return false;
-        };
-    } else if (document.fireEvent) {
-        dispatchEvent = function dispatchEventUsingFireEvent(element, eventName, event) {
-            if (element) {
-                element.fireEvent('on' + eventName, event);
-                return true;
-            }
-            return false;
-        };
-    } else {
-        dispatchEvent = function dispatchEventDummy() {
-            return false;
-        };
-    }
-
-
-    /**
-     * Triggers a custom event using native methods
-     * @param {HTMLElement} element
-     * @param {String} eventName
-     * @param {*} data
-     * @returns {Boolean} Returns true if the event has been successfully triggered
-     */
-    var triggerCustomEvent = function triggerCustomEvent(element, eventName, data) {
-        var event = createEvent(eventName, data);
-        return dispatchEvent(element, eventName, event);
+  /**
+   * Creates an event
+   * @function createEvent
+   * @param {String} eventName
+   * @param {*} data
+   */
+  if (window.CustomEvent) {
+    createEvent = function createEventUsingCustomEvent(eventName, data) {
+      var event;
+      try {
+        event = new CustomEvent(eventName, {
+          detail: data,
+          bubbles: true,
+          cancelable: true,
+        });
+      } catch (e) {
+        event = document.createEvent("CustomEvent");
+        event.initCustomEvent(eventName, true, true, data);
+      }
+      return event;
     };
+  } else if (document.createEvent) {
+    createEvent = function createEventUsingCreateEvent(eventName, data) {
+      var event = document.createEvent("Event");
+      event.initEvent(eventName, true, true);
+      event.detail = data;
+      return event;
+    };
+  } else if (document.createEventObject) {
+    createEvent = function createEventUsingCreateEventObject(eventName, data) {
+      var event = document.createEventObject();
+      event.detail = data;
+      return event;
+    };
+  } else {
+    createEvent = function createEventDummy() {};
+  }
 
-    return triggerCustomEvent;
+  /**
+   * Dispatches an event
+   * @function dispatchEvent
+   * @param {HTMLElement} element
+   * @param {String} eventName
+   * @param {Event} event
+   * @return {Boolean} Returns `true` if the event has been dispatched
+   */
+  if (document.dispatchEvent) {
+    dispatchEvent = function dispatchEventUsingDispatchEvent(
+      element,
+      eventName,
+      event,
+    ) {
+      if (element) {
+        element.dispatchEvent(event);
+        return true;
+      }
+      return false;
+    };
+  } else if (document.fireEvent) {
+    dispatchEvent = function dispatchEventUsingFireEvent(
+      element,
+      eventName,
+      event,
+    ) {
+      if (element) {
+        element.fireEvent("on" + eventName, event);
+        return true;
+      }
+      return false;
+    };
+  } else {
+    dispatchEvent = function dispatchEventDummy() {
+      return false;
+    };
+  }
+
+  /**
+   * Triggers a custom event using native methods
+   * @param {HTMLElement} element
+   * @param {String} eventName
+   * @param {*} data
+   * @returns {Boolean} Returns true if the event has been successfully triggered
+   */
+  var triggerCustomEvent = function triggerCustomEvent(
+    element,
+    eventName,
+    data,
+  ) {
+    var event = createEvent(eventName, data);
+    return dispatchEvent(element, eventName, event);
+  };
+
+  return triggerCustomEvent;
 });

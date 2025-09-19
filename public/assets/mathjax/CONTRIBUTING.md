@@ -4,18 +4,17 @@ You are interested in giving us a hand? That's awesome! We've put together some 
 
 There are lots and lots of ways to get involved, this document covers:
 
-* [reporting an issue](#reporting-an-issue)
-    * [bug reports](#bug-reports)
-    * [feature requests](#feature-requests)
-    * [change requests](#change-requests)
-* [working on MathJax core](#working-on-mathjax-core)
-    * [key branches and tags](#key-branches--tags)
-    * [submitting pull requests](#submitting-pull-requests)
-    * [testing and quality assurance](#testing-and-quality-assurance)
-    * [writing documentation](#writing-documentation)
-    * [translation](#translation)
-* [Conduct](#conduct)
-
+- [reporting an issue](#reporting-an-issue)
+  - [bug reports](#bug-reports)
+  - [feature requests](#feature-requests)
+  - [change requests](#change-requests)
+- [working on MathJax core](#working-on-mathjax-core)
+  - [key branches and tags](#key-branches--tags)
+  - [submitting pull requests](#submitting-pull-requests)
+  - [testing and quality assurance](#testing-and-quality-assurance)
+  - [writing documentation](#writing-documentation)
+  - [translation](#translation)
+- [Conduct](#conduct)
 
 ## Reporting An Issue
 
@@ -27,14 +26,14 @@ The GitHub issue tracker is the preferred channel for [bug reports](#bug-reports
 [feature requests](#feature-requests), [change requests](#change-requests) and [submitting pull
 requests](#submitting-pull-requests), but please respect the following restrictions:
 
-* Please **search for existing issues**. Help us keep duplicate issues
+- Please **search for existing issues**. Help us keep duplicate issues
   to a minimum by checking to see if someone has already reported your
   problem or requested your idea.
 
-* Please **do not** use the issue tracker for personal support
+- Please **do not** use the issue tracker for personal support
   requests (use [the MathJax User Group](https://groups.google.com/forum/#!forum/mathjax-users)).
 
-* Please **be civil**. Keep the discussion on topic and respect the
+- Please **be civil**. Keep the discussion on topic and respect the
   opinions of others. See also our [Conduct Guidelines](#conduct)
 
 ### Bug Reports
@@ -69,6 +68,7 @@ more information. Be sure to include the details of your environment.
 Here is a [real example](https://github.com/mathjax/MathJax/issues/820)
 
 Template Example ([click to use](https://github.com/MathJax/MathJax/issues/new?title=Bug%3A&body=%23%23%23%20Issue%20Summary%0A%0A%23%23%23%20Steps%20to%20Reproduce%0A%0A1.%20This%20is%20the%20first%20step%0A%0AThis%20is%20a%20bug%20because...%0A%0A%23%23%23%20Technical%20details%0A%0A*%20MathJax%20Version%3A%20master%20-%20latest%20commit%3A%20%20INSERT%20COMMIT%20REF%0A*%20Client%20OS%3A%20%0A*%20Browser%3A%20%0A*%20)):
+
 ```
 Short and descriptive example bug report title
 
@@ -94,7 +94,6 @@ do you expect to happen instead?
 * Browser: Chrome 29.0.1547.57
 ```
 
-
 ### Feature Requests
 
 Feature requests are welcome. Before you submit one be sure to have:
@@ -106,13 +105,12 @@ Feature requests are welcome. Before you submit one be sure to have:
 2. Take a moment to think about whether your idea fits with the scope
    and aims of the project, or if it might better fit being a [custom
    extension](https://github.com/mathjax/MathJax-third-party-extensions).
-3. Remember, it's up to *you* to make a strong case to convince the
+3. Remember, it's up to _you_ to make a strong case to convince the
    project's leaders of the merits of this feature. Please provide as
    much detail and context as possible, this means explaining the use
    case and why it is likely to be common.
 4. Clearly indicate whether this is a feature request for MathJax
    core, input & output jax, or extensions.
-
 
 ### Change Requests
 
@@ -124,7 +122,7 @@ a refactor, or an improvement to a feature, etc - please be sure to:
 2. Take a moment to think about the best way to make a case for, and
    explain what you're thinking. Are you sure this shouldn't really be
    a [bug report](#bug-reports) or a [feature
-   request](#feature-requests)?  Is it really one idea or is it many?
+   request](#feature-requests)? Is it really one idea or is it many?
    What's the context? What problem are you solving? Why is what you
    are suggesting better than what's already there? Does it fit with
    the Roadmap?
@@ -140,9 +138,9 @@ To get it out of the way:
 - **[develop](https://github.com/MathJax/MathJax/tree/develop)** is
   the development branch. All work on the next release happens here so
   you should generally branch off `develop`. Do **NOT** use this branch
-  for a production site. 
+  for a production site.
 - **[master](https://github.com/MathJax/MathJax)** contains the latest
-  release of MathJax. This branch may be used in production. Do 
+  release of MathJax. This branch may be used in production. Do
   **NOT** use this branch to work on MathJax's source.
 
 ### Submitting Pull Requests
@@ -156,14 +154,14 @@ tested and merged.
 
 ##### Need Help?
 
-If you're not completely clear on how to submit / update / *do* Pull
+If you're not completely clear on how to submit / update / _do_ Pull
 Requests, please check out our [source control
 policies](https://github.com/mathjax/MathJax/wiki/Source-control-policies). For
 more insights, chech the excellent in depth [Git Workflow
 guide](https://github.com/TryGhost/Ghost/wiki/Git-Workflow) from
 Ghost, in particular
 
-* [Ghost Workflow guide: commit messages](https://github.com/TryGhost/Ghost/wiki/Git-workflow#commit-messages)
+- [Ghost Workflow guide: commit messages](https://github.com/TryGhost/Ghost/wiki/Git-workflow#commit-messages)
 
 ### Testing and Quality Assurance
 
@@ -189,18 +187,16 @@ configuring your GitHub repository to allow you to checkout pull
 requests in the same way as branches:
 <https://gist.github.com/piscisaureus/3342247>.
 
-
 ### Writing documentation
 
 MathJax's main documentation can be found at [docs.mathjax.org](http://docs.mathjax.org).
 The source of the docs is hosted in the
 [mathjax/mathjax-docs](http://github.com/mathjax/mathjax-docs) repo here on GitHub.
 
-The documentation is generated using [Sphinx-doc](http://sphinx-doc.org/) and hosted on 
+The documentation is generated using [Sphinx-doc](http://sphinx-doc.org/) and hosted on
 [Read the docs](http://readthedocs.org).
 You can clone the repo and submit pull requests following the
 [pull-request](#submitting-pull-requests) guidelines.
-
 
 ### Translation
 
@@ -252,8 +248,8 @@ rules](http://blog.discourse.org/2013/03/the-universal-rules-of-civilized-discou
 
 ## References
 
-* We heavily borrowed from Mozilla and Ghost -- thank you!
-  * https://github.com/TryGhost/Ghost/blob/master/CONTRIBUTING.md
-  * https://github.com/mozilla/rust/wiki/Note-development-policy
-* https://github.com/jden/CONTRIBUTING.md/blob/master/CONTRIBUTING.md
-* http://blog.discourse.org/2013/03/the-universal-rules-of-civilized-discourse/
+- We heavily borrowed from Mozilla and Ghost -- thank you!
+  - https://github.com/TryGhost/Ghost/blob/master/CONTRIBUTING.md
+  - https://github.com/mozilla/rust/wiki/Note-development-policy
+- https://github.com/jden/CONTRIBUTING.md/blob/master/CONTRIBUTING.md
+- http://blog.discourse.org/2013/03/the-universal-rules-of-civilized-discourse/

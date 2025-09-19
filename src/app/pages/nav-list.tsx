@@ -28,7 +28,7 @@ export function NavigationBar({ stampContext, onClick }: NavigationBarProps) {
   // Create display items with proper numbering
   const displayItems = items.map((item: any, index: number) => {
     const isInfo = item.categories?.some((cat: string) =>
-      cat.toLowerCase().includes("info")
+      cat.toLowerCase().includes("info"),
     );
 
     // Calculate display number (excluding info items from numbering)
@@ -39,8 +39,8 @@ export function NavigationBar({ stampContext, onClick }: NavigationBarProps) {
         .filter(
           (prevItem: any) =>
             !prevItem.categories?.some((cat: string) =>
-              cat.toLowerCase().includes("info")
-            )
+              cat.toLowerCase().includes("info"),
+            ),
         );
       displayNumber = previousNonInfoItems.length + 1;
     }
@@ -93,7 +93,7 @@ export function NavigationBar({ stampContext, onClick }: NavigationBarProps) {
         // Hit left boundary, extend right
         endIdx = Math.min(
           displayItems.length - 2,
-          startIdx + availableSlots - 1
+          startIdx + availableSlots - 1,
         );
       } else if (endIdx === displayItems.length - 2) {
         // Hit right boundary, extend left

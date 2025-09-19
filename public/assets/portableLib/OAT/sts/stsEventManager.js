@@ -17,13 +17,13 @@
  *
  */
 
-define(['taoQtiItem/portableLib/OAT/util/event'], function(event){
-    'use strict';
-    
-    if (!window._stsEventManager) {
-        window._stsEventManager = {};
-        event.addEventMgr(window._stsEventManager);
-    }
-    
-    return window._stsEventManager;
+define(["taoQtiItem/portableLib/OAT/util/event"], function (event) {
+  "use strict";
+
+  if (!window._stsEventManager) {
+    window._stsEventManager = {};
+    event.addEventMgr(window._stsEventManager);
+  }
+
+  return window._stsEventManager;
 });

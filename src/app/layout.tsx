@@ -1,28 +1,38 @@
-import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react';
-import { Menu, X } from 'lucide-react';
-import { NavLink, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  Disclosure,
+  DisclosureButton,
+  DisclosurePanel,
+} from "@headlessui/react";
+import { Menu, X } from "lucide-react";
+import { NavLink, useNavigate, useSearchParams } from "react-router-dom";
 
 const navigation = [
-  { name: 'Preview Package', href: '/upload', current: true },
-  { name: 'Upgrade / modify packages', href: '/modify', current: false },
-  { name: 'Preview item', href: '/preview', current: false },
-  { name: 'Convert item', href: '/convert', current: false },
+  { name: "Preview Package", href: "/upload", current: true },
+  { name: "Upgrade / modify packages", href: "/modify", current: false },
+  { name: "Preview item", href: "/preview", current: false },
+  { name: "Convert item", href: "/convert", current: false },
 ];
 
 export const PageLayout = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const fullScreen = searchParams.get('full')?.toLocaleLowerCase() === 'true';
+  const fullScreen = searchParams.get("full")?.toLocaleLowerCase() === "true";
   return (
     <div className="bg-gray-100 flex flex-col h-full">
       {!fullScreen ? (
-        <Disclosure as="nav" className="bg-white border-b border-citolab-600 shadow-sm">
+        <Disclosure
+          as="nav"
+          className="bg-white border-b border-citolab-600 shadow-sm"
+        >
           {({ open }) => (
             <>
               <div className="mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex h-16 items-center justify-between">
                   <div className="flex items-center">
-                    <div className="flex-shrink-0 cursor-pointer" onClick={() => navigate('/')}>
+                    <div
+                      className="flex-shrink-0 cursor-pointer"
+                      onClick={() => navigate("/")}
+                    >
                       <img
                         className="block h-16 w-auto"
                         src="/citolab.jpeg"
@@ -36,12 +46,16 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
                             key={item.name}
                             to={item.href}
                             className={({ isActive, isPending }) =>
-                              `${isPending ? "text-citolab-600" :
-                                isActive ? "bg-citolab-50 text-citolab-700 border-b-2 border-citolab-600" :
-                                  "text-citolab-600 hover:bg-citolab-50"} 
+                              `${
+                                isPending
+                                  ? "text-citolab-600"
+                                  : isActive
+                                    ? "bg-citolab-50 text-citolab-700 border-b-2 border-citolab-600"
+                                    : "text-citolab-600 hover:bg-citolab-50"
+                              } 
                               rounded-md px-3 py-2 text-sm font-medium transition-colors`
                             }
-                            aria-current={item.current ? 'page' : undefined}
+                            aria-current={item.current ? "page" : undefined}
                           >
                             {item.name}
                           </NavLink>
@@ -73,11 +87,12 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
                         navigate(item.href);
                       }}
                       href={item.href}
-                      className={`${item.current
-                        ? 'bg-citolab-50 text-citolab-700 border-l-4 border-citolab-500'
-                        : 'text-citolab-600 hover:bg-citolab-50'
-                        } block rounded-md px-3 py-2 text-base font-medium transition-colors`}
-                      aria-current={item.current ? 'page' : undefined}
+                      className={`${
+                        item.current
+                          ? "bg-citolab-50 text-citolab-700 border-l-4 border-citolab-500"
+                          : "text-citolab-600 hover:bg-citolab-50"
+                      } block rounded-md px-3 py-2 text-base font-medium transition-colors`}
+                      aria-current={item.current ? "page" : undefined}
                     >
                       {item.name}
                     </DisclosureButton>
@@ -88,9 +103,7 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
           )}
         </Disclosure>
       ) : null}
-      <main className="flex-1">
-        {children}
-      </main>
+      <main className="flex-1">{children}</main>
     </div>
   );
 };

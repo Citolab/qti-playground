@@ -34,7 +34,7 @@ export const LandingPage: React.FC = () => {
         const assessmentItem = (e as CustomEvent<QtiAssessmentItem>).detail;
         assessmentItem.updateResponseVariable(
           "RESPONSE2",
-          JSON.stringify(blocksQtiResponse)
+          JSON.stringify(blocksQtiResponse),
         );
       });
       setTimeout(() => {
@@ -42,7 +42,7 @@ export const LandingPage: React.FC = () => {
         const assessmentItem = (qtiItem as any)
           ._qtiAssessmentItem as QtiAssessmentItem;
         const interaction = assessmentItem.querySelector(
-          'qti-portable-custom-interaction[response-identifier="RESPONSE2"]'
+          'qti-portable-custom-interaction[response-identifier="RESPONSE2"]',
         ) as QtiPortableCustomInteraction;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         // const pci = (interaction as any).pci;

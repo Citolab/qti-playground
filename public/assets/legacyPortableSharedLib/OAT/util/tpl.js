@@ -16,55 +16,53 @@
  * Copyright (c) 2015 (original work) Open Assessment Technologies SA ;
  *
  */
-define(['IMSGlobal/jquery_2_1_1', 'OAT/handlebars'], function($, handlebars){
-    
-    'use strict';
-    
-    /**
-     * Find and compile templates found in the $container
-     * 
-     * @param {jQuery} $container
-     * @returns {object}
-     */
-    function loadTemplates($container){
-        
-        var templates = {};
-        var $templates = $($container.find('[type="text/x-template-manifest"]').html());
-        $templates.each(function(){
-            
-            var $template = $(this),
-                id = $template.data('template-id'),
-                tplSource = $template.html();
-                
-            if(id && tplSource){
-                templates[id] = handlebars.compile(tplSource);
-            }    
-        });
-        
-        return templates;
-    }
-    
-    /**
-     * Create a template manager object from a JQuery container
-     * 
-     * @param {JQuery} $container
-     * @returns {Object}
-     */
-    return function tpl($container){
-        
-        var templates = loadTemplates($container);
-        
-        return {
-            exists : function exists(templateId){
-                return (templateId && templates[templateId]);
-            },
-            render : function render(templateId, data){
-                if(templateId && templates[templateId]){
-                    return templates[templateId](data || {});
-                }else{
-                    throw 'no valid template found for the id ' + templateId;
-                }
-            }
-        };
+define(["IMSGlobal/jquery_2_1_1", "OAT/handlebars"], function ($, handlebars) {
+  "use strict";
+
+  /**
+   * Find and compile templates found in the $container
+   *
+   * @param {jQuery} $container
+   * @returns {object}
+   */
+  function loadTemplates($container) {
+    var templates = {};
+    var $templates = $(
+      $container.find('[type="text/x-template-manifest"]').html(),
+    );
+    $templates.each(function () {
+      var $template = $(this),
+        id = $template.data("template-id"),
+        tplSource = $template.html();
+
+      if (id && tplSource) {
+        templates[id] = handlebars.compile(tplSource);
+      }
+    });
+
+    return templates;
+  }
+
+  /**
+   * Create a template manager object from a JQuery container
+   *
+   * @param {JQuery} $container
+   * @returns {Object}
+   */
+  return function tpl($container) {
+    var templates = loadTemplates($container);
+
+    return {
+      exists: function exists(templateId) {
+        return templateId && templates[templateId];
+      },
+      render: function render(templateId, data) {
+        if (templateId && templates[templateId]) {
+          return templates[templateId](data || {});
+        } else {
+          throw "no valid template found for the id " + templateId;
+        }
+      },
     };
+  };
 });

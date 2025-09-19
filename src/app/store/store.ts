@@ -116,7 +116,7 @@ export class SetSelectedItemAction
     const currentState = ctx.getState();
     const testContext: { assessmentId: string } & ExtendedTestContext =
       currentState.testContexts.find(
-        (t) => t.assessmentId === currentState.selectedAssessment
+        (t) => t.assessmentId === currentState.selectedAssessment,
       ) || {
         items: [],
         navItemId: this.payload.identifier,
@@ -128,7 +128,7 @@ export class SetSelectedItemAction
       new TestContextChangedAction({
         ...testContext,
         navItemId: this.payload.identifier,
-      })
+      }),
     );
   }
 }
@@ -218,7 +218,7 @@ export class ProcessPackageAction
         removeStylesheets: boolean;
         skipValidation: boolean;
       };
-    }
+    },
   ) {}
 
   async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
@@ -266,17 +266,17 @@ export class ProcessPackageAction
         const itemsWithBlobRefs = assessmentData.itemRefs
           .map((i) => {
             const matchedItem = itemsWithContent.find(
-              (it) => it.identifier === i.identifier
+              (it) => it.identifier === i.identifier,
             );
             if (matchedItem) {
               const originalHref = getRelativePath(
                 assessmentData.relativePath,
-                matchedItem.href || ""
+                matchedItem.href || "",
               );
               // Store item content as blob and get blob URL
               const blobUrl = itemBlobManager.storeItemAsBlob(
                 matchedItem.content,
-                originalHref
+                originalHref,
               );
               itemBlobMap.set(originalHref, blobUrl);
 
@@ -298,7 +298,7 @@ export class ProcessPackageAction
         const updatedAssessmentContent =
           itemBlobManager.updateAssessmentTestWithBlobUrefs(
             assessmentData.content,
-            itemBlobMap
+            itemBlobMap,
           );
 
         assessments.push({
@@ -312,7 +312,7 @@ export class ProcessPackageAction
           updatedAt: new Date().getTime(),
           createdBy: "user",
         });
-      }
+      },
     );
 
     return ctx.patchState({
@@ -423,7 +423,7 @@ export class PrepareForPreviewAction
         await replaceMediaWithMissingImagePlaceholder(currentstate.qti3);
       const transformedXml = qtiTransform(qtiWithReplacementMedia)
         .fnCh(($: CheerioAPI) =>
-          $("qti-inline-choice span").contents().unwrap()
+          $("qti-inline-choice span").contents().unwrap(),
         )
         .fnCh(($: CheerioAPI) => $("*").remove("qti-stylesheet"))
         .xml();
@@ -455,12 +455,12 @@ async function checkFileExists(url: string): Promise<boolean> {
 
 const replaceMediaWithMissingImagePlaceholder = async (
   xmlString: string,
-  attributes = ["src", "href", "data"]
+  attributes = ["src", "href", "data"],
 ): Promise<string> => {
   const newXMlDocument = new DOMParser().parseFromString(xmlString, "text/xml");
   for (const attribute of attributes) {
     const srcAttributes = newXMlDocument.querySelectorAll(
-      "[" + attribute + "]"
+      "[" + attribute + "]",
     );
     for (const node of Array.from(srcAttributes)) {
       const srcValue = node.getAttribute(attribute)!;
@@ -502,7 +502,7 @@ export class ConvertQtiAction
       }
       let qti3 = await convertQti2toQti3(
         this.payload.qti,
-        "https://raw.githubusercontent.com/citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json"
+        "https://raw.githubusercontent.com/citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json",
       );
       qti3 = await qtiConversionFixes(qti3, "");
       return ctx.patchState({

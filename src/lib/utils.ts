@@ -38,26 +38,26 @@ export function sort<T, K>(list: T[], getKey: (item: T) => K, desc = false) {
 }
 
 export const getUUID = () => {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
     const r = (Math.random() * 16) | 0,
-      v = c == 'x' ? r : (r & 0x3) | 0x8;
+      v = c == "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 };
 
 export const trim = (s: string, c: string) => {
-  if (c === ']') c = '\\]';
-  if (c === '^') c = '\\^';
-  if (c === '\\') c = '\\\\';
-  return s.replace(new RegExp('^[' + c + ']+|[' + c + ']+$', 'g'), '');
+  if (c === "]") c = "\\]";
+  if (c === "^") c = "\\^";
+  if (c === "\\") c = "\\\\";
+  return s.replace(new RegExp("^[" + c + "]+|[" + c + "]+$", "g"), "");
 };
 
 export const getBetween = (s: string, start: string, stop: string) => {
-  if (!s) return '';
+  if (!s) return "";
   const indexStartWithoutCorrection = s.indexOf(start);
   const indexStopWithoutCorrection = s.indexOf(stop);
   if (indexStartWithoutCorrection === -1 || indexStopWithoutCorrection === -1) {
-    return '';
+    return "";
   }
   const startIndex = indexStartWithoutCorrection + start.length;
   const stopIndex = indexStopWithoutCorrection + stop.length;
@@ -67,35 +67,35 @@ export const getBetween = (s: string, start: string, stop: string) => {
 
 export function removeDoubleSlashes(str: string) {
   const singleForwardSlashes = str
-    .replace(/([^:]\/)\/+/g, '$1')
-    .replace(/\/\//g, '/')
-    .replace('http:/', 'http://')
-    .replace('https:/', 'https://');
+    .replace(/([^:]\/)\/+/g, "$1")
+    .replace(/\/\//g, "/")
+    .replace("http:/", "http://")
+    .replace("https:/", "https://");
   return singleForwardSlashes;
 }
 
 export const dateId = () => {
   const dt = new Date();
   const year = dt.getFullYear();
-  const month = (dt.getMonth() + 1).toString().padStart(2, '0');
-  const day = dt.getDate().toString().padStart(2, '0');
-  const hour = dt.getHours().toString().padStart(2, '0');
-  const minutes = dt.getMinutes().toString().padStart(2, '0');
-  const seconds = dt.getSeconds().toString().padStart(2, '0');
-  const milliseconds = dt.getMilliseconds().toString().padStart(3, '0');
+  const month = (dt.getMonth() + 1).toString().padStart(2, "0");
+  const day = dt.getDate().toString().padStart(2, "0");
+  const hour = dt.getHours().toString().padStart(2, "0");
+  const minutes = dt.getMinutes().toString().padStart(2, "0");
+  const seconds = dt.getSeconds().toString().padStart(2, "0");
+  const milliseconds = dt.getMilliseconds().toString().padStart(3, "0");
   return `${year}${month}${day}${hour}${minutes}${seconds}${milliseconds}`;
 };
 
 export const todayId = () => {
   const dt = new Date();
   const year = dt.getFullYear();
-  const month = (dt.getMonth() + 1).toString().padStart(2, '0');
-  const day = dt.getDate().toString().padStart(2, '0');
+  const month = (dt.getMonth() + 1).toString().padStart(2, "0");
+  const day = dt.getDate().toString().padStart(2, "0");
   return `${year}${month}${day}`;
 };
 
 export function convertFirebaseDate(
-  dateObject: { seconds: number; nanoseconds: number } | Date
+  dateObject: { seconds: number; nanoseconds: number } | Date,
 ) {
   // let nanoseconds = 0;
   // if ((dateObject as { nanoseconds: number }).nanoseconds) {
@@ -133,12 +133,12 @@ export function groupBy<T, K>(list: T[], getKey: (item: T) => K) {
 }
 
 export const timeout = (ms: number) =>
-  new Promise((res) => setTimeout(() => res(''), ms));
+  new Promise((res) => setTimeout(() => res(""), ms));
 
 export const waitUntilLoaded = async (
   query: string,
   elementCount = 1,
-  timeoutMs = 5000
+  timeoutMs = 5000,
 ) => {
   // timeout because of unknown appendchild issue?
   await timeout(0);
@@ -169,8 +169,8 @@ export const waitUntilLoaded = async (
 };
 
 export const createCode = (length: number) => {
-  let result = '';
-  const characters = 'BCDFGHJKLMNPQRSTVWXYZ';
+  let result = "";
+  const characters = "BCDFGHJKLMNPQRSTVWXYZ";
   const charactersLength = characters.length;
   for (let i = 0; i < length; i++) {
     result += characters.charAt(Math.floor(Math.random() * charactersLength));
@@ -182,25 +182,25 @@ export const parseUrl = (url: string) => {
   // eslint-disable-next-line no-useless-escape
   const m = url.match(
     // eslint-disable-next-line no-useless-escape
-    /^(([^:\/?#]+:)?(?:\/\/((?:([^\/?#:]*):([^\/?#:]*)@)?([^\/?#:]*)(?::([^\/?#:]*))?)))?([^?#]*)(\?[^#]*)?(#.*)?$/
+    /^(([^:\/?#]+:)?(?:\/\/((?:([^\/?#:]*):([^\/?#:]*)@)?([^\/?#:]*)(?::([^\/?#:]*))?)))?([^?#]*)(\?[^#]*)?(#.*)?$/,
   );
   if (m) {
     const r = {
-      hash: m[10] || '', // #asd
-      host: m[3] || '', // localhost:257
-      hostname: m[6] || '', // localhost
-      href: m[0] || '', // http://username:password@localhost:257/deploy/?asd=asd#asd
-      origin: m[1] || '', // http://username:password@localhost:257
-      pathname: m[8] || (m[1] ? '/' : ''), // /deploy/
-      port: m[7] || '', // 257
-      protocol: m[2] || '', // http:
-      search: m[9] || '', // ?asd=asd
-      username: m[4] || '', // username
-      password: m[5] || '', // password
+      hash: m[10] || "", // #asd
+      host: m[3] || "", // localhost:257
+      hostname: m[6] || "", // localhost
+      href: m[0] || "", // http://username:password@localhost:257/deploy/?asd=asd#asd
+      origin: m[1] || "", // http://username:password@localhost:257
+      pathname: m[8] || (m[1] ? "/" : ""), // /deploy/
+      port: m[7] || "", // 257
+      protocol: m[2] || "", // http:
+      search: m[9] || "", // ?asd=asd
+      username: m[4] || "", // username
+      password: m[5] || "", // password
     };
     if (r.protocol.length == 2) {
-      r.protocol = 'file:///' + r.protocol.toUpperCase();
-      r.origin = r.protocol + '//' + r.host;
+      r.protocol = "file:///" + r.protocol.toUpperCase();
+      r.origin = r.protocol + "//" + r.host;
     }
     r.href = r.origin + r.pathname + r.search + r.hash;
     return r;
@@ -209,15 +209,15 @@ export const parseUrl = (url: string) => {
 };
 
 export const truncate = (str: string, n: number, useWordBoundary: boolean) => {
-  if (!str) return '';
+  if (!str) return "";
   if (str?.length <= n) {
     return str;
   }
   const subString = str.substr(0, n - 1); // the original check
   return (
     (useWordBoundary
-      ? subString.substr(0, subString.lastIndexOf(' '))
-      : subString) + '...'
+      ? subString.substr(0, subString.lastIndexOf(" "))
+      : subString) + "..."
   );
 };
 

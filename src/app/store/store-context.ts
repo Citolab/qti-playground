@@ -1,7 +1,7 @@
-import { createContext, useContext } from 'react';
-import { Store, StoreType } from 'rx-basic-store';
-import { LocalStorageApi } from './localstorage.api';
-import { StateModel, initialState } from './store';
+import { createContext, useContext } from "react";
+import { Store, StoreType } from "rx-basic-store";
+import { LocalStorageApi } from "./localstorage.api";
+import { StateModel, initialState } from "./store";
 
 export type StoreContext = {
   store: StoreType<StateModel>;

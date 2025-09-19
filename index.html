@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -11,64 +11,64 @@
       referrerpolicy="no-referrer"
     ></script>
     <script>
-      window['requirejs'].config({
+      window["requirejs"].config({
         catchError: true,
       });
 
-      window['requireShim'] = {
+      window["requireShim"] = {
         mathJax: {
-          exports: 'MathJax',
+          exports: "MathJax",
           init: function () {
-            if (window['MathJax']) {
+            if (window["MathJax"]) {
               // eslint-disable-next-line no-undef
-              window['MathJax'].Hub.Config({
+              window["MathJax"].Hub.Config({
                 showMathMenu: false,
                 showMathMenuMSIE: false,
                 menuSettings: { inTabOrder: false },
               });
               // eslint-disable-next-line no-undef
-              window['MathJax'].Hub.Startup.MenuZoom = function () {
+              window["MathJax"].Hub.Startup.MenuZoom = function () {
                 /* nothing */
               };
               // eslint-disable-next-line no-undef
-              window['MathJax'].Hub.Startup.onload();
+              window["MathJax"].Hub.Startup.onload();
               // eslint-disable-next-line no-undef
-              return window['MathJax'];
+              return window["MathJax"];
             }
           },
         },
       };
 
-      window['requirePaths'] = {
-        'taoQtiItem/portableLib/OAT/util/event':
-          '/assets/portableLib/OAT/util/event',
-        'taoQtiItem/portableLib/OAT/util/html':
-          '/assets/portableLib/OAT/util/html',
-        'taoQtiItem/portableLib/OAT/util/EventMgr':
-          '/assets/portableLib/OAT/util/EventMgr',
-        'taoQtiItem/portableLib/OAT/util/math':
-          '/assets/portableLib/OAT/util/math',
-        'taoQtiItem/portableLib/OAT/util/xml':
-          '/assets/portableLib/OAT/util/xml',
-        'taoQtiItem/portableLib/OAT/util/tooltip':
-          '/assets/portableLib/OAT/util/tooltip',
-        'taoQtiItem/portableLib/jquery_2_1_1':
-          '/assets/portableLib/jquery_2_1_1',
-        'taoQtiItem/portableLib/jquery.qtip': '/assets/portableLib/jquery.qtip',
-        'taoQtiItem/portableLib/lodash': '/assets/portableLib/lodash',
-        'taoQtiItem/portableLib/raphael': '/assets/portableLib/raphael',
+      window["requirePaths"] = {
+        "taoQtiItem/portableLib/OAT/util/event":
+          "/assets/portableLib/OAT/util/event",
+        "taoQtiItem/portableLib/OAT/util/html":
+          "/assets/portableLib/OAT/util/html",
+        "taoQtiItem/portableLib/OAT/util/EventMgr":
+          "/assets/portableLib/OAT/util/EventMgr",
+        "taoQtiItem/portableLib/OAT/util/math":
+          "/assets/portableLib/OAT/util/math",
+        "taoQtiItem/portableLib/OAT/util/xml":
+          "/assets/portableLib/OAT/util/xml",
+        "taoQtiItem/portableLib/OAT/util/tooltip":
+          "/assets/portableLib/OAT/util/tooltip",
+        "taoQtiItem/portableLib/jquery_2_1_1":
+          "/assets/portableLib/jquery_2_1_1",
+        "taoQtiItem/portableLib/jquery.qtip": "/assets/portableLib/jquery.qtip",
+        "taoQtiItem/portableLib/lodash": "/assets/portableLib/lodash",
+        "taoQtiItem/portableLib/raphael": "/assets/portableLib/raphael",
 
-        'IMSGlobal/jquery_2_1_1': '/assets/IMSGlobal/jquery_2_1_1',
-        'OAT/util/event': '/assets/legacyPortableSharedLib/OAT/util/event',
-        'OAT/util/html': '/assets/legacyPortableSharedLib/OAT/util/html',
-        'OAT/util/EventMgr':
-          '/assets/legacyPortableSharedLib/OAT/util/EventMgr',
-        'OAT/util/math': '/assets/legacyPortableSharedLib/OAT/util/math',
-        'OAT/util/xml': '/assets/legacyPortableSharedLib/OAT/util/xml',
-        'OAT/util/tooltip': '/assets/legacyPortableSharedLib/OAT/util/tooltip',
-        'OAT/lodash': '/assets/legacyPortableSharedLib/lodash',
-        mathJax: '/assets/mathjax/mathJax',
-        css: '/assets/css/css',
+        "IMSGlobal/jquery_2_1_1": "/assets/IMSGlobal/jquery_2_1_1",
+        "OAT/util/event": "/assets/legacyPortableSharedLib/OAT/util/event",
+        "OAT/util/html": "/assets/legacyPortableSharedLib/OAT/util/html",
+        "OAT/util/EventMgr":
+          "/assets/legacyPortableSharedLib/OAT/util/EventMgr",
+        "OAT/util/math": "/assets/legacyPortableSharedLib/OAT/util/math",
+        "OAT/util/xml": "/assets/legacyPortableSharedLib/OAT/util/xml",
+        "OAT/util/tooltip": "/assets/legacyPortableSharedLib/OAT/util/tooltip",
+        "OAT/lodash": "/assets/legacyPortableSharedLib/lodash",
+        mathJax: "/assets/mathjax/mathJax",
+        css: "/assets/css/css",
       };
     </script>
     <script src="
@@ -76,11 +76,11 @@
 "></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-      <link href="/src/styles.css" rel="stylesheet">
+    <link href="/src/styles.css" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>
-    
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

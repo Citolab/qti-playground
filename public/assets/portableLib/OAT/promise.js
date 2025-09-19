@@ -1,4 +1,3 @@
-
 /*
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,11 +21,11 @@
  *
  * @author Bertrand Chevrier <bertrand@taotesting.com>
  */
-define(['taoQtiItem/portableLib/es6-promise'], function(es6Promise){
-    'use strict';
+define(["taoQtiItem/portableLib/es6-promise"], function (es6Promise) {
+  "use strict";
 
-    /**
-     * @exports core/promise
-     */
-    return window.Promise || es6Promise.Promise;
+  /**
+   * @exports core/promise
+   */
+  return window.Promise || es6Promise.Promise;
 });

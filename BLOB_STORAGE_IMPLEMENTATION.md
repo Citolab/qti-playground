@@ -62,18 +62,15 @@ This implementation replaces the sessionStorage-based item storage with blob URL
 ## Benefits
 
 1. **Memory Efficiency**:
-
    - Items stored once in blobs instead of multiple times in state
    - No sessionStorage limitations
    - Automatic cleanup prevents memory leaks
 
 2. **Large Package Support**:
-
    - Can handle packages with many items without localStorage size limits
    - Blob storage scales better than sessionStorage
 
 3. **Performance**:
-
    - Reduced state object size
    - Faster serialization for localStorage state management
    - On-demand item loading

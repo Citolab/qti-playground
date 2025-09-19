@@ -1,31 +1,29 @@
 @import "tailwindcss";
 
-
 @theme {
   --max-w-80vw-1200px: min(80vw, 1200px);
-  --color-citolab-DEFAULT: #00A748;
-  --color-citolab-50: #EAFEF5;
-  --color-citolab-100: #C6FFE3;
-  --color-citolab-200: #C6FFE3;
-  --color-citolab-300: #7EFFBE;
-  --color-citolab-400: #37FF96;
-  --color-citolab-500: #00EE6C;
-  --color-citolab-600: #00A748;
-  --color-citolab-700: #00742F;
+  --color-citolab-DEFAULT: #00a748;
+  --color-citolab-50: #eafef5;
+  --color-citolab-100: #c6ffe3;
+  --color-citolab-200: #c6ffe3;
+  --color-citolab-300: #7effbe;
+  --color-citolab-400: #37ff96;
+  --color-citolab-500: #00ee6c;
+  --color-citolab-600: #00a748;
+  --color-citolab-700: #00742f;
   --color-citolab-800: #004119;
   --color-citolab-900: #000000;
-  --color-primary-light: #C6FFE3;
-  --color-primary-DEFAULT: #00A748;
+  --color-primary-light: #c6ffe3;
+  --color-primary-DEFAULT: #00a748;
   --color-primary-dark: #004119;
   --font-header: "Poppins", "Roboto", sans-serif;
   --font-body: "Anonymous", "Verdana", sans-serif;
 }
 
-@import 'react-tooltip/dist/react-tooltip.css';
+@import "react-tooltip/dist/react-tooltip.css";
 /* You can add global styles to this file, and also import other style files */
 #root {
   @apply h-screen w-screen;
-
 }
 
 main {
@@ -37,15 +35,14 @@ main {
 }
 
 item-container {
-  --qti-bg-active: #C6FFE3;
-  --qti-border-active: #00A748;
+  --qti-bg-active: #c6ffe3;
+  --qti-border-active: #00a748;
 }
 
 test-container {
-  --qti-bg-active: #C6FFE3;
-  --qti-border-active: #00A748;
+  --qti-bg-active: #c6ffe3;
+  --qti-border-active: #00a748;
 }
-
 
 qti-item {
   @apply p-4;
@@ -92,7 +89,7 @@ qti-item {
 }
 
 .feedback::before {
-  content: '';
+  content: "";
   position: absolute;
   left: -18px;
   top: 50%;
@@ -144,7 +141,7 @@ test-scoring-buttons {
     @apply border-red-400 text-red-500 bg-red-100;
   }
 
-  &[disabled='true'] label {
+  &[disabled="true"] label {
     @apply cursor-default text-slate-200 border-slate-200;
   }
 }

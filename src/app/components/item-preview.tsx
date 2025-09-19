@@ -41,7 +41,7 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
       if (!containerRef.current || !itemContent) return;
 
       const itemContainers = Array.from(
-        containerRef.current.querySelectorAll("item-container")
+        containerRef.current.querySelectorAll("item-container"),
       );
       for (const itemContainer of itemContainers) {
         if (
@@ -87,7 +87,7 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
                 const newTag = `${tagName}-${type}`;
                 const newClasses = classes.replace(`type:${type}`, "").trim();
                 const $newElement = $(
-                  `<${newTag} class="${newClasses}">${$el.html()}</${newTag}>`
+                  `<${newTag} class="${newClasses}">${$el.html()}</${newTag}>`,
                 );
                 $el[0].attributes.forEach((attr) => {
                   if (attr.name !== "class") {
@@ -141,7 +141,7 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
         <div
           onClick={() =>
             navigate(
-              `/assessment/${item.assessmentId}/?item=${item.identifier}`
+              `/assessment/${item.assessmentId}/?item=${item.identifier}`,
             )
           }
           className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-end justify-center"
@@ -153,7 +153,7 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
         </div>
       </div>
     );
-  }
+  },
 );
 
 // Add display name for debugging

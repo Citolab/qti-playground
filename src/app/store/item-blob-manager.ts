@@ -81,7 +81,7 @@ export class ItemBlobManager {
    */
   updateAssessmentTestWithBlobUrefs(
     assessmentContent: string,
-    itemBlobMap: Map<string, string>
+    itemBlobMap: Map<string, string>,
   ): string {
     let updatedContent = assessmentContent;
 
@@ -90,7 +90,7 @@ export class ItemBlobManager {
       // Update both href attributes and element content references
       const hrefPattern = new RegExp(
         `href=["']${originalHref.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["']`,
-        "g"
+        "g",
       );
       updatedContent = updatedContent.replace(hrefPattern, `href="${blobUrl}"`);
     });

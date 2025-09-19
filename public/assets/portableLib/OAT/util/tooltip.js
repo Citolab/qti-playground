@@ -19,39 +19,39 @@
  * @author Christophe Noël <christophe@taotesting.com>
  */
 define([
-    'taoQtiItem/portableLib/jquery_2_1_1',
-    'taoQtiItem/portableLib/jquery.qtip'
-], function($) {
-    'use strict';
+  "taoQtiItem/portableLib/jquery_2_1_1",
+  "taoQtiItem/portableLib/jquery.qtip",
+], function ($) {
+  "use strict";
 
-    return {
-        render: function render($container) {
-            $container.find('[data-role="tooltip-target"]').each(function(){
-                var $target = $(this),
-                    $content,
-                    contentHtml,
-                    contentId = $target.attr('aria-describedBy');
+  return {
+    render: function render($container) {
+      $container.find('[data-role="tooltip-target"]').each(function () {
+        var $target = $(this),
+          $content,
+          contentHtml,
+          contentId = $target.attr("aria-describedBy");
 
-                if (contentId) {
-                    $content = $container.find('#' + contentId);
-                    if ($content.length) {
-                        contentHtml = $content.html();
+        if (contentId) {
+          $content = $container.find("#" + contentId);
+          if ($content.length) {
+            contentHtml = $content.html();
 
-                        $target.qtip({
-                            overwrite: true,
-                            theme: 'default',
-                            content: {
-                                text: contentHtml
-                            },
-                            position: {
-                                target: 'mouse',
-                                my: 'bottom center',
-                                at: 'top center'
-                            }
-                        });
-                    }
-                }
+            $target.qtip({
+              overwrite: true,
+              theme: "default",
+              content: {
+                text: contentHtml,
+              },
+              position: {
+                target: "mouse",
+                my: "bottom center",
+                at: "top center",
+              },
             });
+          }
         }
-    };
+      });
+    },
+  };
 });
