@@ -2,15 +2,36 @@ import { Editor } from "@monaco-editor/react";
 import { useDebouncedCallback } from "use-debounce";
 import { useEffect, useRef, useState } from "react";
 import { UseStoreContext } from "../store/store-context";
-import { initialState, LoadQtiAction, Qti3ChangedAction } from "../store/store";
+import {
+  initialState,
+  LoadQtiAction,
+  LoadSharedQtiAction,
+  Qti3ChangedAction,
+} from "../store/store";
 import { editor } from "monaco-editor";
-import { Clipboard, Info } from "lucide-react";
+import { Clipboard, Info, Share2 } from "lucide-react";
 import { Tooltip } from "react-tooltip";
 import { Dropdown } from "../components/dropdown";
 import { Panel } from "../components/panel";
 import { qtiTransformItem } from "@citolab/qti-components/qti-transformers";
 import { QtiAssessmentItem, QtiItem } from "@citolab/qti-components";
 import { CustomElements } from "@citolab/qti-components/react";
+import { useSearchParams } from "react-router-dom";
+
+const encodeXmlToShareParam = (xml: string) => {
+  const bytes = new TextEncoder().encode(xml);
+  let binary = "";
+  bytes.forEach((b) => {
+    binary += String.fromCharCode(b);
+  });
+  return encodeURIComponent(window.btoa(binary));
+};
+
+const decodeSharedParamToXml = (encoded: string) => {
+  const binary = window.atob(decodeURIComponent(encoded));
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+};
 
 /* React */
 declare module "react" {
@@ -25,8 +46,12 @@ export const PreviewPage = () => {
   const sourceEditor = useRef<editor.IStandaloneCodeEditor>(null);
   const qtiItemRef = useRef<QtiItem>(null);
   const [openTooltip, setOpenTooltip] = useState(false);
+  const [shareTooltipOpen, setShareTooltipOpen] = useState(false);
+  const [sharePopupOpen, setSharePopupOpen] = useState(false);
   const [state, setState] = useState(initialState);
   const { store } = UseStoreContext();
+  const [searchParams] = useSearchParams();
+  const hasLoadedSharedItem = useRef(false);
 
   useEffect(() => {
     const subs = store.subscribe(setState);
@@ -83,8 +108,52 @@ export const PreviewPage = () => {
     }
   }, [debouncedPreview, state.fillSource, state.qti3]);
 
+  useEffect(() => {
+    if (hasLoadedSharedItem.current) {
+      return;
+    }
+    const sharedQti = searchParams.get("sharedQti");
+    if (!sharedQti) {
+      return;
+    }
+    try {
+      const decoded = decodeSharedParamToXml(sharedQti);
+      hasLoadedSharedItem.current = true;
+      store.dispatch(new LoadSharedQtiAction({ qti: decoded }));
+    } catch (error) {
+      console.error("Failed to load shared QTI content", error);
+    }
+  }, [searchParams, store]);
+
+  const buildShareUrl = () => {
+    const encoded = encodeXmlToShareParam(state.qti3 || "");
+    const shareUrl = new URL(window.location.href);
+    shareUrl.pathname = "/preview";
+    shareUrl.search = `sharedQti=${encoded}`;
+    return shareUrl.toString();
+  };
+
+  const copyShareUrl = async () => {
+    if (!state.qti3) return;
+    try {
+      const shareUrl = buildShareUrl();
+      await navigator.clipboard.writeText(shareUrl);
+      setShareTooltipOpen(true);
+      setSharePopupOpen(true);
+      setTimeout(() => setShareTooltipOpen(false), 2000);
+      setTimeout(() => setSharePopupOpen(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy share url", error);
+    }
+  };
+
   return (
-    <div className="grid md:grid-cols-2 gap-4 bg-gray-200">
+    <div className="relative grid md:grid-cols-2 gap-4 bg-gray-200">
+      {sharePopupOpen ? (
+        <div className="fixed top-4 right-4 z-50 rounded-md bg-citolab-700 px-4 py-2 text-white shadow-lg">
+          Shareable URL copied to clipboard
+        </div>
+      ) : null}
       <Panel
         title="QTI 3"
         actionComponents={[
@@ -101,29 +170,46 @@ export const PreviewPage = () => {
               store.dispatch(new LoadQtiAction({ href: `/3${i?.href || ""}` }));
             }}
           />,
-          <>
-            <button
-              id="copy-button"
-              type="button"
-              disabled={state.qti3 === ""}
-              onClick={() => {
-                // copy state.qti3 to clipboard
-                navigator.clipboard.writeText(state.qti3 || "");
-                setOpenTooltip(true);
-                setTimeout(() => {
-                  setOpenTooltip(false);
-                }, 200);
-              }}
-              className="inline-flex items-center gap-x-1.5 rounded-md bg-citolab-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-citolab-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
-            >
-              <Clipboard className="-ml-0.5 h-5 w-5" aria-hidden="true" />
-            </button>
-            <Tooltip
-              isOpen={openTooltip}
-              data-tooltip-id={"copy-button"}
-              content={"QTI copied to clipboard!"}
-            />
-          </>,
+          <div className="flex gap-2">
+            <>
+              <button
+                id="copy-button"
+                type="button"
+                disabled={state.qti3 === ""}
+                onClick={() => {
+                  navigator.clipboard.writeText(state.qti3 || "");
+                  setOpenTooltip(true);
+                  setTimeout(() => {
+                    setOpenTooltip(false);
+                  }, 200);
+                }}
+                className="inline-flex items-center gap-x-1.5 rounded-md bg-citolab-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-citolab-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
+              >
+                <Clipboard className="-ml-0.5 h-5 w-5" aria-hidden="true" />
+              </button>
+              <Tooltip
+                isOpen={openTooltip}
+                data-tooltip-id={"copy-button"}
+                content={"QTI copied to clipboard!"}
+              />
+            </>
+            <>
+              <button
+                id="share-button"
+                type="button"
+                disabled={!state.qti3}
+                onClick={copyShareUrl}
+                className="inline-flex items-center gap-x-1.5 rounded-md bg-citolab-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-citolab-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
+              >
+                <Share2 className="-ml-0.5 h-5 w-5" aria-hidden="true" />
+              </button>
+              <Tooltip
+                isOpen={shareTooltipOpen}
+                data-tooltip-id={"share-button"}
+                content={"Shareable link copied!"}
+              />
+            </>
+          </div>,
         ]}
       >
         {state.isConverting ? (

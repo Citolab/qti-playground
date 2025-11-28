@@ -1,5 +1,6 @@
 import { ActionType, StateContextType } from "rx-basic-store";
 import axios from "axios";
+import DOMPurify from "dompurify";
 import { qtiTransform } from "@citolab/qti-convert/qti-transformer";
 import { CheerioAPI } from "cheerio";
 import { getRelativePath, isValidXml, qtiConversionFixes } from "../utils";
@@ -393,6 +394,23 @@ export class Qti3ChangedAction
   }
 }
 
+export class LoadSharedQtiAction
+  implements ActionType<StateModel, { qti: string }>
+{
+  type = "LOAD_SHARED_QTI";
+
+  constructor(public payload: { qti: string }) {}
+
+  async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
+    await ctx.patchState({
+      qti3: this.payload.qti,
+      fillSource: true,
+      errorMessage: "",
+    });
+    return ctx.dispatch(new PrepareForPreviewAction());
+  }
+}
+
 export class PrepareForPreviewAction
   implements ActionType<StateModel, { replaceImage?: boolean }>
 {
@@ -421,7 +439,8 @@ export class PrepareForPreviewAction
     try {
       const qtiWithReplacementMedia =
         await replaceMediaWithMissingImagePlaceholder(currentstate.qti3);
-      const transformedXml = qtiTransform(qtiWithReplacementMedia)
+      const sanitizedXml = sanitizeXmlForPreview(qtiWithReplacementMedia);
+      const transformedXml = qtiTransform(sanitizedXml)
         .fnCh(($: CheerioAPI) =>
           $("qti-inline-choice span").contents().unwrap(),
         )
@@ -479,6 +498,34 @@ const replaceMediaWithMissingImagePlaceholder = async (
   }
   xmlString = new XMLSerializer().serializeToString(newXMlDocument);
   return xmlString;
+};
+
+const sanitizeXmlForPreview = (xmlString: string): string => {
+  const doc = new DOMParser().parseFromString(xmlString, "text/xml");
+  const blockedTags = [
+    "script",
+    "style",
+    "iframe",
+    "object",
+    "embed",
+    "link",
+    "meta",
+    "base",
+  ];
+
+  blockedTags.forEach((tag) => {
+    doc.querySelectorAll(tag).forEach((el) => el.remove());
+  });
+
+  doc.querySelectorAll("*").forEach((el) => {
+    for (const attr of Array.from(el.attributes)) {
+      if (attr.name.toLowerCase().startsWith("on")) {
+        el.removeAttribute(attr.name);
+      }
+    }
+  });
+
+  return new XMLSerializer().serializeToString(doc);
 };
 
 export class ConvertQtiAction
