@@ -9,8 +9,8 @@ import { UseStoreContext } from "../store/store-context";
 import { initialState, OnEditItemAction } from "../store/store";
 import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { CustomElements } from "@citolab/qti-components/react";
-import { QtiAssessmentItem } from "@citolab/qti-components";
-import { QtiTest as QtiTestType } from "@citolab/qti-components/exports/qti-test.js";
+import { IQtiTest, QtiAssessmentItem } from "@citolab/qti-components";
+// import { QtiTest } from "@citolab/qti-components";
 import { ChevronLeft, Edit, Code, ChevronRight } from "lucide-react";
 import { itemBlobManager } from "../store/item-blob-manager";
 
@@ -34,7 +34,7 @@ declare module "react" {
 
 export const AssessmentPage: React.FC = () => {
   const navigate = useNavigate();
-  const qtiTestRef = useRef<QtiTestType>(null);
+  const qtiTestRef = useRef<IQtiTest>(null);
   const [queryParams] = useSearchParams();
   const [state, setState] = useState(initialState);
   const { store } = UseStoreContext();
@@ -62,7 +62,7 @@ export const AssessmentPage: React.FC = () => {
   }, []);
 
   // Stable ref callback for QTI test element
-  const refCallback: RefCallback<QtiTestType> = useCallback(
+  const refCallback: RefCallback<IQtiTest> = useCallback(
     (element) => {
       if (element) {
         qtiTestRef.current = element;

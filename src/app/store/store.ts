@@ -1,6 +1,5 @@
 import { ActionType, StateContextType } from "rx-basic-store";
 import axios from "axios";
-import DOMPurify from "dompurify";
 import { qtiTransform } from "@citolab/qti-convert/qti-transformer";
 import { CheerioAPI } from "cheerio";
 import { getRelativePath, isValidXml, qtiConversionFixes } from "../utils";
