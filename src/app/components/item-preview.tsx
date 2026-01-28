@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { itemBlobManager } from "../store/item-blob-manager";
 import { ItemInfoWithBlobRef } from "../store/store";
+import { itemCss } from "../itemCss";
 
 interface ItemPreviewProps {
   item: ItemInfoWithBlobRef & { assessmentId: string };
@@ -40,15 +41,17 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
     useEffect(() => {
       if (!containerRef.current || !itemContent) return;
 
+      const previewScaleAttr = "data-qti-preview-scale";
       const itemContainers = Array.from(
         containerRef.current.querySelectorAll("item-container"),
       );
       for (const itemContainer of itemContainers) {
         if (
           itemContainer.shadowRoot &&
-          !itemContainer.shadowRoot.querySelector("style")
+          !itemContainer.shadowRoot.querySelector(`style[${previewScaleAttr}]`)
         ) {
           const styleElement = document.createElement("style");
+          styleElement.setAttribute(previewScaleAttr, "true");
           styleElement.textContent = `
             qti-assessment-item {
               margin-top: -50px;
@@ -65,7 +68,9 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
       }
       return () => {
         for (const itemContainer of itemContainers) {
-          itemContainer.shadowRoot?.querySelector("style")?.remove();
+          itemContainer.shadowRoot
+            ?.querySelector(`style[${previewScaleAttr}]`)
+            ?.remove();
         }
       };
     }, [itemContent]); // Trigger when content changes
@@ -134,7 +139,13 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
       >
         <div className="aspect-[4/3] overflow-hidden m-3" ref={containerRef}>
           <qti-item>
-            <item-container itemDoc={qti}></item-container>
+            <item-container itemDoc={qti}>
+              <template
+                dangerouslySetInnerHTML={{
+                  __html: `<style>${itemCss}</style>`,
+                }}
+              ></template>
+            </item-container>
           </qti-item>
         </div>
 

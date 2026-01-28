@@ -145,3 +145,35 @@ test-scoring-buttons {
     @apply cursor-default text-slate-200 border-slate-200;
   }
 }
+
+/* DEP tools (text marker / symbol picker) */
+#toolbar .qti-tool-wrapper .trigger-button:not(.remove-mode) {
+  background: #ffffff !important;
+  color: #4b5563 !important; /* gray-700 */
+  border: 1px solid #e5e7eb !important; /* gray-200 */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+#toolbar .qti-tool-wrapper .trigger-button:not(.remove-mode):hover {
+  background: #f9fafb !important; /* gray-50 */
+  border-color: #d1d5db !important; /* gray-300 */
+}
+
+#toolbar .qti-tool-wrapper .trigger-button:not(.remove-mode) .icon {
+  color: inherit !important;
+}
+
+#toolbar .qti-tool-wrapper .trigger-button.remove-mode {
+  background: #ffffff !important;
+  color: #111827 !important; /* near-black */
+  border: 1px solid #e5e7eb !important; /* gray-200 */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+#toolbar .qti-tool-wrapper .trigger-button.remove-mode:hover {
+  background: #f9fafb !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important; /* gray-300 */
+}
+
+

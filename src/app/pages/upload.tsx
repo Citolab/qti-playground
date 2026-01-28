@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { UseStoreContext } from "../store/store-context";
-import { ProcessPackageAction } from "../store/store";
-import { initialState } from "../store/store";
-import { Upload, FileText, AlertCircle, X, AlertTriangle } from "lucide-react";
+import { useStore } from "../store/store";
+import {
+  Upload,
+  AlertCircle,
+  X,
+  AlertTriangle,
+  Play,
+} from "lucide-react";
 import { forceMemoryCleanup } from "@citolab/qti-convert/qti-helper";
 import { Terms } from "../components/terms";
 import { ItemPreview } from "../components/item-preview";
@@ -14,23 +18,21 @@ export const UploadPage: React.FC = () => {
   const [inProgress, setInProgress] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [state, setState] = useState(initialState);
   const [removeStylesheets, setRemoveStylesheets] = useState(false);
   const [showValidationDetails, setShowValidationDetails] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const { store } = UseStoreContext();
 
-  useEffect(() => {
-    const subs = store.subscribe(setState);
-    return () => subs?.unsubscribe();
-  }, [store]);
+  // Zustand store - use selectors for optimal re-renders
+  const assessments = useStore((state) => state.assessments);
+  const itemsPerAssessment = useStore((state) => state.itemsPerAssessment);
+  const processPackage = useStore((state) => state.processPackage);
 
-  const items = React.useMemo(
+  const items = useMemo(
     () =>
-      state.itemsPerAssessment?.flatMap((a) =>
+      itemsPerAssessment?.flatMap((a) =>
         a.items.map((i) => ({ ...i, assessmentId: a.assessmentId }))
       ) || [],
-    [state.itemsPerAssessment]
+    [itemsPerAssessment]
   );
 
   const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
@@ -72,15 +74,10 @@ export const UploadPage: React.FC = () => {
               return newProgress > 90 ? 90 : newProgress;
             });
           }, 300);
-          const result = await store.dispatch(
-            new ProcessPackageAction({
-              file,
-              options: {
-                removeStylesheets,
-                skipValidation,
-              },
-            })
-          );
+          const result = await processPackage(file, {
+            removeStylesheets,
+            skipValidation,
+          });
           clearInterval(progressInterval);
           setUploadProgress(100);
 
@@ -140,7 +137,7 @@ export const UploadPage: React.FC = () => {
     );
   }
 
-  if (state.assessments.length > 0) {
+  if (assessments.length > 0) {
     return (
       <div className="h-full w-full overflow-y-auto">
         {/* Top Action Bar */}
@@ -157,17 +154,31 @@ export const UploadPage: React.FC = () => {
             <span>Select New Package</span>
           </button>
 
-          <div className="flex gap-2">
-            {state.assessments?.map((assessment) => (
-              <button
-                key={assessment.id}
-                className="px-4 py-2 border border-citolab-600 text-citolab-600 rounded-lg hover:bg-citolab-50 transition-colors flex items-center"
-                onClick={() => navigate(`/assessment/${assessment.id}`)}
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                <span>{assessment.name}</span>
-              </button>
-            ))}
+          <div className="flex flex-col items-end gap-1">
+            <div className="text-xs font-semibold text-gray-600">
+              Start an assessment
+            </div>
+            <div className="flex gap-2 flex-wrap justify-end">
+              {assessments?.map((assessment) => (
+                <button
+                  key={assessment.id}
+                  className="px-4 py-2 rounded-lg bg-citolab-600 text-white hover:bg-citolab-700 transition-colors flex items-center gap-3 shadow-sm"
+                  onClick={() => navigate(`/assessment/${assessment.id}`)}
+                  title={`Start assessment: ${assessment.name}`}
+                  type="button"
+                >
+                  <Play className="w-4 h-4" />
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="text-[11px] opacity-90">
+                      Start assessment
+                    </span>
+                    <span className="text-sm font-semibold">
+                      {assessment.name}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -244,12 +255,12 @@ export const UploadPage: React.FC = () => {
         </p>
         <div
           className={`
-                        relative border-2 rounded-xl transition-all duration-200 
+                        relative border-2 rounded-xl transition-all duration-200
                         ${
                           isDragging
                             ? "border-citolab-500 bg-citolab-50"
                             : "border-gray-300 border-dashed bg-gray-50"
-                        } 
+                        }
                         hover:border-citolab-400 hover:bg-gray-100
                     `}
           onDrop={handleDrop}

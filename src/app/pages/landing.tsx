@@ -15,7 +15,7 @@ import {
   qtiLandingChoice,
   qtiLandingFeatures,
 } from "./items";
-import itemCss from "./item.css?inline";
+import { itemCss } from "../itemCss";
 import {
   QtiAssessmentItem,
   QtiItem,

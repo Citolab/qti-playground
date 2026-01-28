@@ -112,15 +112,15 @@ export const qtiConversionFixes = async (qti3: string, itemXmlPath: string) => {
     return normalizePath(combinedPath);
   };
   const transformResult = await transform
-    // .stripStylesheets()
-    .objectToImg()
-    .objectToVideo()
-    .objectToAudio()
-    .stripMaterialInfo()
-    .minChoicesToOne()
-    .externalScored()
     .qbCleanup()
-    .depConvert()
+    .objectToAudio()
+    .objectToVideo()
+    .objectToImg()
+    .depConvertExtended()
+    .minChoicesToOne()
+    .mathml()
+    .ssmlSubToSpan()
+    .hideInputsForChoiceInteractionWithImages()
     .upgradePci()
     .changeAssetLocationAsync(async (srcValue) => {
       if (

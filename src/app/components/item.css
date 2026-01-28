@@ -162,3 +162,12 @@ qti-extended-text-interaction::part(textarea) {
 qti-extended-text-interaction::part(textarea):focus {
   @apply outline-none;
 }
+
+.custom-qti-style.cito-style .qti-layout-row.flex {
+  flex-wrap: nowrap !important;
+}
+
+/* Alternative more specific selector */
+qti-item-body.custom-qti-style.cito-style .qti-layout-row {
+  flex-wrap: nowrap !important;
+}

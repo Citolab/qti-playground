@@ -22,6 +22,82 @@ export class ItemBlobManager {
     return ItemBlobManager.instance;
   }
 
+  private isLikelyUriWithScheme(value: string): boolean {
+    // Match e.g. "blob:", "http:", "https:", "data:", etc.
+    // Treat Windows drive letters like "C:\\" as not-a-scheme.
+    return /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value) && !/^[a-zA-Z]:[\\/]/.test(value);
+  }
+
+  private normalizeRelativeHref(href: string): string {
+    const trimmed = href.trim().replace(/\\/g, "/");
+    if (!trimmed || this.isLikelyUriWithScheme(trimmed)) return trimmed;
+
+    const withoutLeadingDotSlash = trimmed.startsWith("./")
+      ? trimmed.slice(2)
+      : trimmed;
+
+    const parts = withoutLeadingDotSlash.split("/").filter((p) => p !== "");
+    const stack: string[] = [];
+    for (const part of parts) {
+      if (part === ".") continue;
+      if (part === "..") {
+        if (stack.length > 0 && stack[stack.length - 1] !== "..") {
+          stack.pop();
+        } else {
+          stack.push("..");
+        }
+        continue;
+      }
+      stack.push(part);
+    }
+
+    return stack.join("/");
+  }
+
+  private safeDecodeUriComponent(value: string): string {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+
+  private getHrefLookupCandidates(href: string): string[] {
+    const raw = href;
+    const normalized = this.normalizeRelativeHref(raw);
+    const decodedRaw = this.safeDecodeUriComponent(raw);
+    const decodedNormalized = this.safeDecodeUriComponent(normalized);
+
+    const candidates = new Set<string>([
+      raw,
+      normalized,
+      decodedRaw,
+      decodedNormalized,
+    ]);
+
+    // Support "./" prefix variants (common in packages)
+    if (!this.isLikelyUriWithScheme(normalized) && normalized) {
+      candidates.add(`./${normalized}`);
+    }
+
+    // Support removing a leading "./" if present
+    if (raw.startsWith("./")) {
+      candidates.add(raw.slice(2));
+      candidates.add(this.normalizeRelativeHref(raw.slice(2)));
+    }
+
+    // Support URL-encoded variants (e.g. spaces as %20)
+    for (const v of [raw, normalized, decodedRaw, decodedNormalized]) {
+      try {
+        candidates.add(encodeURI(v));
+      } catch {
+        // ignore
+      }
+    }
+
+    return Array.from(candidates).filter(Boolean);
+  }
+
   /**
    * Store XML content as a blob and return the blob URL
    */
@@ -32,7 +108,9 @@ export class ItemBlobManager {
 
     // Store mappings for later cleanup and resolution
     this.blobUrls.set(originalHref, blobUrl);
-    this.hrefToBlobMap.set(originalHref, blobUrl);
+    for (const candidate of this.getHrefLookupCandidates(originalHref)) {
+      this.hrefToBlobMap.set(candidate, blobUrl);
+    }
 
     return blobUrl;
   }
@@ -64,8 +142,9 @@ export class ItemBlobManager {
    * Retrieve XML content by original href (for sessionStorage compatibility)
    */
   async getItemByHref(originalHref: string): Promise<string | null> {
-    const blobUrl = this.hrefToBlobMap.get(originalHref);
-    if (blobUrl) {
+    for (const candidate of this.getHrefLookupCandidates(originalHref)) {
+      const blobUrl = this.hrefToBlobMap.get(candidate);
+      if (!blobUrl) continue;
       try {
         return await this.getItemFromBlob(blobUrl);
       } catch (error) {
@@ -87,12 +166,21 @@ export class ItemBlobManager {
 
     // Replace item hrefs with blob URLs
     itemBlobMap.forEach((blobUrl, originalHref) => {
-      // Update both href attributes and element content references
-      const hrefPattern = new RegExp(
-        `href=["']${originalHref.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["']`,
-        "g",
-      );
-      updatedContent = updatedContent.replace(hrefPattern, `href="${blobUrl}"`);
+      const escapeRegExp = (value: string) =>
+        value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+      // Update href attributes, allowing common variants like "./..."
+      for (const candidate of this.getHrefLookupCandidates(originalHref)) {
+        if (this.isLikelyUriWithScheme(candidate)) continue;
+        const hrefPattern = new RegExp(
+          `href=["']${escapeRegExp(candidate)}["']`,
+          "g",
+        );
+        updatedContent = updatedContent.replace(
+          hrefPattern,
+          `href="${blobUrl}"`,
+        );
+      }
     });
 
     return updatedContent;

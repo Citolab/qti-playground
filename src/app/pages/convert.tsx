@@ -1,8 +1,7 @@
 import { Editor } from "@monaco-editor/react";
 import { useDebouncedCallback } from "use-debounce";
 import { useEffect, useRef, useState } from "react";
-import { UseStoreContext } from "../store/store-context";
-import { ConvertQtiAction, initialState, LoadQtiAction } from "../store/store";
+import { useStore } from "../store/store";
 import { editor } from "monaco-editor";
 import { Clipboard } from "lucide-react";
 import { Tooltip } from "react-tooltip";
@@ -52,24 +51,23 @@ export const ConvertPage = () => {
   ]);
   const allItems = items.current.flatMap((i) => i.items);
 
-  const [state, setState] = useState(initialState);
-  const { store } = UseStoreContext();
+  // Zustand store - use selectors for optimal re-renders
+  const qtiInput = useStore((state) => state.qtiInput);
+  const qti3 = useStore((state) => state.qti3);
+  const fillSource = useStore((state) => state.fillSource);
+  const loadQti = useStore((state) => state.loadQti);
+  const convertQti = useStore((state) => state.convertQti);
 
   useEffect(() => {
-    const subs = store.subscribe(setState);
-    return () => subs?.unsubscribe();
-  }, [store]);
-
-  useEffect(() => {
-    if (state.fillSource) {
-      sourceEditor.current?.setValue(state.qtiInput || "");
+    if (fillSource) {
+      sourceEditor.current?.setValue(qtiInput || "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.fillSource]);
+  }, [fillSource]);
 
   const debouncedConvert = useDebouncedCallback(
-    (qti: string) => store.dispatch(new ConvertQtiAction({ qti })),
-    1000,
+    (qti: string) => convertQti(qti),
+    1000
   );
   const config: editor.IStandaloneEditorConstructionOptions = {
     minimap: { enabled: false },
@@ -88,10 +86,8 @@ export const ConvertPage = () => {
             items={items.current}
             onMenuClick={async (name) => {
               const i = allItems.find((i) => i.name === name);
-              const newState = await store.dispatch(
-                new LoadQtiAction({ href: `/2${i?.href || ""}` }),
-              );
-              sourceEditor.current?.setValue(newState.qtiInput);
+              await loadQti(`/2${i?.href || ""}`);
+              sourceEditor.current?.setValue(useStore.getState().qtiInput);
             }}
           />,
         ]}
@@ -102,8 +98,8 @@ export const ConvertPage = () => {
           options={config}
           onMount={(editor) => {
             sourceEditor.current = editor;
-            if (state.fillSource) {
-              sourceEditor.current?.setValue(state.qtiInput || "");
+            if (fillSource) {
+              sourceEditor.current?.setValue(qtiInput || "");
             }
           }}
           onChange={(value) => {
@@ -119,10 +115,10 @@ export const ConvertPage = () => {
             <button
               id="copy-button"
               type="button"
-              disabled={!state.qti3}
+              disabled={!qti3}
               onClick={() => {
-                // copy state.qti3 to clipboard
-                navigator.clipboard.writeText(state.qti3 || "");
+                // copy qti3 to clipboard
+                navigator.clipboard.writeText(qti3 || "");
                 setOpenTooltip(true);
                 setTimeout(() => {
                   setOpenTooltip(false);
@@ -153,7 +149,7 @@ export const ConvertPage = () => {
           }}
           width="100%"
           height="75vh"
-          value={state.qti3 || ""}
+          value={qti3 || ""}
           defaultLanguage="xml"
           defaultValue=""
         />

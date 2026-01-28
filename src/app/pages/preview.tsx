@@ -1,13 +1,7 @@
 import { Editor } from "@monaco-editor/react";
 import { useDebouncedCallback } from "use-debounce";
 import { useEffect, useRef, useState } from "react";
-import { UseStoreContext } from "../store/store-context";
-import {
-  initialState,
-  LoadQtiAction,
-  LoadSharedQtiAction,
-  Qti3ChangedAction,
-} from "../store/store";
+import { useStore } from "../store/store";
 import { editor } from "monaco-editor";
 import { Clipboard, Info, Share2 } from "lucide-react";
 import { Tooltip } from "react-tooltip";
@@ -17,6 +11,7 @@ import { qtiTransformItem } from "@citolab/qti-components/qti-transformers";
 import { QtiAssessmentItem, QtiItem } from "@citolab/qti-components";
 import { CustomElements } from "@citolab/qti-components/react";
 import { useSearchParams } from "react-router-dom";
+import { itemCss } from "../itemCss";
 
 const encodeXmlToShareParam = (xml: string) => {
   const bytes = new TextEncoder().encode(xml);
@@ -48,15 +43,18 @@ export const PreviewPage = () => {
   const [openTooltip, setOpenTooltip] = useState(false);
   const [shareTooltipOpen, setShareTooltipOpen] = useState(false);
   const [sharePopupOpen, setSharePopupOpen] = useState(false);
-  const [state, setState] = useState(initialState);
-  const { store } = UseStoreContext();
   const [searchParams] = useSearchParams();
   const hasLoadedSharedItem = useRef(false);
 
-  useEffect(() => {
-    const subs = store.subscribe(setState);
-    return () => subs?.unsubscribe();
-  }, [store]);
+  // Zustand store - use selectors for optimal re-renders
+  const qti3 = useStore((state) => state.qti3);
+  const qti3ForPreview = useStore((state) => state.qti3ForPreview);
+  const fillSource = useStore((state) => state.fillSource);
+  const isConverting = useStore((state) => state.isConverting);
+  const errorMessage = useStore((state) => state.errorMessage);
+  const loadQti = useStore((state) => state.loadQti);
+  const setQti3 = useStore((state) => state.setQti3);
+  const loadSharedQti = useStore((state) => state.loadSharedQti);
 
   const items = useRef([
     {
@@ -97,16 +95,16 @@ export const PreviewPage = () => {
   };
 
   const debouncedPreview = useDebouncedCallback(
-    (qti: string) => store.dispatch(new Qti3ChangedAction({ qti })),
+    (qti: string) => setQti3(qti),
     1000
   );
 
   useEffect(() => {
-    if (state.fillSource) {
-      sourceEditor.current?.setValue(state.qti3 || "");
-      debouncedPreview(state.qti3 || "");
+    if (fillSource) {
+      sourceEditor.current?.setValue(qti3 || "");
+      debouncedPreview(qti3 || "");
     }
-  }, [debouncedPreview, state.fillSource, state.qti3]);
+  }, [debouncedPreview, fillSource, qti3]);
 
   useEffect(() => {
     if (hasLoadedSharedItem.current) {
@@ -119,14 +117,14 @@ export const PreviewPage = () => {
     try {
       const decoded = decodeSharedParamToXml(sharedQti);
       hasLoadedSharedItem.current = true;
-      store.dispatch(new LoadSharedQtiAction({ qti: decoded }));
+      loadSharedQti(decoded);
     } catch (error) {
       console.error("Failed to load shared QTI content", error);
     }
-  }, [searchParams, store]);
+  }, [searchParams, loadSharedQti]);
 
   const buildShareUrl = () => {
-    const encoded = encodeXmlToShareParam(state.qti3 || "");
+    const encoded = encodeXmlToShareParam(qti3 || "");
     const shareUrl = new URL(window.location.href);
     shareUrl.pathname = "/preview";
     shareUrl.search = `sharedQti=${encoded}`;
@@ -134,7 +132,7 @@ export const PreviewPage = () => {
   };
 
   const copyShareUrl = async () => {
-    if (!state.qti3) return;
+    if (!qti3) return;
     try {
       const shareUrl = buildShareUrl();
       await navigator.clipboard.writeText(shareUrl);
@@ -167,7 +165,7 @@ export const PreviewPage = () => {
             ]}
             onMenuClick={(name) => {
               const i = allItems.find((i) => i.name === name);
-              store.dispatch(new LoadQtiAction({ href: `/3${i?.href || ""}` }));
+              loadQti(`/3${i?.href || ""}`);
             }}
           />,
           <div className="flex gap-2">
@@ -175,9 +173,9 @@ export const PreviewPage = () => {
               <button
                 id="copy-button"
                 type="button"
-                disabled={state.qti3 === ""}
+                disabled={qti3 === ""}
                 onClick={() => {
-                  navigator.clipboard.writeText(state.qti3 || "");
+                  navigator.clipboard.writeText(qti3 || "");
                   setOpenTooltip(true);
                   setTimeout(() => {
                     setOpenTooltip(false);
@@ -197,7 +195,7 @@ export const PreviewPage = () => {
               <button
                 id="share-button"
                 type="button"
-                disabled={!state.qti3}
+                disabled={!qti3}
                 onClick={copyShareUrl}
                 className="inline-flex items-center gap-x-1.5 rounded-md bg-citolab-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-citolab-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
               >
@@ -212,7 +210,7 @@ export const PreviewPage = () => {
           </div>,
         ]}
       >
-        {state.isConverting ? (
+        {isConverting ? (
           <div className="absolute top-0 left-0 w-full h-full bg-gray-200 bg-opacity-50 flex justify-center items-center">
             <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-gray-900"></div>
           </div>
@@ -230,7 +228,7 @@ export const PreviewPage = () => {
           }}
           width="100%"
           height="75vh"
-          value={state.qti3 || ""}
+          value={qti3 || ""}
           defaultLanguage="xml"
           language="xml"
           defaultValue=""
@@ -244,7 +242,7 @@ export const PreviewPage = () => {
               <button
                 id="correct-button"
                 type="button"
-                disabled={!state.qti3}
+                disabled={!qti3}
                 onClick={() => {
                   const container =
                     qtiItemRef.current?.querySelector("item-container");
@@ -264,7 +262,7 @@ export const PreviewPage = () => {
               <button
                 id="info-button"
                 type="button"
-                disabled={!state.qti3}
+                disabled={!qti3}
                 onClick={() => {
                   // navigate in new tab to: https://github.com/citolab/qti-components
                   window.open(
@@ -288,23 +286,29 @@ export const PreviewPage = () => {
         ]}
       >
         <>
-          {state.qti3ForPreview ? (
+          {qti3ForPreview ? (
             <qti-item ref={qtiItemRef}>
               <item-container
                 itemDoc={qtiTransformItem()
-                  .parse(state.qti3ForPreview)
+                  .parse(qti3ForPreview)
                   .extendElementsWithClass("type")
                   .convertCDATAtoComment()
                   .htmlDoc()}
-              ></item-container>
+              >
+                <template
+                  dangerouslySetInnerHTML={{
+                    __html: `<style>${itemCss}</style>`,
+                  }}
+                ></template>
+              </item-container>
             </qti-item>
           ) : (
             <div className="ml-6">Valid QTI will be previewed here.</div>
           )}
-          {state.errorMessage ? (
+          {errorMessage ? (
             <div className="w-full h-full bg-red-200 bg-opacity-50 flex justify-center items-center">
               <div className="text-red-900">
-                Oops, an error occurred: {state.errorMessage}
+                Oops, an error occurred: {errorMessage}
               </div>
             </div>
           ) : null}

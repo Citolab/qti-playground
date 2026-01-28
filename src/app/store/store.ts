@@ -1,4 +1,5 @@
-import { ActionType, StateContextType } from "rx-basic-store";
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import axios from "axios";
 import { qtiTransform } from "@citolab/qti-convert/qti-transformer";
 import { CheerioAPI } from "cheerio";
@@ -7,6 +8,7 @@ import { Assessment, ExtendedTestContext, ItemInfo } from "@citolab/qti-api";
 import { convertQti2toQti3 } from "@citolab/qti-convert/qti-convert";
 import { processPackage } from "@citolab/qti-convert/qti-helper";
 import { itemBlobManager } from "./item-blob-manager";
+import { getUpgraderStylesheetBlobUrl } from "./qti-upgrader";
 
 // omit items
 export interface AssessmentInfoWithContent extends Omit<Assessment, "items"> {
@@ -58,407 +60,7 @@ export const initialState: StateModel = {
   importErrors: [],
 };
 
-export class RestoreStateAction implements ActionType<StateModel, never> {
-  type = "RESTORE_STATE";
-
-  async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
-    return (ctx.dataApi?.getState() || initialState) as StateModel;
-  }
-}
-
-export class CleanupBlobsAction implements ActionType<StateModel, never> {
-  type = "CLEANUP_BLOBS";
-
-  async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
-    itemBlobManager.cleanup();
-    return ctx.getState();
-  }
-}
-
-export class LoadQtiAction implements ActionType<StateModel, { href: string }> {
-  type = "LOAD_QTI_ACTION";
-
-  constructor(public payload: { href: string }) {}
-
-  async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
-    try {
-      await ctx.patchState({
-        isConverting: true,
-        errorMessage: "",
-      });
-      const qtiResultData = await axios.get(this.payload.href, {
-        responseType: "text",
-      });
-      await ctx.patchState({
-        qtiInput: qtiResultData.data,
-        fillSource: true,
-      });
-      return ctx.dispatch(new ConvertQtiAction({ qti: qtiResultData.data }));
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      return ctx.patchState({
-        errorMessage: e.message,
-        isConverting: false,
-      });
-    }
-  }
-}
-
-export class SetSelectedItemAction
-  implements
-    ActionType<StateModel, { identifier: string; assessmentId: string }>
-{
-  type = "SET_SELECTED_ITEM";
-
-  constructor(public payload: { identifier: string; assessmentId: string }) {}
-
-  async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
-    const currentState = ctx.getState();
-    const testContext: { assessmentId: string } & ExtendedTestContext =
-      currentState.testContexts.find(
-        (t) => t.assessmentId === currentState.selectedAssessment,
-      ) || {
-        items: [],
-        navItemId: this.payload.identifier,
-        assessmentId: this.payload.assessmentId,
-        testOutcomeVariables: [],
-      };
-
-    return ctx.dispatch(
-      new TestContextChangedAction({
-        ...testContext,
-        navItemId: this.payload.identifier,
-      }),
-    );
-  }
-}
-
-export class OnEditItemAction
-  implements ActionType<StateModel, { identifier: string }>
-{
-  type = "ON_EDIT_ITEM";
-
-  constructor(public payload: { identifier: string }) {}
-
-  async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
-    const currentState = ctx.getState();
-    const allItems = currentState.itemsPerAssessment.flatMap((i) => i.items);
-    const item = allItems.find((i) => i.identifier === this.payload.identifier);
-    if (item) {
-      // Fetch content from blob URL
-      try {
-        const content = await itemBlobManager.getItemFromBlob(item.href);
-        return ctx.patchState({
-          fillSource: true,
-          qti3: content,
-          qti3ForPreview: content,
-        });
-      } catch (error) {
-        console.error("Failed to load item content:", error);
-        return ctx.patchState({
-          errorMessage: "Failed to load item content",
-        });
-      }
-    }
-    return currentState;
-  }
-}
-
-export class TestContextChangedAction
-  implements
-    ActionType<StateModel, { assessmentId: string } & ExtendedTestContext>
-{
-  type = "TEST_CONTEXT_CHANGED";
-
-  constructor(public payload: { assessmentId: string } & ExtendedTestContext) {}
-
-  async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
-    const currentState = ctx.getState();
-    return ctx.patchState({
-      testContexts: currentState.testContexts
-        .filter((t) => t.assessmentId !== this.payload.assessmentId)
-        .concat([this.payload]),
-    });
-  }
-}
-
-export class SelectAssessmentAction
-  implements ActionType<StateModel, { assessmentId: string }>
-{
-  type = "SELECT_ASSESSMENT";
-
-  constructor(public payload: { assessmentId: string }) {}
-
-  async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
-    return ctx.patchState({ selectedAssessment: this.payload.assessmentId });
-  }
-}
-
-export class ProcessPackageAction
-  implements
-    ActionType<
-      StateModel,
-      {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        file: any;
-        options: {
-          removeStylesheets: boolean;
-          skipValidation: boolean;
-        };
-      }
-    >
-{
-  type = "LOAD_ASSESSMENTS";
-
-  constructor(
-    public payload: {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      file: any;
-      options: {
-        removeStylesheets: boolean;
-        skipValidation: boolean;
-      };
-    },
-  ) {}
-
-  async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
-    // Clear old storage
-    sessionStorage.clear();
-    itemBlobManager.cleanup();
-
-    const assessments: AssessmentInfoWithContent[] = [];
-    const itemsWithContent: {
-      identifier: string;
-      content: string;
-      title: string;
-      type: string;
-      categories: string[];
-      href: string;
-    }[] = [];
-
-    const skipValidation =
-      this.payload.options.skipValidation === false ? false : true;
-    const removeStylesheets = this.payload.options.removeStylesheets || false;
-
-    // create a dictionary of items key = identifier, value = content
-    const result = await processPackage(
-      this.payload.file,
-      "https://raw.githubusercontent.com/citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json",
-      true,
-      {
-        removeStylesheets,
-        skipValidation,
-      },
-      (itemData) => {
-        itemsWithContent.push({
-          identifier: itemData.identifier,
-          content: itemData.content,
-          title: itemData.identifier,
-          type: itemData.content.includes("interaction>") ? "regular" : "info",
-          categories: [],
-          href: itemData.relativePath,
-        });
-      },
-      (assessmentData) => {
-        const itemBlobMap = new Map<string, string>();
-
-        // Create blob URLs for items and store them
-        const itemsWithBlobRefs = assessmentData.itemRefs
-          .map((i) => {
-            const matchedItem = itemsWithContent.find(
-              (it) => it.identifier === i.identifier,
-            );
-            if (matchedItem) {
-              const originalHref = getRelativePath(
-                assessmentData.relativePath,
-                matchedItem.href || "",
-              );
-              // Store item content as blob and get blob URL
-              const blobUrl = itemBlobManager.storeItemAsBlob(
-                matchedItem.content,
-                originalHref,
-              );
-              itemBlobMap.set(originalHref, blobUrl);
-
-              return {
-                identifier: matchedItem.identifier,
-                itemRefIdentifier: i.itemRefIdentifier,
-                title: matchedItem.title,
-                type: matchedItem.type,
-                categories: matchedItem.categories,
-                href: blobUrl,
-                originalHref: originalHref,
-              } as ItemInfoWithBlobRef;
-            }
-            return undefined;
-          })
-          .filter((i) => i !== undefined);
-
-        // Update assessment content to use blob URLs for item references
-        const updatedAssessmentContent =
-          itemBlobManager.updateAssessmentTestWithBlobUrefs(
-            assessmentData.content,
-            itemBlobMap,
-          );
-
-        assessments.push({
-          id: assessmentData.identifier,
-          content: updatedAssessmentContent,
-          packageId: assessmentData.identifier,
-          assessmentHref: assessmentData.relativePath,
-          name: assessmentData.identifier,
-          items: itemsWithBlobRefs,
-          createdAt: new Date().getTime(),
-          updatedAt: new Date().getTime(),
-          createdBy: "user",
-        });
-      },
-    );
-
-    return ctx.patchState({
-      assessments,
-      importErrors: result.errors,
-      itemsPerAssessment: assessments.map((a) => {
-        return {
-          assessmentId: a.id,
-          items: a.items || [],
-        };
-      }),
-    });
-  }
-}
-
-export class StartAssessmentAction
-  implements ActionType<StateModel, { assessmentId: string }>
-{
-  type = "START_ASSESSMENT_ACTION";
-
-  constructor(public payload: { assessmentId: string }) {}
-
-  async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
-    return ctx.patchState({
-      selectedAssessment: this.payload.assessmentId,
-    });
-  }
-}
-
-// export class LoadAssessmentsAction implements ActionType<StateModel, never> {
-//   type = 'LOAD_ASSESSMENTS_ACTION';
-
-//   async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
-//     const qtiApi = new QtiApi(apiBase, 'convert-online', '');
-//     const currentState = ctx.getState();
-//     const assessments: AssessmentInfo[] = [];
-//     const asssessmentsToRemove: string[] = [];
-
-//     // check if assessmentIds are already loaded in the assessments list
-//     if (
-//       currentState.assessments.length ===
-//       currentState.uploadedAssessments.length
-//     ) {
-//       return currentState;
-//     }
-
-//     for (const assessmentId of currentState.uploadedAssessments) {
-//       try {
-//         const assessment = await qtiApi.getAssessment(assessmentId);
-//         assessments.push(assessment);
-//       } catch (e) {
-//         console.error(e);
-//         // assessment probable deleted, remove from list
-//         asssessmentsToRemove.push(assessmentId);
-//       }
-//     }
-//     return ctx.patchState({
-//       uploadedAssessments: currentState.uploadedAssessments.filter(
-//         (i) => !asssessmentsToRemove.includes(i)
-//       ),
-//       assessments,
-//     });
-//   }
-// }
-
-export class Qti3ChangedAction
-  implements ActionType<StateModel, { qti: string }>
-{
-  type = "QTI3_CHANGED_ACTION";
-
-  constructor(public payload: { qti: string }) {}
-
-  async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
-    await ctx.patchState({
-      qti3: this.payload.qti,
-    });
-    return ctx.dispatch(new PrepareForPreviewAction());
-  }
-}
-
-export class LoadSharedQtiAction
-  implements ActionType<StateModel, { qti: string }>
-{
-  type = "LOAD_SHARED_QTI";
-
-  constructor(public payload: { qti: string }) {}
-
-  async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
-    await ctx.patchState({
-      qti3: this.payload.qti,
-      fillSource: true,
-      errorMessage: "",
-    });
-    return ctx.dispatch(new PrepareForPreviewAction());
-  }
-}
-
-export class PrepareForPreviewAction
-  implements ActionType<StateModel, { replaceImage?: boolean }>
-{
-  type = "PREPARE_FOR_PREVIEW_ACTION";
-
-  constructor(public payload: { replaceImage?: boolean } = {}) {}
-
-  async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
-    const currentstate = ctx.getState();
-    await ctx.patchState({
-      isPreparingForPreview: true,
-      errorMessage: "",
-    });
-    if (!currentstate.qti3) {
-      return ctx.patchState({
-        errorMessage: "",
-        isPreparingForPreview: false,
-      });
-    }
-    if (!isValidXml(currentstate.qti3)) {
-      return ctx.patchState({
-        errorMessage: "Invalid QTI XML",
-        isPreparingForPreview: false,
-      });
-    }
-    try {
-      const qtiWithReplacementMedia =
-        await replaceMediaWithMissingImagePlaceholder(currentstate.qti3);
-      const sanitizedXml = sanitizeXmlForPreview(qtiWithReplacementMedia);
-      const transformedXml = qtiTransform(sanitizedXml)
-        .fnCh(($: CheerioAPI) =>
-          $("qti-inline-choice span").contents().unwrap(),
-        )
-        .fnCh(($: CheerioAPI) => $("*").remove("qti-stylesheet"))
-        .xml();
-      return ctx.patchState({
-        qti3ForPreview: transformedXml,
-        isPreparingForPreview: false,
-      });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      return ctx.patchState({
-        errorMessage: e.message,
-        isPreparingForPreview: false,
-      });
-    }
-  }
-}
-
+// Helper functions (moved from class actions)
 async function checkFileExists(url: string): Promise<boolean> {
   try {
     if (url.startsWith("http") || url.startsWith("//")) {
@@ -467,18 +69,18 @@ async function checkFileExists(url: string): Promise<boolean> {
     const response = await axios.head(url);
     return response.status === 200;
   } catch {
-    return false; // assumes any error means the image doesn't exist
+    return false;
   }
 }
 
 const replaceMediaWithMissingImagePlaceholder = async (
   xmlString: string,
-  attributes = ["src", "href", "data"],
+  attributes = ["src", "href", "data"]
 ): Promise<string> => {
   const newXMlDocument = new DOMParser().parseFromString(xmlString, "text/xml");
   for (const attribute of attributes) {
     const srcAttributes = newXMlDocument.querySelectorAll(
-      "[" + attribute + "]",
+      "[" + attribute + "]"
     );
     for (const node of Array.from(srcAttributes)) {
       const srcValue = node.getAttribute(attribute)!;
@@ -527,41 +129,328 @@ const sanitizeXmlForPreview = (xmlString: string): string => {
   return new XMLSerializer().serializeToString(doc);
 };
 
-export class ConvertQtiAction
-  implements ActionType<StateModel, { qti: string }>
-{
-  type = "CONVERT_QTI_ACTION";
+// Zustand store actions interface
+interface StoreActions {
+  // State setters
+  cleanupBlobs: () => void;
 
-  constructor(public payload: { qti: string }) {}
-
-  async execute(ctx: StateContextType<StateModel>): Promise<StateModel> {
-    try {
-      await ctx.patchState({
-        isConverting: true,
-        errorMessage: "",
-      });
-      if (!this.payload.qti || !isValidXml(this.payload.qti)) {
-        return ctx.patchState({
-          errorMessage: "Invalid QTI XML",
-          isConverting: false,
-        });
-      }
-      let qti3 = await convertQti2toQti3(
-        this.payload.qti,
-        "https://raw.githubusercontent.com/citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json",
-      );
-      qti3 = await qtiConversionFixes(qti3, "");
-      return ctx.patchState({
-        qti3,
-        isConverting: false,
-        qtiInput: this.payload.qti,
-      });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      return ctx.patchState({
-        errorMessage: e.message,
-        isConverting: false,
-      });
-    }
-  }
+  // Async actions
+  loadQti: (href: string) => Promise<void>;
+  setSelectedItem: (identifier: string, assessmentId: string) => Promise<void>;
+  editItem: (identifier: string) => Promise<void>;
+  updateTestContext: (
+    context: { assessmentId: string } & ExtendedTestContext
+  ) => void;
+  selectAssessment: (assessmentId: string) => void;
+  processPackage: (
+    file: File,
+    options: { removeStylesheets: boolean; skipValidation: boolean }
+  ) => Promise<StateModel>;
+  startAssessment: (assessmentId: string) => void;
+  setQti3: (qti: string) => Promise<void>;
+  loadSharedQti: (qti: string) => Promise<void>;
+  prepareForPreview: () => Promise<void>;
+  convertQti: (qti: string) => Promise<void>;
 }
+
+export type Store = StateModel & StoreActions;
+
+export const useStore = create<Store>()(
+  persist(
+    (set, get) => ({
+      ...initialState,
+
+      cleanupBlobs: () => {
+        itemBlobManager.cleanup();
+      },
+
+      loadQti: async (href: string) => {
+        try {
+          set({ isConverting: true, errorMessage: "" });
+          const qtiResultData = await axios.get(href, {
+            responseType: "text",
+          });
+          set({
+            qtiInput: qtiResultData.data,
+            fillSource: true,
+          });
+          await get().convertQti(qtiResultData.data);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (e: any) {
+          set({
+            errorMessage: e.message,
+            isConverting: false,
+          });
+        }
+      },
+
+      setSelectedItem: async (identifier: string, assessmentId: string) => {
+        const currentState = get();
+        const testContext: { assessmentId: string } & ExtendedTestContext =
+          currentState.testContexts.find(
+            (t) => t.assessmentId === currentState.selectedAssessment
+          ) || {
+            items: [],
+            navItemId: identifier,
+            assessmentId: assessmentId,
+            testOutcomeVariables: [],
+          };
+
+        get().updateTestContext({
+          ...testContext,
+          navItemId: identifier,
+        });
+      },
+
+      editItem: async (identifier: string) => {
+        const currentState = get();
+        const allItems = currentState.itemsPerAssessment.flatMap(
+          (i) => i.items
+        );
+        const item = allItems.find((i) => i.identifier === identifier);
+        if (item) {
+          try {
+            const content = await itemBlobManager.getItemFromBlob(item.href);
+            set({
+              fillSource: true,
+              qti3: content,
+              qti3ForPreview: content,
+            });
+          } catch (error) {
+            console.error("Failed to load item content:", error);
+            set({
+              errorMessage: "Failed to load item content",
+            });
+          }
+        }
+      },
+
+      updateTestContext: (
+        context: { assessmentId: string } & ExtendedTestContext
+      ) => {
+        const currentState = get();
+        set({
+          testContexts: currentState.testContexts
+            .filter((t) => t.assessmentId !== context.assessmentId)
+            .concat([context]),
+        });
+      },
+
+      selectAssessment: (assessmentId: string) => {
+        set({ selectedAssessment: assessmentId });
+      },
+
+      processPackage: async (
+        file: File,
+        options: { removeStylesheets: boolean; skipValidation: boolean }
+      ): Promise<StateModel> => {
+        // Clear old storage
+        sessionStorage.clear();
+        itemBlobManager.cleanup();
+
+        const assessments: AssessmentInfoWithContent[] = [];
+        const itemsWithContent: {
+          identifier: string;
+          content: string;
+          title: string;
+          type: string;
+          categories: string[];
+          href: string;
+        }[] = [];
+
+        const skipValidation =
+          options.skipValidation === false ? false : true;
+        const removeStylesheets = options.removeStylesheets || false;
+
+        const xsltJsonUrl = await getUpgraderStylesheetBlobUrl();
+        const result = await processPackage(
+          file,
+          xsltJsonUrl,
+          true,
+          {
+            removeStylesheets,
+            skipValidation,
+          },
+          (itemData) => {
+            itemsWithContent.push({
+              identifier: itemData.identifier,
+              content: itemData.content,
+              title: itemData.identifier,
+              type: itemData.content.includes("interaction>")
+                ? "regular"
+                : "info",
+              categories: [],
+              href: itemData.relativePath,
+            });
+          },
+          (assessmentData) => {
+            const itemBlobMap = new Map<string, string>();
+
+            const itemsWithBlobRefs = assessmentData.itemRefs
+              .map((i) => {
+                const matchedItem = itemsWithContent.find(
+                  (it) => it.identifier === i.identifier
+                );
+                if (matchedItem) {
+                  const originalHref = getRelativePath(
+                    assessmentData.relativePath,
+                    matchedItem.href || ""
+                  );
+                  const blobUrl = itemBlobManager.storeItemAsBlob(
+                    matchedItem.content,
+                    originalHref
+                  );
+                  itemBlobMap.set(originalHref, blobUrl);
+
+                  return {
+                    identifier: matchedItem.identifier,
+                    itemRefIdentifier: i.itemRefIdentifier,
+                    title: matchedItem.title,
+                    type: matchedItem.type,
+                    categories: matchedItem.categories,
+                    href: blobUrl,
+                    originalHref: originalHref,
+                  } as ItemInfoWithBlobRef;
+                }
+                return undefined;
+              })
+              .filter((i) => i !== undefined);
+
+            const updatedAssessmentContent =
+              itemBlobManager.updateAssessmentTestWithBlobUrefs(
+                assessmentData.content,
+                itemBlobMap
+              );
+
+            assessments.push({
+              id: assessmentData.identifier,
+              content: updatedAssessmentContent,
+              packageId: assessmentData.identifier,
+              assessmentHref: assessmentData.relativePath,
+              name: assessmentData.identifier,
+              items: itemsWithBlobRefs,
+              createdAt: new Date().getTime(),
+              updatedAt: new Date().getTime(),
+              createdBy: "user",
+            });
+          }
+        );
+
+        const newState = {
+          assessments,
+          importErrors: result.errors,
+          itemsPerAssessment: assessments.map((a) => ({
+            assessmentId: a.id,
+            items: a.items || [],
+          })),
+        };
+        set(newState);
+        return { ...get() };
+      },
+
+      startAssessment: (assessmentId: string) => {
+        set({ selectedAssessment: assessmentId });
+      },
+
+      setQti3: async (qti: string) => {
+        set({ qti3: qti });
+        await get().prepareForPreview();
+      },
+
+      loadSharedQti: async (qti: string) => {
+        set({
+          qti3: qti,
+          fillSource: true,
+          errorMessage: "",
+        });
+        await get().prepareForPreview();
+      },
+
+      prepareForPreview: async () => {
+        const currentState = get();
+        set({
+          isPreparingForPreview: true,
+          errorMessage: "",
+        });
+        if (!currentState.qti3) {
+          set({
+            errorMessage: "",
+            isPreparingForPreview: false,
+          });
+          return;
+        }
+        if (!isValidXml(currentState.qti3)) {
+          set({
+            errorMessage: "Invalid QTI XML",
+            isPreparingForPreview: false,
+          });
+          return;
+        }
+        try {
+          const qtiWithReplacementMedia =
+            await replaceMediaWithMissingImagePlaceholder(currentState.qti3);
+          const sanitizedXml = sanitizeXmlForPreview(qtiWithReplacementMedia);
+          const transformedXml = qtiTransform(sanitizedXml)
+            .fnCh(($: CheerioAPI) =>
+              $("qti-inline-choice span").contents().unwrap()
+            )
+            .fnCh(($: CheerioAPI) => $("*").remove("qti-stylesheet"))
+            .xml();
+          set({
+            qti3ForPreview: transformedXml,
+            isPreparingForPreview: false,
+          });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (e: any) {
+          set({
+            errorMessage: e.message,
+            isPreparingForPreview: false,
+          });
+        }
+      },
+
+      convertQti: async (qti: string) => {
+        try {
+          set({
+            isConverting: true,
+            errorMessage: "",
+          });
+          if (!qti || !isValidXml(qti)) {
+            set({
+              errorMessage: "Invalid QTI XML",
+              isConverting: false,
+            });
+            return;
+          }
+          const xsltJsonUrl = await getUpgraderStylesheetBlobUrl();
+          let qti3 = await convertQti2toQti3(
+            qti,
+            xsltJsonUrl
+          );
+          qti3 = await qtiConversionFixes(qti3, "");
+          set({
+            qti3,
+            isConverting: false,
+            qtiInput: qti,
+          });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (e: any) {
+          set({
+            errorMessage: e.message,
+            isConverting: false,
+          });
+        }
+      },
+    }),
+    {
+      name: "state_default_user",
+      partialize: (state) => ({
+        // Only persist specific state fields (not transient ones)
+        assessments: state.assessments,
+        itemsPerAssessment: state.itemsPerAssessment,
+        selectedAssessment: state.selectedAssessment,
+        testContexts: state.testContexts,
+      }),
+    }
+  )
+);

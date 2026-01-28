@@ -4,19 +4,30 @@ import React, {
   useRef,
   useState,
   useCallback,
+  useMemo,
 } from "react";
-import { UseStoreContext } from "../store/store-context";
-import { initialState, OnEditItemAction } from "../store/store";
+import { useStore } from "../store/store";
 import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { CustomElements } from "@citolab/qti-components/react";
 import { IQtiTest, QtiAssessmentItem } from "@citolab/qti-components";
 // import { QtiTest } from "@citolab/qti-components";
-import { ChevronLeft, Edit, Code, ChevronRight } from "lucide-react";
+import {
+  ChevronLeft,
+  Edit,
+  Code,
+  ChevronRight,
+  LayoutGrid,
+  LogOut,
+} from "lucide-react";
 import { itemBlobManager } from "../store/item-blob-manager";
+import { itemCss } from "../itemCss";
 
 import DraggablePopup from "../components/draggable-popup";
 import ModeSwitch from "../components/mode-switcher";
+import { ToolBar } from "../components/tool-bar";
 import { NavigationBar } from "./nav-list";
+import { AssessmentOverviewPage } from "./assessment-overview";
+import { AssessmentIntroScreen } from "./assessment-intro";
 
 /* React */
 declare module "react" {
@@ -24,6 +35,14 @@ declare module "react" {
   namespace JSX {
     // eslint-disable-next-line @typescript-eslint/no-empty-interface
     interface IntrinsicElements extends CustomElements {
+      "dep-textmarker": React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement>,
+        HTMLElement
+      >;
+      "dep-symbolpicker": React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement>,
+        HTMLElement
+      >;
       style: React.DetailedHTMLProps<
         React.StyleHTMLAttributes<HTMLStyleElement>,
         HTMLStyleElement
@@ -35,30 +54,45 @@ declare module "react" {
 export const AssessmentPage: React.FC = () => {
   const navigate = useNavigate();
   const qtiTestRef = useRef<IQtiTest>(null);
-  const [queryParams] = useSearchParams();
-  const [state, setState] = useState(initialState);
-  const { store } = UseStoreContext();
+  const hasRedirectedForMissingBlobsRef = useRef(false);
+  const [queryParams, setQueryParams] = useSearchParams();
   const [showVariables, setShowVariables] = useState(false);
   const [currentItemIdentifier, setCurrentItemIdentifier] = useState("");
+  const [currentItemRefIdentifier, setCurrentItemRefIdentifier] = useState("");
+  const isOverviewOpen = queryParams.get("overview") === "true";
+  const [showIntro, setShowIntro] = useState(() => {
+    const hasItemParam = !!queryParams.get("item");
+    const overview = queryParams.get("overview") === "true";
+    return !hasItemParam && !overview;
+  });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [stampContext, setStampContext] = useState<any>(null);
+  const [bookmarkedItemRefIds, setBookmarkedItemRefIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const initialZoomRef = useRef<string>("");
+  const initialBodyZoomRef = useRef<string>("");
 
-  // Store subscription with stable dependencies
-  useEffect(() => {
-    const subs = store.subscribe((newState) => {
-      setState(newState);
-    });
-
-    return () => {
-      subs?.unsubscribe();
-    };
-  }, [store]);
+  // Zustand store - use selectors for optimal re-renders
+  const assessments = useStore((state) => state.assessments);
+  const selectedAssessment = useStore((state) => state.selectedAssessment);
+  const itemsPerAssessment = useStore((state) => state.itemsPerAssessment);
+  const editItem = useStore((state) => state.editItem);
 
   // Stable event handler for QTI item connection
   const handleItemConnected = useCallback((event: Event) => {
     const qtiAssessmentItem = (event as CustomEvent<QtiAssessmentItem>)?.detail;
-    const itemId = qtiAssessmentItem?.identifier;
+    const itemId = qtiAssessmentItem?.identifier || "";
+    const itemRefId =
+      (qtiAssessmentItem?.parentElement as HTMLElement | null)?.getAttribute(
+        "identifier",
+      ) || "";
     setCurrentItemIdentifier(itemId);
+    setCurrentItemRefIdentifier(itemRefId);
+
+    // Signal to external tools (DEP marker/symbol picker) that an item is ready
+    window.dispatchEvent(new CustomEvent("qti-test-loaded"));
   }, []);
 
   // Stable ref callback for QTI test element
@@ -68,11 +102,11 @@ export const AssessmentPage: React.FC = () => {
         qtiTestRef.current = element;
         element.addEventListener(
           "qti-assessment-item-connected",
-          handleItemConnected
+          handleItemConnected,
         );
       }
     },
-    [handleItemConnected]
+    [handleItemConnected],
   );
 
   // Cleanup event listeners on unmount
@@ -81,7 +115,7 @@ export const AssessmentPage: React.FC = () => {
       if (qtiTestRef.current) {
         qtiTestRef.current.removeEventListener(
           "qti-assessment-item-connected",
-          handleItemConnected
+          handleItemConnected,
         );
       }
     };
@@ -91,10 +125,10 @@ export const AssessmentPage: React.FC = () => {
     assessmentId: string;
   }>();
 
-  const selectedAssessment = state.assessments?.find(
-    (a) => a.id === state.selectedAssessment
+  const selectedAssessmentData = assessments?.find(
+    (a) => a.id === selectedAssessment,
   );
-  const assessment = state.assessments?.find((a) => a.id === assessmentId);
+  const assessment = assessments?.find((a) => a.id === assessmentId);
 
   const handleToggle = useCallback((mode: string) => {
     if (qtiTestRef.current)
@@ -103,7 +137,7 @@ export const AssessmentPage: React.FC = () => {
           composed: true,
           bubbles: true,
           detail: mode,
-        })
+        }),
       );
   }, []);
 
@@ -116,56 +150,226 @@ export const AssessmentPage: React.FC = () => {
     const handleTestConnected = () => {
       if (itemId && assessment.items) {
         const matchingItem = assessment.items.find(
-          (i) => i.identifier === itemId
+          (i) => i.identifier === itemId,
         );
         if (qtiTestRef.current && matchingItem) {
           qtiTestRef.current.navigateTo("item", matchingItem.itemRefIdentifier);
         }
+      } else if (assessment.items?.length) {
+        // Ensure the test starts by navigating to the first item when no explicit item is requested
+        qtiTestRef.current?.navigateTo(
+          "item",
+          assessment.items[0].itemRefIdentifier,
+        );
       }
     };
 
     qtiTestRef.current.addEventListener(
       "qti-assessment-test-connected",
-      handleTestConnected
+      handleTestConnected,
     );
 
     return () => {
       if (qtiTestRef.current) {
         qtiTestRef.current.removeEventListener(
           "qti-assessment-test-connected",
-          handleTestConnected
+          handleTestConnected,
         );
       }
     };
   }, [assessment?.content, assessment?.items, queryParams]);
 
   const items =
-    state.itemsPerAssessment.find((i) => i.assessmentId === assessmentId)
-      ?.items || [];
+    itemsPerAssessment.find((i) => i.assessmentId === assessmentId)?.items ||
+    [];
 
   // Navigation handlers
   const onEditItem = useCallback(async () => {
     try {
-      await store.dispatch(
-        new OnEditItemAction({
-          identifier: currentItemIdentifier,
-        })
-      );
+      await editItem(currentItemIdentifier);
       navigate("/preview");
     } catch (error) {
       console.error("Edit item error:", error);
     }
-  }, [currentItemIdentifier, store, navigate]);
+  }, [currentItemIdentifier, editItem, navigate]);
 
   const handleBackNavigation = useCallback(() => {
     navigate("/package");
   }, [navigate]);
+
+  const handlePrevious = useCallback(() => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/package");
+    }
+  }, [navigate]);
+
+  const setOverviewMode = useCallback(
+    (open: boolean) => {
+      const next = new URLSearchParams(queryParams);
+      if (open) {
+        next.set("overview", "true");
+      } else {
+        next.delete("overview");
+      }
+      setQueryParams(next, { replace: true });
+    },
+    [queryParams, setQueryParams],
+  );
+
+  const redirectToPackageDueToMissingItemData = useCallback(
+    (details?: { uri?: string; error?: unknown }) => {
+      if (hasRedirectedForMissingBlobsRef.current) return;
+      hasRedirectedForMissingBlobsRef.current = true;
+
+      console.warn(
+        "Assessment item data is no longer available (likely expired blob URL). Redirecting to /package.",
+        details,
+      );
+
+      try {
+        localStorage.removeItem("state_default_user");
+      } catch {
+        // ignore
+      }
+      try {
+        sessionStorage.clear();
+      } catch {
+        // ignore
+      }
+      try {
+        itemBlobManager.cleanup();
+      } catch {
+        // ignore
+      }
+
+      navigate("/package", { replace: true });
+    },
+    [navigate],
+  );
+
+  // If the user returns later (or refreshes) persisted state may still reference blob: hrefs,
+  // but the actual blob URLs are no longer valid. Detect that early and redirect to /package.
+  useEffect(() => {
+    const firstItemHref = assessment?.items?.[0]?.href;
+    if (!firstItemHref || !firstItemHref.startsWith("blob:")) return;
+
+    const check = async () => {
+      try {
+        await itemBlobManager.getItemFromBlob(firstItemHref);
+      } catch (error) {
+        redirectToPackageDueToMissingItemData({
+          uri: firstItemHref,
+          error,
+        });
+      }
+    };
+
+    void check();
+  }, [assessment?.items, redirectToPackageDueToMissingItemData]);
+
+  const handleExitOverlay = useCallback(() => {
+    handlePrevious();
+  }, [handlePrevious]);
 
   const handleNavigationBarClick = useCallback((id: string) => {
     if (qtiTestRef.current) {
       qtiTestRef.current.navigateTo("item", id);
     }
   }, []);
+
+  const responseStateByItemRefId = useMemo(() => {
+    const map = new Map<string, "missing" | "incomplete" | "complete">();
+    const ctxItems = stampContext?.activeTestpart?.items || [];
+    for (const item of ctxItems) {
+      const hasNonEmptyResponse =
+        item.response &&
+        item.response !== "" &&
+        !(Array.isArray(item.response) && item.response.length === 0);
+      const responseState =
+        item.completionStatus === "completed"
+          ? "complete"
+          : hasNonEmptyResponse
+            ? "incomplete"
+            : "missing";
+      map.set(item.identifier, responseState);
+    }
+    return map;
+  }, [stampContext]);
+
+  const overviewNavTargets = useMemo(() => {
+    const ctxItems = stampContext?.activeTestpart?.items || [];
+    const ids: string[] = ctxItems
+      .map((i: any) => i.identifier)
+      .filter(Boolean);
+    const activeIndex = ctxItems.findIndex((i: any) => i.active);
+    return {
+      activeIndex,
+      prevId: activeIndex > 0 ? ids[activeIndex - 1] : null,
+      nextId:
+        activeIndex >= 0 && activeIndex < ids.length - 1
+          ? ids[activeIndex + 1]
+          : null,
+    };
+  }, [stampContext]);
+
+  const closeOverview = useCallback(() => {
+    setOverviewMode(false);
+  }, [setOverviewMode]);
+
+  const goToPrevFromOverview = useCallback(() => {
+    const prevId = overviewNavTargets.prevId;
+    closeOverview();
+    if (prevId) {
+      qtiTestRef.current?.navigateTo("item", prevId);
+    }
+  }, [closeOverview, overviewNavTargets.prevId]);
+
+  const goToNextFromOverview = useCallback(() => {
+    const nextId = overviewNavTargets.nextId;
+    closeOverview();
+    if (nextId) {
+      qtiTestRef.current?.navigateTo("item", nextId);
+    }
+  }, [closeOverview, overviewNavTargets.nextId]);
+
+  useEffect(() => {
+    // If overview is opened via URL, skip intro
+    if (isOverviewOpen) {
+      setShowIntro(false);
+    }
+  }, [isOverviewOpen]);
+
+  const clampZoom = useCallback((value: number) => {
+    const rounded = Number(value.toFixed(2));
+    return Math.min(2, Math.max(0.5, rounded));
+  }, []);
+
+  const handleZoomIn = useCallback(() => {
+    setZoomLevel((prev) => clampZoom(prev + 0.1));
+  }, [clampZoom]);
+
+  const handleZoomOut = useCallback(() => {
+    setZoomLevel((prev) => clampZoom(prev - 0.1));
+  }, [clampZoom]);
+
+  const handleResetZoom = useCallback(() => {
+    setZoomLevel(1);
+  }, []);
+
+  const handleMarkCurrentItem = useCallback(
+    (marked: boolean) => {
+      if (!currentItemRefIdentifier) return;
+      setBookmarkedItemRefIds((prev) => {
+        const next = new Set(prev);
+        if (marked) next.add(currentItemRefIdentifier);
+        else next.delete(currentItemRefIdentifier);
+        return next;
+      });
+    },
+    [currentItemRefIdentifier]
+  );
 
   // Stamp context handler with change detection to prevent unnecessary re-renders
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -180,6 +384,34 @@ export const AssessmentPage: React.FC = () => {
     });
   }, []);
 
+  useEffect(() => {
+    initialZoomRef.current = document.documentElement.style.zoom || "";
+    initialBodyZoomRef.current = document.body.style.zoom || "";
+    return () => {
+      document.documentElement.style.zoom = initialZoomRef.current;
+      document.body.style.zoom = initialBodyZoomRef.current;
+    };
+  }, []);
+
+  useEffect(() => {
+    // Use numeric zoom; more consistently supported than percentage strings.
+    const zoom = String(zoomLevel);
+    document.documentElement.style.zoom = zoom;
+    document.body.style.zoom = zoom;
+  }, [zoomLevel]);
+
+  // Render as an overlay and prevent page scrolling behind it
+  useEffect(() => {
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, []);
+
   if (!assessment) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -190,31 +422,43 @@ export const AssessmentPage: React.FC = () => {
           <p className="mb-6 text-gray-600">
             The requested assessment could not be found.
           </p>
-          <button
-            onClick={handleBackNavigation}
-            className="inline-flex items-center rounded-md bg-citolab-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-citolab-500 transition-colors"
-          >
-            Select new package
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={handlePrevious}
+              className="inline-flex items-center rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-200 transition-colors"
+              type="button"
+            >
+              Previous
+            </button>
+            <button
+              onClick={handleBackNavigation}
+              className="inline-flex items-center rounded-md bg-citolab-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-citolab-500 transition-colors"
+              type="button"
+            >
+              Select new package
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full w-full flex-col bg-gray-50">
+    <div className="fixed inset-0 z-50 flex w-full flex-col bg-gray-50 overflow-hidden">
       {/* Fixed Header - Always visible */}
       <div className="flex-shrink-0 flex items-center justify-between bg-white px-4 py-3 shadow-md z-10">
         <div className="flex items-center space-x-3">
           <button
-            className="inline-flex items-center rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
-            onClick={handleBackNavigation}
+            className="inline-flex items-center justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow hover:bg-red-700 transition-colors"
+            onClick={handleExitOverlay}
+            title="Close assessment"
+            type="button"
           >
-            <ChevronLeft className="mr-1 h-4 w-4" />
-            Back
+            <LogOut className="mr-1 h-4 w-4" />
+            Close assessment
           </button>
           <h1 className="text-lg font-medium text-gray-800">
-            {selectedAssessment?.name || "Assessment"}
+            {selectedAssessmentData?.name || "Assessment"}
           </h1>
         </div>
         <div className="flex items-center space-x-2">
@@ -236,78 +480,227 @@ export const AssessmentPage: React.FC = () => {
             <Code className="mr-1 h-4 w-4" />
             {showVariables ? "Hide Output" : "Show Output"}
           </button>
+          <button
+            className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              isOverviewOpen
+                ? "bg-gray-200 text-gray-800"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+            onClick={() => setOverviewMode(!isOverviewOpen)}
+            title="Overview"
+            type="button"
+          >
+            <LayoutGrid className="mr-1 h-4 w-4" />
+            Overview
+          </button>
         </div>
       </div>
 
       {/* Main content area - takes remaining space */}
-      <div className="flex-1 flex items-center justify-center px-4 py-4 min-h-0">
+      <div className="flex-1 flex items-center justify-center px-4 py-4 min-h-0 overflow-hidden">
         <div className="w-full max-w-6xl h-full flex flex-col bg-white rounded-lg shadow-lg overflow-hidden">
           <qti-test
             ref={refCallback}
             cache-transform
-            className="h-full flex flex-col"
+            className="h-full min-h-0 flex flex-col"
           >
             <test-navigation
               initContext={items.map((item) => ({
-                identifier: item.identifier,
+                identifier: item.itemRefIdentifier,
                 title: item.title,
                 externalScored: item.interactionType === "extendedTextEntry",
               }))}
               auto-score-items
-              className="h-full flex flex-col"
+              className="h-full min-h-0 flex flex-col"
             >
               <test-stamp
-                class="h-full flex flex-col"
+                class="h-full min-h-0 flex flex-col"
                 onqti-stamp-context-updated={handleStampContextUpdate}
               >
                 {/* Mode Switch - Fixed at top of content */}
                 <div className="flex-shrink-0 flex justify-center p-4 bg-gray-50 border-b">
-                  <ModeSwitch initialMode="candidate" onCheck={handleToggle} />
-                </div>
-
-                {/* Scrollable content area */}
-                <div className="flex-1 overflow-auto">
-                  <div className="flex justify-center p-6 min-h-full">
-                    <test-container
-                      className="w-full max-w-4xl"
-                      testXML={assessment?.content}
-                      onqti-item-ref-uri-callback={async (
-                        event: CustomEvent
-                      ) => {
-                        // Handle any legacy href-based item requests
-                        const uri = event.detail?.uri;
-                        if (uri && !uri.startsWith("blob:")) {
-                          // Try to resolve from blob manager for backward compatibility
-                          const content = await itemBlobManager.getItemByHref(
-                            uri
-                          );
-                          if (content) {
-                            event.detail.resolveWith(content);
-                          }
-                        }
-                      }}
+                  <div className="w-full max-w-4xl flex items-center justify-between gap-3">
+                    <ModeSwitch
+                      initialMode="candidate"
+                      onCheck={handleToggle}
                     />
+
+                    <div
+                      id="toolbar"
+                      className="flex items-center gap-2 rounded p-1"
+                    >
+                      <ToolBar
+                        marked={bookmarkedItemRefIds.has(currentItemRefIdentifier)}
+                        onMarkCurrentItem={handleMarkCurrentItem}
+                        onZoomIn={handleZoomIn}
+                        onZoomOut={handleZoomOut}
+                        onResetZoom={handleResetZoom}
+                        zoomLevel={zoomLevel}
+                      />
+
+                      {/* DEP tools mount points (render into #toolbar via QtiBaseTool) */}
+                      <dep-textmarker style={{ display: "none" }} />
+                      <dep-symbolpicker style={{ display: "none" }} />
+                    </div>
                   </div>
                 </div>
 
-                {/* Fixed Bottom navigation - Always visible */}
-                <div className="flex-shrink-0 border-t bg-white">
-                  <nav className="flex justify-between items-center p-4 max-w-4xl mx-auto min-w-0">
-                    <test-prev className="inline-flex items-center rounded-md bg-citolab-600 px-4 py-2 text-sm font-medium text-white hover:bg-citolab-500 transition-colors flex-shrink-0">
-                      <ChevronLeft className="mr-1 h-4 w-4" />
-                    </test-prev>
-                    <div className="flex-1 min-w-0 flex justify-center">
-                      <NavigationBar
-                        onClick={handleNavigationBarClick}
-                        stampContext={stampContext}
-                      />
+                {/* Scrollable content area */}
+                <div className="flex-1 min-h-0 overflow-auto">
+                  {showIntro ? (
+                    <AssessmentIntroScreen
+                      assessmentName={selectedAssessmentData?.name}
+                      itemCount={items.filter((i) => i.type !== "info").length}
+                      onStart={() => {
+                        setShowIntro(false);
+                        setOverviewMode(false);
+                        const first = assessment.items?.[0]?.itemRefIdentifier;
+                        if (first) {
+                          qtiTestRef.current?.navigateTo("item", first);
+                        }
+                      }}
+                      onOpenOverview={() => {
+                        setShowIntro(false);
+                        setOverviewMode(true);
+                      }}
+                    />
+                  ) : isOverviewOpen ? (
+                    <AssessmentOverviewPage
+                      items={items}
+                      responseStateByItemRefId={responseStateByItemRefId}
+                      bookmarkedItemRefIds={bookmarkedItemRefIds}
+                      onOpenItem={(itemRefIdentifier) => {
+                        setOverviewMode(false);
+                        qtiTestRef.current?.navigateTo(
+                          "item",
+                          itemRefIdentifier,
+                        );
+                      }}
+                    />
+                  ) : (
+                    <div className="flex justify-center p-6 min-h-full">
+                      <test-container
+                        className="custom-qti-style cito-style w-full max-w-4xl"
+                        testXML={assessment?.content}
+                        onqti-item-ref-uri-callback={async (
+                          event: CustomEvent,
+                        ) => {
+                          // Handle item-ref requests. If blob URLs expire, a re-upload is required.
+                          const uri = event.detail?.uri;
+                          if (!uri) return;
+
+                          if (uri.startsWith("blob:")) {
+                            try {
+                              const content =
+                                await itemBlobManager.getItemFromBlob(uri);
+                              event.detail.resolveWith(content);
+                            } catch (error) {
+                              redirectToPackageDueToMissingItemData({
+                                uri,
+                                error,
+                              });
+                            }
+                            return;
+                          }
+
+                          // Try to resolve from blob manager for backward compatibility (relative href variants)
+                          const content =
+                            await itemBlobManager.getItemByHref(uri);
+                          if (content) {
+                            event.detail.resolveWith(content);
+                          }
+                        }}
+                      >
+                        <template
+                          dangerouslySetInnerHTML={{
+                            __html: `<style>${itemCss}</style>`,
+                          }}
+                        ></template>
+                      </test-container>
                     </div>
-                    <test-next className="inline-flex items-center rounded-md bg-citolab-600 px-4 py-2 text-sm font-medium text-white hover:bg-citolab-500 transition-colors flex-shrink-0">
-                      Next
-                      <ChevronRight className="ml-1 h-4 w-4" />
-                    </test-next>
-                  </nav>
+                  )}
                 </div>
+
+                {/* Fixed Bottom navigation - Always visible */}
+                {!showIntro && (
+                  <div className="flex-shrink-0 border-t bg-white">
+                    <nav className="flex items-center justify-between px-6 py-4 w-full min-w-0">
+                      {isOverviewOpen ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={goToPrevFromOverview}
+                            disabled={!overviewNavTargets.prevId}
+                            className={`inline-flex items-center rounded-md px-4 py-2 text-sm font-medium transition-colors flex-shrink-0 ${
+                              overviewNavTargets.prevId
+                                ? "bg-citolab-700 text-white hover:bg-citolab-600 shadow-sm"
+                                : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                            }`}
+                            title="Previous item"
+                          >
+                            <ChevronLeft className="mr-1 h-4 w-4" />
+                            Previous
+                          </button>
+                          <div className="flex-1 min-w-0 flex justify-center">
+                            <button
+                              type="button"
+                              className="inline-flex items-center rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-200 transition-colors shadow-sm"
+                              onClick={closeOverview}
+                              title="Close overview"
+                            >
+                              <LayoutGrid className="mr-2 h-4 w-4" />
+                              Close overview
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={goToNextFromOverview}
+                            disabled={!overviewNavTargets.nextId}
+                            className={`inline-flex items-center rounded-md px-4 py-2 text-sm font-medium transition-colors flex-shrink-0 ${
+                              overviewNavTargets.nextId
+                                ? "bg-citolab-700 text-white hover:bg-citolab-600 shadow-sm"
+                                : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                            }`}
+                            title="Next item"
+                          >
+                            Next
+                            <ChevronRight className="ml-1 h-4 w-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <test-prev className="inline-flex items-center rounded-md bg-citolab-700 px-4 py-2 text-sm font-semibold text-white hover:bg-citolab-600 transition-colors shadow-sm">
+                              <ChevronLeft className="mr-1 h-4 w-4" />
+                              Previous
+                            </test-prev>
+                            <button
+                              type="button"
+                              className="inline-flex items-center rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-200 transition-colors shadow-sm"
+                              onClick={() => setOverviewMode(!isOverviewOpen)}
+                              title="Overview"
+                            >
+                              <LayoutGrid className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <div className="flex-1 min-w-0 flex justify-center">
+                            <NavigationBar
+                              onClick={handleNavigationBarClick}
+                              stampContext={stampContext}
+                              bookmarkedItemIds={Array.from(
+                                bookmarkedItemRefIds,
+                              )}
+                            />
+                          </div>
+                          <test-next className="inline-flex items-center rounded-md bg-citolab-700 px-5 py-2 text-sm font-semibold text-white hover:bg-citolab-600 transition-colors shadow-sm flex-shrink-0">
+                            Next
+                            <ChevronRight className="ml-1 h-4 w-4" />
+                          </test-next>
+                        </>
+                      )}
+                    </nav>
+                  </div>
+                )}
               </test-stamp>
               <DraggablePopup
                 isOpen={showVariables}

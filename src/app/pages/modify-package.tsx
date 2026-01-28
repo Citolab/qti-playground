@@ -4,7 +4,6 @@ import {
   removeItemsFromPackage,
 } from "@citolab/qti-convert/qti-helper";
 import { convertPackage } from "@citolab/qti-convert/qti-convert";
-import { saveAs } from "file-saver";
 import {
   Upload,
   CheckCircle,
@@ -21,6 +20,18 @@ import { Terms } from "../components/terms";
 
 // Define the tab options
 type TabType = "upgrade" | "media" | "items";
+
+const downloadBlob = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 40_000);
+};
 
 export const ModifyPackagePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
@@ -226,7 +237,7 @@ export const ModifyPackagePage: React.FC = () => {
       setUploadProgress(100);
 
       if (blob) {
-        saveAs(blob, newZipName);
+        downloadBlob(blob, newZipName);
         setProcessComplete(true);
       }
 

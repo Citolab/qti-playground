@@ -3,10 +3,17 @@ import { useEffect, useState } from "react";
 
 interface NavigationBarProps {
   stampContext: any;
+  bookmarkedItemIds?: string[];
   onClick: (identifier: string) => void;
 }
 
-export function NavigationBar({ stampContext, onClick }: NavigationBarProps) {
+type ResponseState = "missing" | "incomplete" | "complete";
+
+export function NavigationBar({
+  stampContext,
+  bookmarkedItemIds = [],
+  onClick,
+}: NavigationBarProps) {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   useEffect(() => {
@@ -51,10 +58,21 @@ export function NavigationBar({ stampContext, onClick }: NavigationBarProps) {
       displayNumber: isInfo ? "i" : displayNumber,
       isInfo,
       isActive: item.active,
-      isAnswered:
-        item.completionStatus === "completed" ||
-        (item.response && item.response !== "") ||
-        item.numAttempts > 0,
+      isMarked: bookmarkedItemIds?.includes(item.identifier) ?? false,
+      responseState: (() => {
+        const hasNonEmptyResponse =
+          item.response &&
+          item.response !== "" &&
+          !(Array.isArray(item.response) && item.response.length === 0);
+
+        const responseState: ResponseState =
+          item.completionStatus === "completed"
+            ? "complete"
+            : hasNonEmptyResponse
+              ? "incomplete"
+              : "missing";
+        return responseState;
+      })(),
     };
   });
 
@@ -142,7 +160,7 @@ export function NavigationBar({ stampContext, onClick }: NavigationBarProps) {
   };
 
   return (
-    <div className="flex items-center justify-center gap-1 px-2 overflow-hidden max-w-full">
+    <div className="flex items-center justify-center gap-1 px-2 py-2 overflow-hidden max-w-full">
       {visibleItems.map((item: any) => {
         if (item.isDots) {
           return (
@@ -153,12 +171,15 @@ export function NavigationBar({ stampContext, onClick }: NavigationBarProps) {
         }
 
         const baseClasses =
-          "w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium cursor-pointer transition-all duration-200 select-none";
+          "relative w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium cursor-pointer transition-all duration-300 select-none transform";
 
         let itemClasses = baseClasses;
 
+        const isComplete = item.responseState === "complete";
+        const isIncomplete = item.responseState === "incomplete";
+
         if (item.isActive) {
-          if (item.isAnswered) {
+          if (isComplete) {
             // Active and answered - strong citolab with darker border
             itemClasses +=
               " bg-citolab-600 text-white border-2 border-citolab-800 shadow-lg";
@@ -167,14 +188,25 @@ export function NavigationBar({ stampContext, onClick }: NavigationBarProps) {
             itemClasses +=
               " bg-white text-citolab-700 border-2 border-citolab-600 shadow-md";
           }
-        } else if (item.isAnswered) {
-          // Answered but not active - light citolab background
-          itemClasses +=
-            " bg-citolab-200 text-citolab-800 border border-citolab-300 hover:bg-citolab-300";
         } else {
-          // Not answered and not active - neutral colors with citolab hover
-          itemClasses +=
-            " bg-white text-gray-700 border border-gray-300 hover:border-citolab-400 hover:bg-citolab-50";
+          if (isComplete) {
+            if (item.isMarked) {
+              itemClasses +=
+                " bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200";
+            } else {
+              itemClasses +=
+                " bg-citolab-500 text-citolab-900 border border-citolab-600 hover:bg-citolab-600";
+            }
+          } else {
+            // Not answered and not active - neutral colors with citolab hover
+            if (item.isMarked) {
+              itemClasses +=
+                " bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100";
+            } else {
+              itemClasses +=
+                " bg-white text-gray-700 border border-gray-300 hover:border-citolab-400 hover:bg-citolab-50";
+            }
+          }
         }
 
         if (item.isInfo) {
@@ -187,7 +219,24 @@ export function NavigationBar({ stampContext, onClick }: NavigationBarProps) {
             className={itemClasses}
             onClick={() => handleItemClick(item)}
             title={item.label || `Item ${item.displayNumber}`}
+            style={
+              isIncomplete
+                ? {
+                    backgroundImage:
+                      "linear-gradient(135deg, var(--color-citolab-200) 0%, var(--color-citolab-200) 50%, rgba(0,0,0,0) 50%, rgba(0,0,0,0) 100%)",
+                  }
+                : undefined
+            }
           >
+            {item.isMarked && (
+              <div
+                key={`${item.identifier}-bookmark`}
+                className="absolute -top-0.5 -right-0.5 bg-amber-400 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold border-2 border-white shadow-sm z-10"
+                title="Bookmarked question"
+              >
+                !
+              </div>
+            )}
             {item.displayNumber}
           </button>
         );
