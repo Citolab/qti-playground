@@ -6,6 +6,178 @@ import "./app/dep-tools-register";
 
 import App from "./app/app";
 
+// qti-components renders PCI iframe content via a `data:text/html,...` URL.
+// `data:` iframes have an opaque origin and are not controlled by the Service Worker, so
+// `/__qti_pkg__/...` resource requests won't be served from CacheStorage and will 404.
+// Patch the element to use `srcdoc` instead, so the iframe inherits our origin and is SW-controlled.
+try {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ctor: any = window.customElements?.get("qti-portable-custom-interaction");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const proto: any = ctor?.prototype;
+  if (proto && !proto.__qtiPlaygroundPatchedSrcdocIframe) {
+    const originalCreateIframe = proto.createIframe;
+    proto.createIframe = function patchedCreateIframe() {
+      try {
+        this.iframe = document.createElement("iframe");
+        this.iframe.id = `pci-iframe-${this.responseIdentifier}`;
+        this.iframe.setAttribute("title", "QTI PCI Iframe");
+        this.iframe.setAttribute("aria-label", "QTI PCI Iframe");
+        this.iframe.setAttribute("aria-hidden", "false");
+        this.iframe.setAttribute("role", "application");
+        // Keep the iframe same-origin (so SW can serve `/__qti_pkg__/...`) but prevent it from
+        // navigating the top window (some PCIs may use links/redirects).
+        this.iframe.setAttribute(
+          "sandbox",
+          "allow-scripts allow-same-origin allow-forms",
+        );
+        this.iframe.style.width = "100%";
+        this.iframe.style.border = "none";
+        this.iframe.style.display = "block";
+        this.iframe.onload = () => {
+          this._iframeLoaded = true;
+          this.addMarkupToIframe();
+          this.sendIframeInitData();
+        };
+
+        const iframeName = `qti-pci-${this.responseIdentifier}-${Date.now()}`;
+        this.iframe.name = iframeName;
+
+        const iframeContent = this.generateIframeContent();
+        this.iframe.srcdoc = iframeContent;
+
+        this.appendChild(this.iframe);
+      } catch (error) {
+        if (typeof originalCreateIframe === "function") {
+          return originalCreateIframe.call(this);
+        }
+        throw error;
+      }
+    };
+    proto.__qtiPlaygroundPatchedSrcdocIframe = true;
+  }
+} catch {
+  // ignore
+}
+
+if (import.meta.env.DEV) {
+  // Optional debugging aid for PCI/RequireJS script loading issues.
+  // Enable via: `localStorage.__qti_debug_requirejs__ = "1"` (then reload).
+  try {
+    const enabled =
+      typeof window !== "undefined" &&
+      window.localStorage?.getItem("__qti_debug_requirejs__") === "1";
+    if (enabled) {
+      window.addEventListener(
+        "error",
+        (event) => {
+          const target = (event as ErrorEvent & { target?: unknown }).target;
+          if (target instanceof HTMLScriptElement && target.src) {
+            if (
+              target.src.includes("/__qti_pkg__/") ||
+              target.src.includes("/modules/") ||
+              target.src.toLowerCase().includes("graph")
+            )
+              console.error("[RequireJS/PCI] Script load failed:", target.src);
+          }
+        },
+        true,
+      );
+
+      const patchRequireJs = () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const r = (window as any).requirejs;
+        if (!r || typeof r !== "function") return;
+
+        // Re-wrap if qti-components replaces onError.
+        const current = r.onError;
+        if (current && current.__qtiWrapped) return;
+
+        const wrapped = (err: unknown) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const e = err as any;
+          const src = e?.originalError?.target?.src;
+          console.error("[RequireJS/PCI] requirejs.onError", {
+            requireType: e?.requireType,
+            requireModules: e?.requireModules,
+            message: e?.message,
+            src,
+          });
+          if (typeof current === "function") return current(err);
+          throw err;
+        };
+        wrapped.__qtiWrapped = true;
+        r.onError = wrapped;
+      };
+
+      // Keep patching until RequireJS is present and stays wrapped.
+      patchRequireJs();
+      window.setInterval(patchRequireJs, 250);
+    }
+  } catch {
+    // ignore
+  }
+
+  // Optional debugging aid for PCI layout issues (iframe exists but isn't visible).
+  // Enable via: `localStorage.__qti_debug_pci_layout__ = "1"` (then reload).
+  try {
+    const enabled =
+      typeof window !== "undefined" &&
+      window.localStorage?.getItem("__qti_debug_pci_layout__") === "1";
+    if (enabled) {
+      window.setInterval(() => {
+        const hosts = Array.from(
+          document.querySelectorAll("qti-portable-custom-interaction"),
+        );
+        for (const host of hosts) {
+          (host as HTMLElement).style.outline = "2px dashed #d946ef";
+          const iframe = host.querySelector("iframe");
+          if (iframe) {
+            iframe.style.outline = "2px solid #22c55e";
+            const rect = iframe.getBoundingClientRect();
+            if (rect.width < 20 || rect.height < 20) {
+              console.warn("[PCI layout] iframe has tiny rect", {
+                width: rect.width,
+                height: rect.height,
+                host: host.getAttribute("response-identifier"),
+              });
+            }
+          } else {
+            console.warn("[PCI layout] no iframe found for host", {
+              host: host.getAttribute("response-identifier"),
+              useIframe: host.getAttribute("data-use-iframe"),
+            });
+          }
+        }
+      }, 1000);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/" })
+      .then(() => navigator.serviceWorker.ready)
+      .then(() => {
+        // On first install, the page is not controlled until the next navigation.
+        // We rely on the SW for `/__qti_pkg__/...` requests, so reload once.
+        if (!navigator.serviceWorker.controller) {
+          const key = "qti_sw_reloaded_once";
+          if (!sessionStorage.getItem(key)) {
+            sessionStorage.setItem(key, "1");
+            window.location.reload();
+          }
+        }
+      })
+      .catch((error) =>
+        console.error("Service worker registration failed:", error),
+      );
+  });
+}
+
 const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement,
 );

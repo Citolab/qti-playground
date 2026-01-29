@@ -4,6 +4,8 @@
 
 This implementation replaces the sessionStorage-based item storage with blob URLs to solve localStorage size limitations and reduce memory duplication when working with large QTI packages.
 
+> Note: The current implementation also supports PCI asset/module loading by caching the full uploaded package in the browser and serving it from virtual URLs under `/__qti_pkg__/<packageId>/...` via a Service Worker (`public/sw.js`). This allows RequireJS modules, stylesheets, images, and `modules/module_resolution.*` to be fetched locally without a backend.
+
 ## Key Changes
 
 ### 1. New Blob Manager (`src/app/store/item-blob-manager.ts`)

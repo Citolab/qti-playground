@@ -49,6 +49,7 @@ Upon launching the application, you can:
 - Load QTI Packages: Upload QTI packages to render and interact with assessment items.
 - Convert QTI Packages: Use the built-in conversion tools to upgrade QTI 2.x packages to QTI 3.0.
 - Customize Assessments: Modify and test assessment items in real-time within the browser.
+- PCI / assets loading: Uploaded package resources are cached in the browser and served from virtual URLs under `/__qti_pkg__/<packageId>/...` via a Service Worker (`public/sw.js`).
 
 ### Technologies Used
 

@@ -6,19 +6,27 @@ import { CheerioAPI } from "cheerio";
 import { getRelativePath, isValidXml, qtiConversionFixes } from "../utils";
 import { Assessment, ExtendedTestContext, ItemInfo } from "@citolab/qti-api";
 import { convertQti2toQti3 } from "@citolab/qti-convert/qti-convert";
-import { processPackage } from "@citolab/qti-convert/qti-helper";
 import { itemBlobManager } from "./item-blob-manager";
 import { getUpgraderStylesheetBlobUrl } from "./qti-upgrader";
+import {
+  deletePackageCache,
+  makePackageUrl,
+  normalizeZipPath,
+  putBlobFileInPackageCache,
+  putTextFileInPackageCache,
+} from "./qti-package-cache";
 
 // omit items
 export interface AssessmentInfoWithContent extends Omit<Assessment, "items"> {
   content: string;
   items: ItemInfoWithBlobRef[];
+  packageId: string;
+  testUrl: string;
 }
 const urlsChecked = new Map<string, boolean>();
 
 export interface ItemInfoWithBlobRef extends Omit<ItemInfo, "href"> {
-  href: string; // This will now be a blob URL
+  href: string; // Package URL (/__qti_pkg__/...)
   itemRefIdentifier?: string;
   originalHref?: string; // Keep track of original href for reference
 }
@@ -40,6 +48,7 @@ export interface StateModel {
   selectedAssessment?: string;
   testContexts: ({ assessmentId: string } & ExtendedTestContext)[];
   itemsPerAssessment: { assessmentId: string; items: ItemInfoWithBlobRef[] }[];
+  activePackageId?: string;
 }
 
 export const initialState: StateModel = {
@@ -58,6 +67,7 @@ export const initialState: StateModel = {
   assessments: [],
   itemsPerAssessment: [],
   importErrors: [],
+  activePackageId: undefined,
 };
 
 // Helper functions (moved from class actions)
@@ -129,6 +139,26 @@ const sanitizeXmlForPreview = (xmlString: string): string => {
   return new XMLSerializer().serializeToString(doc);
 };
 
+const forcePciIframeMode = (xmlString: string): string => {
+  try {
+    const doc = new DOMParser().parseFromString(xmlString, "text/xml");
+    const pcis = doc.querySelectorAll("qti-portable-custom-interaction");
+    if (pcis.length === 0) return xmlString;
+
+    pcis.forEach((el) => {
+      const existing = el.getAttribute("data-use-iframe");
+      if (existing === null || existing.toLowerCase() === "false") {
+        // Use an explicit value so it survives XML->HTML transformations reliably.
+        el.setAttribute("data-use-iframe", "true");
+      }
+    });
+
+    return new XMLSerializer().serializeToString(doc);
+  } catch {
+    return xmlString;
+  }
+};
+
 // Zustand store actions interface
 interface StoreActions {
   // State setters
@@ -162,6 +192,10 @@ export const useStore = create<Store>()(
 
       cleanupBlobs: () => {
         itemBlobManager.cleanup();
+        const pkgId = get().activePackageId;
+        if (pkgId) {
+          void deletePackageCache(pkgId);
+        }
       },
 
       loadQti: async (href: string) => {
@@ -210,7 +244,10 @@ export const useStore = create<Store>()(
         const item = allItems.find((i) => i.identifier === identifier);
         if (item) {
           try {
-            const content = await itemBlobManager.getItemFromBlob(item.href);
+            const response = await axios.get(item.href, {
+              responseType: "text",
+            });
+            const content = response.data;
             set({
               fillSource: true,
               qti3: content,
@@ -248,102 +285,371 @@ export const useStore = create<Store>()(
         sessionStorage.clear();
         itemBlobManager.cleanup();
 
-        const assessments: AssessmentInfoWithContent[] = [];
-        const itemsWithContent: {
-          identifier: string;
-          content: string;
-          title: string;
-          type: string;
-          categories: string[];
-          href: string;
-        }[] = [];
+        // Ensure the service worker is active before we start relying on /__qti_pkg__/ URLs.
+        if ("serviceWorker" in navigator) {
+          try {
+            await navigator.serviceWorker.ready;
+          } catch {
+            // ignore
+          }
+        }
 
-        const skipValidation =
-          options.skipValidation === false ? false : true;
+        // Cleanup previous package cache (best-effort). Also clear orphaned package caches.
+        try {
+          const keys = await caches.keys();
+          await Promise.all(
+            keys
+              .filter((k) => k.startsWith("qti-pkg-"))
+              .map((k) => caches.delete(k)),
+          );
+        } catch {
+          const prevPackageId = get().activePackageId;
+          if (prevPackageId) {
+            try {
+              await deletePackageCache(prevPackageId);
+            } catch {
+              // ignore
+            }
+          }
+        }
+
+        const packageId =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `pkg-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+        const skipValidation = options.skipValidation === false ? false : true;
         const removeStylesheets = options.removeStylesheets || false;
 
-        const xsltJsonUrl = await getUpgraderStylesheetBlobUrl();
-        const result = await processPackage(
-          file,
-          xsltJsonUrl,
-          true,
-          {
-            removeStylesheets,
-            skipValidation,
-          },
-          (itemData) => {
-            itemsWithContent.push({
-              identifier: itemData.identifier,
-              content: itemData.content,
-              title: itemData.identifier,
-              type: itemData.content.includes("interaction>")
-                ? "regular"
-                : "info",
-              categories: [],
-              href: itemData.relativePath,
-            });
-          },
-          (assessmentData) => {
-            const itemBlobMap = new Map<string, string>();
+        const JSZip = (await import("jszip")).default;
+        const zip = await JSZip.loadAsync(file);
 
-            const itemsWithBlobRefs = assessmentData.itemRefs
-              .map((i) => {
-                const matchedItem = itemsWithContent.find(
-                  (it) => it.identifier === i.identifier
-                );
-                if (matchedItem) {
-                  const originalHref = getRelativePath(
-                    assessmentData.relativePath,
-                    matchedItem.href || ""
-                  );
-                  const blobUrl = itemBlobManager.storeItemAsBlob(
-                    matchedItem.content,
-                    originalHref
-                  );
-                  itemBlobMap.set(originalHref, blobUrl);
-
-                  return {
-                    identifier: matchedItem.identifier,
-                    itemRefIdentifier: i.itemRefIdentifier,
-                    title: matchedItem.title,
-                    type: matchedItem.type,
-                    categories: matchedItem.categories,
-                    href: blobUrl,
-                    originalHref: originalHref,
-                  } as ItemInfoWithBlobRef;
-                }
-                return undefined;
-              })
-              .filter((i) => i !== undefined);
-
-            const updatedAssessmentContent =
-              itemBlobManager.updateAssessmentTestWithBlobUrefs(
-                assessmentData.content,
-                itemBlobMap
-              );
-
-            assessments.push({
-              id: assessmentData.identifier,
-              content: updatedAssessmentContent,
-              packageId: assessmentData.identifier,
-              assessmentHref: assessmentData.relativePath,
-              name: assessmentData.identifier,
-              items: itemsWithBlobRefs,
-              createdAt: new Date().getTime(),
-              updatedAt: new Date().getTime(),
-              createdBy: "user",
-            });
-          }
+        // First, cache every file from the zip (so referenced assets/scripts are always fetchable).
+        // XML files are cached as text and later overwritten for converted items/tests.
+        const zipFilePaths = Object.keys(zip.files).filter(
+          (p) =>
+            !p.includes("__MACOSX") &&
+            !p.includes(".DS_Store") &&
+            !zip.files[p].dir,
         );
+        const normalizedToZipKey = new Map<string, string>();
+        for (const zipKey of zipFilePaths) {
+          normalizedToZipKey.set(normalizeZipPath(zipKey), zipKey);
+        }
+
+        const xmlContentsByPath = new Map<string, string>();
+        for (const relativePath of zipFilePaths) {
+          const normalizedPath = normalizeZipPath(relativePath);
+          const entry = zip.files[relativePath];
+          const ext = normalizedPath.split(".").pop()?.toLowerCase() || "";
+          if (ext === "xml") {
+            const text = await entry.async("string");
+            xmlContentsByPath.set(normalizedPath, text);
+            await putTextFileInPackageCache(packageId, normalizedPath, text);
+          } else {
+            const blob = await entry.async("blob");
+            await putBlobFileInPackageCache(packageId, normalizedPath, blob);
+          }
+        }
+
+        // Some packages place `modules/module_resolution.*` under a subfolder (e.g. per-PCI).
+        // qti-components will always request `${baseUrl}/modules/module_resolution.*`, so create aliases
+        // at the package root if missing.
+        const ensureAliasedModuleResolution = async (
+          filename: "module_resolution" | "fallback_module_resolution",
+        ) => {
+          const rootJs = `modules/${filename}.js`;
+          const rootJson = `modules/${filename}.json`;
+          const hasRoot =
+            normalizedToZipKey.has(rootJs) || normalizedToZipKey.has(rootJson);
+          if (hasRoot) return;
+
+          const candidates = Array.from(normalizedToZipKey.keys()).filter(
+            (p) =>
+              p.endsWith(`/modules/${filename}.js`) ||
+              p.endsWith(`/modules/${filename}.json`),
+          );
+          if (candidates.length === 0) return;
+
+          const pick = candidates[0];
+          const zipKey = normalizedToZipKey.get(pick);
+          if (!zipKey) return;
+          try {
+            const entry = zip.files[zipKey];
+            if (!entry) return;
+            const ext = pick.endsWith(".json") ? "json" : "js";
+            if (ext === "json") {
+              const text = await entry.async("string");
+              await putTextFileInPackageCache(
+                packageId,
+                rootJson,
+                text,
+                "application/json",
+              );
+            } else {
+              const blob = await entry.async("blob");
+              await putBlobFileInPackageCache(packageId, rootJs, blob);
+            }
+          } catch {
+            // ignore
+          }
+        };
+
+        await ensureAliasedModuleResolution("module_resolution");
+        await ensureAliasedModuleResolution("fallback_module_resolution");
+
+        const assessments: AssessmentInfoWithContent[] = [];
+        const importErrors: string[] = [];
+
+        // Identify item and test XML files.
+        const cheerio3 = await import("cheerio");
+        const itemPaths = new Map<string, string>(); // identifier -> relativePath
+        let testFilePath: string | null = null;
+        let testIdentifier: string | null = null;
+
+        const xmlPaths = Array.from(xmlContentsByPath.keys());
+        for (const relativePath of xmlPaths) {
+          const content = xmlContentsByPath.get(relativePath) || "";
+
+          if (!skipValidation) {
+            try {
+              const doc = new DOMParser().parseFromString(content, "text/xml");
+              const hasParseError =
+                doc.getElementsByTagName("parsererror").length > 0;
+              if (hasParseError) {
+                importErrors.push(`Invalid XML structure in ${relativePath}`);
+              }
+            } catch {
+              importErrors.push(`Invalid XML structure in ${relativePath}`);
+            }
+          }
+
+          const $ = cheerio3.load(content, { xmlMode: true, xml: true });
+
+          if (
+            $("qti-assessment-test").length > 0 ||
+            $("assessmentTest").length > 0
+          ) {
+            if (!testFilePath) {
+              testFilePath = relativePath;
+              testIdentifier =
+                $("qti-assessment-test").attr("identifier") ||
+                $("assessmentTest").attr("identifier") ||
+                null;
+            }
+          }
+
+          if (
+            $("qti-assessment-item").length > 0 ||
+            $("assessmentItem").length > 0
+          ) {
+            const identifier =
+              $("qti-assessment-item").attr("identifier") ||
+              $("assessmentItem").attr("identifier") ||
+              "";
+            if (identifier) {
+              itemPaths.set(identifier, relativePath);
+            }
+          }
+        }
+
+        const xsltJsonUrl = await getUpgraderStylesheetBlobUrl();
+
+        // Convert items to QTI 3 and overwrite them in cache.
+        const convertedItems: {
+          identifier: string;
+          relativePath: string;
+          content: string;
+          type: string;
+          title: string;
+          categories: string[];
+        }[] = [];
+
+        for (const [identifier, relativePath] of itemPaths.entries()) {
+          const originalContent = xmlContentsByPath.get(relativePath);
+          if (!originalContent) continue;
+
+          let qti3Xml = await convertQti2toQti3(originalContent, xsltJsonUrl);
+          const folderPath =
+            relativePath.substring(0, relativePath.lastIndexOf("/") + 1) || "";
+
+          let transformResult = qtiTransform(qti3Xml)
+            .objectToImg()
+            .objectToVideo()
+            .objectToAudio()
+            .ssmlSubToSpan()
+            .stripMaterialInfo()
+            .minChoicesToOne()
+            .externalScored()
+            .customInteraction("/", folderPath)
+            .qbCleanup()
+            .depConvert()
+            .upgradePci();
+
+          if (removeStylesheets) {
+            transformResult = transformResult.stripStylesheets();
+          }
+
+          qti3Xml = forcePciIframeMode(transformResult.xml());
+          await putTextFileInPackageCache(packageId, relativePath, qti3Xml);
+
+          convertedItems.push({
+            identifier,
+            relativePath,
+            content: qti3Xml,
+            title: identifier,
+            type: qti3Xml.includes("interaction>") ? "regular" : "info",
+            categories: [],
+          });
+        }
+
+        // Convert test to QTI 3 (or synthesize one if none exists).
+        const resolveHref = (baseFilePath: string, href: string | undefined) => {
+          if (!href) return null;
+          try {
+            const resolved = new URL(
+              href,
+              `https://example.com/${baseFilePath}`,
+            ).pathname.replace(/^\/+/, "");
+            return resolved;
+          } catch {
+            return null;
+          }
+        };
+
+        let effectiveTestPath = testFilePath;
+        let effectiveTestIdentifier = testIdentifier;
+        let convertedTestXml = "";
+        let itemRefs: { itemRefIdentifier?: string; identifier: string }[] = [];
+
+	        if (testFilePath && testIdentifier) {
+	          const originalContent = xmlContentsByPath.get(testFilePath) || "";
+	          const qti3Xml = await convertQti2toQti3(originalContent, xsltJsonUrl);
+	          let transformResult = qtiTransform(qti3Xml)
+	            .objectToImg()
+            .objectToVideo()
+            .objectToAudio()
+            .ssmlSubToSpan()
+            .stripMaterialInfo()
+            .minChoicesToOne()
+            .externalScored()
+            .customInteraction("/", "")
+            .qbCleanup()
+            .depConvert()
+            .upgradePci();
+          if (removeStylesheets) {
+            transformResult = transformResult.stripStylesheets();
+          }
+          convertedTestXml = forcePciIframeMode(transformResult.xml());
+          await putTextFileInPackageCache(packageId, testFilePath, convertedTestXml);
+
+          // Build itemRefs from the (original) test file so href resolution matches the package structure.
+          const $ = cheerio3.load(originalContent, { xmlMode: true, xml: true });
+          const refs: { itemRefIdentifier?: string; identifier: string }[] = [];
+          $("qti-assessment-item-ref, assessmentItemRef").each((_, el) => {
+            const itemRefIdentifierAttr = $(el).attr("identifier");
+            const href = $(el).attr("href");
+            const resolvedHref = resolveHref(testFilePath!, href);
+            if (!resolvedHref) return;
+            itemPaths.forEach((itemPath, itemIdentifier) => {
+              if (itemPath === resolvedHref) {
+                refs.push({
+                  itemRefIdentifier: itemRefIdentifierAttr,
+                  identifier: itemIdentifier,
+                });
+              }
+            });
+          });
+          itemRefs = refs;
+        } else if (convertedItems.length > 0) {
+          effectiveTestPath = "all-items.xml";
+          effectiveTestIdentifier = "All";
+          itemRefs = convertedItems.map((it) => ({
+            itemRefIdentifier: it.identifier,
+            identifier: it.identifier,
+          }));
+
+          convertedTestXml = `<?xml version="1.0" encoding="utf-8"?>
+<qti-assessment-test xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0p1_v1p0.xsd"
+  identifier="All" title="ALL items"
+  tool-name="CitoLab" tool-version="qti-playground"
+  xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0">
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value><qti-value>0</qti-value></qti-default-value>
+  </qti-outcome-declaration>
+  <qti-test-part identifier="RES-ALL" title="Testpart-1" navigation-mode="nonlinear" submission-mode="simultaneous">
+    <qti-assessment-section identifier="section_1" title="section 1" visible="true" keep-together="false">
+      ${convertedItems
+        .map(
+          (item) =>
+            `<qti-assessment-item-ref identifier="${item.identifier}" href="${item.relativePath}"><qti-weight identifier="WEIGHT" value="1" /></qti-assessment-item-ref>`,
+        )
+        .join("")}
+    </qti-assessment-section>
+  </qti-test-part>
+  <qti-outcome-processing>
+    <qti-set-outcome-value identifier="SCORE">
+      <qti-sum>
+        <qti-test-variables variable-identifier="SCORE" weight-identifier="WEIGHT" />
+      </qti-sum>
+    </qti-set-outcome-value>
+  </qti-outcome-processing>
+</qti-assessment-test>`;
+
+          await putTextFileInPackageCache(
+            packageId,
+            effectiveTestPath,
+            convertedTestXml,
+          );
+	        }
+
+	        if (effectiveTestPath && effectiveTestIdentifier) {
+          const itemsWithRefs = itemRefs
+            .map((ref) => {
+              const itemPath = itemPaths.get(ref.identifier);
+              if (!itemPath) return null;
+              const originalHref = getRelativePath(effectiveTestPath!, itemPath);
+              const hrefResolved = resolveHref(effectiveTestPath!, originalHref) || itemPath;
+              const itemUrl = makePackageUrl(packageId, hrefResolved);
+              return {
+                identifier: ref.identifier,
+                itemRefIdentifier: ref.itemRefIdentifier || ref.identifier,
+                title: ref.identifier,
+                type:
+                  convertedItems.find((i) => i.identifier === ref.identifier)
+                    ?.type || "regular",
+                categories: [],
+                href: itemUrl,
+                originalHref,
+              } as ItemInfoWithBlobRef;
+            })
+            .filter(Boolean) as ItemInfoWithBlobRef[];
+
+          assessments.push({
+            id: effectiveTestIdentifier,
+            content: convertedTestXml,
+            packageId,
+            assessmentHref: effectiveTestPath,
+            name: effectiveTestIdentifier,
+            items: itemsWithRefs,
+            createdAt: new Date().getTime(),
+            updatedAt: new Date().getTime(),
+            createdBy: "user",
+            testUrl: makePackageUrl(packageId, effectiveTestPath),
+          });
+        }
 
         const newState = {
+          activePackageId: packageId,
           assessments,
-          importErrors: result.errors,
+          importErrors,
           itemsPerAssessment: assessments.map((a) => ({
             assessmentId: a.id,
             items: a.items || [],
           })),
-        };
+        } satisfies Partial<StateModel>;
+
         set(newState);
         return { ...get() };
       },
@@ -446,6 +752,7 @@ export const useStore = create<Store>()(
       name: "state_default_user",
       partialize: (state) => ({
         // Only persist specific state fields (not transient ones)
+        activePackageId: state.activePackageId,
         assessments: state.assessments,
         itemsPerAssessment: state.itemsPerAssessment,
         selectedAssessment: state.selectedAssessment,

@@ -1,8 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { qtiTransform } from "@citolab/qti-convert/qti-transformer";
 import { Bookmark } from "lucide-react";
-import { itemBlobManager } from "../store/item-blob-manager";
 import { ItemInfoWithBlobRef } from "../store/store";
 import { itemCss } from "../itemCss";
 
@@ -32,7 +30,11 @@ function OverviewGridItem({
       try {
         setIsLoading(true);
         setError("");
-        const content = await itemBlobManager.getItemFromBlob(item.href);
+        const res = await fetch(item.href, { method: "GET" });
+        if (!res.ok) {
+          throw new Error(`Failed to fetch item (${res.status})`);
+        }
+        const content = await res.text();
         if (!isActive) return;
         setItemContent(content);
       } catch (err) {

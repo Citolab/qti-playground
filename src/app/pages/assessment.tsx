@@ -19,8 +19,8 @@ import {
   LayoutGrid,
   LogOut,
 } from "lucide-react";
-import { itemBlobManager } from "../store/item-blob-manager";
 import { itemCss } from "../itemCss";
+import { QTI_PKG_URL_PREFIX } from "../store/qti-package-cache";
 
 import DraggablePopup from "../components/draggable-popup";
 import ModeSwitch from "../components/mode-switcher";
@@ -54,7 +54,7 @@ declare module "react" {
 export const AssessmentPage: React.FC = () => {
   const navigate = useNavigate();
   const qtiTestRef = useRef<IQtiTest>(null);
-  const hasRedirectedForMissingBlobsRef = useRef(false);
+  const hasRedirectedForMissingPackageCacheRef = useRef(false);
   const [queryParams, setQueryParams] = useSearchParams();
   const [showVariables, setShowVariables] = useState(false);
   const [currentItemIdentifier, setCurrentItemIdentifier] = useState("");
@@ -80,6 +80,267 @@ export const AssessmentPage: React.FC = () => {
   const itemsPerAssessment = useStore((state) => state.itemsPerAssessment);
   const editItem = useStore((state) => state.editItem);
 
+  const { assessmentId } = useParams<{
+    assessmentId: string;
+  }>();
+
+  const selectedAssessmentData = assessments?.find(
+    (a) => a.id === selectedAssessment,
+  );
+  const assessment = assessments?.find((a) => a.id === assessmentId);
+  const packageRootUrl = useMemo(() => {
+    if (!assessment?.packageId) return null;
+    return `${QTI_PKG_URL_PREFIX}/${encodeURIComponent(assessment.packageId)}`;
+  }, [assessment?.packageId]);
+
+  type ModuleResolutionConfig = {
+    paths?: Record<string, string | string[]>;
+    shim?: Record<string, unknown>;
+    urlArgs?: string;
+    [key: string]: unknown;
+  };
+
+  type TransformItemApi = {
+    configurePci: (
+      baseUrl: string,
+      getModuleResolutionConfig: (
+        baseUrl: string,
+        fileUrl: string,
+      ) => Promise<ModuleResolutionConfig | null>,
+    ) => Promise<TransformItemApi>;
+    xmlDoc?: () => XMLDocument;
+  };
+
+  const postLoadTransformCallback = useCallback(
+    async (
+      transformer: TransformItemApi,
+      itemRef?: { getAttribute: (name: string) => string | null },
+    ) => {
+      if (!packageRootUrl || !transformer?.configurePci) return transformer;
+
+      const itemHref = itemRef?.getAttribute?.("href") || "";
+      const itemDirUrl = (() => {
+        if (!itemHref) return packageRootUrl;
+        try {
+          // `href` on qti-assessment-item-ref is relative to the *test XML URL* (not the app route URL).
+          // If we resolve against `window.location.href`, PCI modules will be requested from `/items/...`
+          // instead of `/__qti_pkg__/<packageId>/items/...`, causing 404s.
+          const testUrl = assessment?.testUrl || packageRootUrl;
+          const base = new URL(testUrl, window.location.href);
+          const u = new URL(itemHref, base);
+          const pathname = u.pathname;
+          const idx = pathname.lastIndexOf("/");
+          return idx >= 0 ? pathname.slice(0, idx) : packageRootUrl;
+        } catch {
+          return packageRootUrl;
+        }
+      })();
+
+      // Most PCI bundles (and module_resolution.*) are rooted at the package root `modules/` folder.
+      // Using the item directory as base would make RequireJS request `/items/.../modules/...` (404).
+      const pciBaseUrl = packageRootUrl;
+
+      const getModuleResolutionConfig = async (
+        baseUrl: string,
+        fileUrl: string,
+      ): Promise<ModuleResolutionConfig | null> => {
+        const tryFetchJson = async (url: string) => {
+          const res = await fetch(url, { method: "GET" });
+          if (!res.ok) return null;
+          const txt = await res.text();
+          try {
+            return JSON.parse(txt) as ModuleResolutionConfig;
+          } catch {
+            return null;
+          }
+        };
+
+        const candidates: string[] = [];
+        const seen = new Set<string>();
+        const push = (url: string) => {
+          if (seen.has(url)) return;
+          seen.add(url);
+          candidates.push(url);
+        };
+
+        // qti-components asks for `/modules/module_resolution.*` relative to *the PCI baseUrl*.
+        // In practice, module resolution files often live at the package root, but sometimes per-item.
+        push(`${packageRootUrl}${fileUrl}`);
+        push(`${baseUrl}${fileUrl}`);
+        push(`${itemDirUrl}${fileUrl}`);
+
+        if (fileUrl.endsWith(".js")) {
+          const alt = `${fileUrl.slice(0, -3)}.json`;
+          push(`${packageRootUrl}${alt}`);
+          push(`${baseUrl}${alt}`);
+          push(`${itemDirUrl}${alt}`);
+        } else if (fileUrl.endsWith(".json")) {
+          const alt = `${fileUrl.slice(0, -5)}.js`;
+          push(`${packageRootUrl}${alt}`);
+          push(`${baseUrl}${alt}`);
+          push(`${itemDirUrl}${alt}`);
+        }
+
+        for (const url of candidates) {
+          const parsed = await tryFetchJson(url);
+          if (parsed) return parsed;
+        }
+
+        return null;
+      };
+
+      try {
+        const configured = await transformer.configurePci(
+          pciBaseUrl,
+          getModuleResolutionConfig,
+        );
+
+        // qtiTransformItem().path(...) can turn module paths into absolute `/__qti_pkg__/...` paths.
+        // qti-components' requirejs loader treats those as relative (not http) and prefixes baseUrl again.
+        // Normalize to relative paths if they start with our base URLs.
+        const doc = configured.xmlDoc?.();
+        if (doc) {
+          // Force iframe mode for PCIs. Many TAO-exported PCIs assume an iframe-based engine/runtime.
+          // Without this, qti-components hides `qti-interaction-markup` and expects the PCI to render
+          // its own UI, which some packages don't do correctly in non-iframe mode.
+          doc
+            .querySelectorAll("qti-portable-custom-interaction")
+            .forEach((el) => {
+              if (!el.hasAttribute("data-use-iframe"))
+                el.setAttribute("data-use-iframe", "");
+            });
+
+          // In iframe mode (`data-use-iframe`), qti-components renders the PCI markup inside a data-URL iframe.
+          // `qti-stylesheet` loads CSS into the *parent* document, so those styles won't apply inside the iframe.
+          // Fix that by inlining referenced stylesheet CSS into `qti-interaction-markup`, which is sent to the iframe.
+          const stylesheetCache = new Map<string, Promise<string | null>>();
+          const fetchCssText = (href: string): Promise<string | null> => {
+            if (stylesheetCache.has(href)) return stylesheetCache.get(href)!;
+            const p = (async () => {
+              const isAbsolute = /^(data:|blob:|https?:)/.test(href);
+              const isRooted = href.startsWith("/");
+              const resolved = isAbsolute
+                ? href
+                : isRooted
+                  ? `${window.location.origin}${href}`
+                  : `${window.location.origin}${new URL(
+                      href,
+                      `${window.location.origin}${itemDirUrl}/`,
+                    ).pathname}`;
+              try {
+                const res = await fetch(resolved, { method: "GET" });
+                if (!res.ok) return null;
+                return await res.text();
+              } catch {
+                return null;
+              }
+            })();
+            stylesheetCache.set(href, p);
+            return p;
+          };
+
+          const inlineIframedPciStyles = async () => {
+            const pcis = Array.from(
+              doc.querySelectorAll(
+                "qti-portable-custom-interaction[data-use-iframe]",
+              ),
+            );
+            for (const pci of pcis) {
+              const markup =
+                pci.querySelector("qti-interaction-markup") ||
+                (() => {
+                  const el = doc.createElement("qti-interaction-markup");
+                  pci.appendChild(el);
+                  return el;
+                })();
+
+              if (markup.getAttribute("data-qti-playground-inline-css") === "1")
+                continue;
+
+              const stylesheets = Array.from(
+                pci.querySelectorAll("qti-stylesheet[href]"),
+              );
+              if (stylesheets.length === 0) continue;
+
+              const cssParts: string[] = [];
+              for (const ss of stylesheets) {
+                const href = ss.getAttribute("href")?.trim();
+                if (!href) continue;
+                const css = await fetchCssText(href);
+                if (css) cssParts.push(css);
+              }
+
+              if (cssParts.length === 0) continue;
+
+              const styleEl = doc.createElement("style");
+              styleEl.setAttribute("data-qti-playground-inline", "1");
+              styleEl.textContent = cssParts.join("\n\n");
+              markup.insertBefore(styleEl, markup.firstChild);
+              markup.setAttribute("data-qti-playground-inline-css", "1");
+            }
+          };
+
+          await inlineIframedPciStyles();
+
+          const stripLeadingPrefix = (value: string, prefix: string) => {
+            const withSlash = prefix.endsWith("/") ? prefix : `${prefix}/`;
+            if (value.startsWith(withSlash)) return value.slice(withSlash.length);
+            if (value === prefix) return "";
+            return value;
+          };
+
+          const maybeNormalize = (value: string | null) => {
+            if (!value) return value;
+            // Avoid rewriting real URLs.
+            if (/^(data:|blob:|https?:)/.test(value)) return value;
+            // Keep app/shared static assets rooted at the app origin.
+            if (value.startsWith("/assets/")) return value;
+
+            const shouldNormalize =
+              value.startsWith("/") ||
+              value.startsWith("__qti_pkg__/") ||
+              value.startsWith("/__qti_pkg__/") ||
+              value.startsWith("/items/") ||
+              value.startsWith("/modules/") ||
+              value.startsWith(packageRootUrl) ||
+              value.startsWith(itemDirUrl);
+            if (!shouldNormalize) return value;
+
+            const packageRootPath = packageRootUrl.replace(/^\/+/, "");
+            const itemDirPath = itemDirUrl.replace(/^\/+/, "");
+
+            // Normalize to a package-relative path so qti-components can safely prefix `baseUrl`.
+            let next = value.replace(/^\/+/, "");
+            for (let i = 0; i < 4; i++) {
+              const prev = next;
+              next = stripLeadingPrefix(next, itemDirPath);
+              next = stripLeadingPrefix(next, packageRootPath);
+              next = next.replace(/^\/+/, "");
+              if (next === prev) break;
+            }
+            return next;
+          };
+
+          doc.querySelectorAll("qti-interaction-module").forEach((el) => {
+            const primary = maybeNormalize(el.getAttribute("primary-path"));
+            if (primary !== null) el.setAttribute("primary-path", primary);
+            const fallback = maybeNormalize(el.getAttribute("fallback-path"));
+            if (fallback !== null) el.setAttribute("fallback-path", fallback);
+          });
+        }
+
+        return configured;
+      } catch (error) {
+        console.warn(
+          "PCI module resolution failed (continuing without it):",
+          error,
+        );
+        return transformer;
+      }
+    },
+    [assessment?.testUrl, packageRootUrl],
+  );
+
   // Stable event handler for QTI item connection
   const handleItemConnected = useCallback((event: Event) => {
     const qtiAssessmentItem = (event as CustomEvent<QtiAssessmentItem>)?.detail;
@@ -100,13 +361,15 @@ export const AssessmentPage: React.FC = () => {
     (element) => {
       if (element) {
         qtiTestRef.current = element;
+        (element as unknown as { postLoadTransformCallback?: unknown }).postLoadTransformCallback =
+          postLoadTransformCallback;
         element.addEventListener(
           "qti-assessment-item-connected",
           handleItemConnected,
         );
       }
     },
-    [handleItemConnected],
+    [handleItemConnected, postLoadTransformCallback],
   );
 
   // Cleanup event listeners on unmount
@@ -121,14 +384,11 @@ export const AssessmentPage: React.FC = () => {
     };
   }, []);
 
-  const { assessmentId } = useParams<{
-    assessmentId: string;
-  }>();
-
-  const selectedAssessmentData = assessments?.find(
-    (a) => a.id === selectedAssessment,
-  );
-  const assessment = assessments?.find((a) => a.id === assessmentId);
+  useEffect(() => {
+    if (!qtiTestRef.current) return;
+    (qtiTestRef.current as unknown as { postLoadTransformCallback?: unknown }).postLoadTransformCallback =
+      postLoadTransformCallback;
+  }, [postLoadTransformCallback]);
 
   const handleToggle = useCallback((mode: string) => {
     if (qtiTestRef.current)
@@ -143,7 +403,7 @@ export const AssessmentPage: React.FC = () => {
 
   // QTI test setup effect
   useEffect(() => {
-    if (!qtiTestRef.current || !assessment?.content) return;
+    if (!qtiTestRef.current || !assessment?.testUrl) return;
 
     const itemId = queryParams.get("item");
 
@@ -220,11 +480,11 @@ export const AssessmentPage: React.FC = () => {
 
   const redirectToPackageDueToMissingItemData = useCallback(
     (details?: { uri?: string; error?: unknown }) => {
-      if (hasRedirectedForMissingBlobsRef.current) return;
-      hasRedirectedForMissingBlobsRef.current = true;
+      if (hasRedirectedForMissingPackageCacheRef.current) return;
+      hasRedirectedForMissingPackageCacheRef.current = true;
 
       console.warn(
-        "Assessment item data is no longer available (likely expired blob URL). Redirecting to /package.",
+        "Assessment package resources are not available (missing CacheStorage entries). Redirecting to /package.",
         details,
       );
 
@@ -238,36 +498,33 @@ export const AssessmentPage: React.FC = () => {
       } catch {
         // ignore
       }
-      try {
-        itemBlobManager.cleanup();
-      } catch {
-        // ignore
-      }
-
       navigate("/package", { replace: true });
     },
     [navigate],
   );
 
-  // If the user returns later (or refreshes) persisted state may still reference blob: hrefs,
-  // but the actual blob URLs are no longer valid. Detect that early and redirect to /package.
+  // If the user returns later (or refreshes), persisted state may still reference a packageId/testUrl,
+  // but the corresponding CacheStorage entries may be gone. Detect that early and redirect to /package.
   useEffect(() => {
-    const firstItemHref = assessment?.items?.[0]?.href;
-    if (!firstItemHref || !firstItemHref.startsWith("blob:")) return;
+    const testUrl = assessment?.testUrl;
+    if (!testUrl) return;
 
     const check = async () => {
       try {
-        await itemBlobManager.getItemFromBlob(firstItemHref);
+        const res = await fetch(testUrl, { method: "HEAD" });
+        if (!res.ok) {
+          throw new Error(`Missing testUrl (${res.status})`);
+        }
       } catch (error) {
         redirectToPackageDueToMissingItemData({
-          uri: firstItemHref,
+          uri: testUrl,
           error,
         });
       }
     };
 
     void check();
-  }, [assessment?.items, redirectToPackageDueToMissingItemData]);
+  }, [assessment?.testUrl, redirectToPackageDueToMissingItemData]);
 
   const handleExitOverlay = useCallback(() => {
     handlePrevious();
@@ -581,35 +838,7 @@ export const AssessmentPage: React.FC = () => {
                     <div className="flex justify-center p-6 min-h-full">
                       <test-container
                         className="custom-qti-style cito-style w-full max-w-4xl"
-                        testXML={assessment?.content}
-                        onqti-item-ref-uri-callback={async (
-                          event: CustomEvent,
-                        ) => {
-                          // Handle item-ref requests. If blob URLs expire, a re-upload is required.
-                          const uri = event.detail?.uri;
-                          if (!uri) return;
-
-                          if (uri.startsWith("blob:")) {
-                            try {
-                              const content =
-                                await itemBlobManager.getItemFromBlob(uri);
-                              event.detail.resolveWith(content);
-                            } catch (error) {
-                              redirectToPackageDueToMissingItemData({
-                                uri,
-                                error,
-                              });
-                            }
-                            return;
-                          }
-
-                          // Try to resolve from blob manager for backward compatibility (relative href variants)
-                          const content =
-                            await itemBlobManager.getItemByHref(uri);
-                          if (content) {
-                            event.detail.resolveWith(content);
-                          }
-                        }}
+                        testURL={assessment?.testUrl}
                       >
                         <template
                           dangerouslySetInnerHTML={{

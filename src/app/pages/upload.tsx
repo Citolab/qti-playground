@@ -145,6 +145,18 @@ export const UploadPage: React.FC = () => {
           <button
             className="flex items-center px-4 py-2 bg-citolab-600 text-white rounded-lg hover:bg-citolab-700 transition-colors"
             onClick={() => {
+              void (async () => {
+                try {
+                  const keys = await caches.keys();
+                  await Promise.all(
+                    keys
+                      .filter((k) => k.startsWith("qti-pkg-"))
+                      .map((k) => caches.delete(k)),
+                  );
+                } catch {
+                  // ignore
+                }
+              })();
               localStorage.clear();
               forceMemoryCleanup();
               window.location.reload();

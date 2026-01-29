@@ -2,7 +2,6 @@ import React, { useState, useEffect, memo, useMemo, useRef } from "react";
 import { qtiTransform } from "@citolab/qti-convert/qti-transformer";
 import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { itemBlobManager } from "../store/item-blob-manager";
 import { ItemInfoWithBlobRef } from "../store/store";
 import { itemCss } from "../itemCss";
 
@@ -24,7 +23,11 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
         try {
           setIsLoading(true);
           setError("");
-          const content = await itemBlobManager.getItemFromBlob(item.href);
+          const res = await fetch(item.href, { method: "GET" });
+          if (!res.ok) {
+            throw new Error(`Failed to fetch item (${res.status})`);
+          }
+          const content = await res.text();
           setItemContent(content);
         } catch (err) {
           console.error("Failed to load item content:", err);
