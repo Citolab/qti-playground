@@ -112,6 +112,14 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
           $(`qti-media-interaction, audio, video`).replaceWith(`
           <div>Removed media</div>`);
         })
+        .fnCh(($) => {
+          // In the /package grid we render many items at once. Rendering PCIs here is fragile
+          // (multiple iframes/RequireJS contexts) and slows the page down.
+          // Keep a lightweight placeholder; the PCI will render properly in /assessment.
+          $("qti-portable-custom-interaction").replaceWith(
+            `<div class="rounded border border-dashed border-gray-300 bg-gray-50 p-2 text-[11px] text-gray-600">PCI will be rendered in the assessment</div>`,
+          );
+        })
         .browser.htmldoc();
     }, [itemContent]);
 
