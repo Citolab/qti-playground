@@ -136,9 +136,79 @@ export const AssessmentPage: React.FC = () => {
         }
       })();
 
-      // Most PCI bundles (and module_resolution.*) are rooted at the package root `modules/` folder.
-      // Using the item directory as base would make RequireJS request `/items/.../modules/...` (404).
+      const itemStemDirUrl = (() => {
+        if (!itemHref) return null;
+        try {
+          const testUrl = assessment?.testUrl || packageRootUrl;
+          const base = new URL(testUrl, window.location.href);
+          const u = new URL(itemHref, base);
+          const pathname = u.pathname;
+          const last = pathname.split("/").pop() || "";
+          const dot = last.lastIndexOf(".");
+          if (dot <= 0) return null;
+          const withoutExt = last.slice(0, dot);
+          const baseDir = pathname
+            .slice(0, pathname.length - last.length)
+            .replace(/\/+$/, "");
+          const parent = baseDir.split("/").filter(Boolean).pop() || "";
+          if (parent.toLowerCase() !== "items") return null;
+          return `${baseDir}/${withoutExt}`;
+        } catch {
+          return null;
+        }
+      })();
+
+      // Keep the PCI RequireJS baseUrl stable (package root). If a PCI (or one of its deps) actually lives
+      // under `modules/` or an item-local `modules/`, we inject explicit per-module paths later.
       const pciBaseUrl = packageRootUrl;
+
+      const parseModuleResolutionConfig = (
+        text: string,
+      ): ModuleResolutionConfig | null => {
+        const tryJson = (t: string) => {
+          try {
+            return JSON.parse(t) as ModuleResolutionConfig;
+          } catch {
+            return null;
+          }
+        };
+
+        const normalize = (cfg: ModuleResolutionConfig | null) => {
+          if (!cfg) return null;
+          if (!cfg.paths || typeof cfg.paths !== "object") return null;
+          return cfg;
+        };
+
+        const trimmed = text.trim();
+
+        // 1) Plain JSON
+        const direct = normalize(tryJson(trimmed));
+        if (direct) return direct;
+
+        // 2) Common wrappers: define(...), require.config(...), requirejs.config(...)
+        const cleaned = trimmed
+          .replace(/^define\(/, "")
+          .replace(/^requirejs\.config\(/, "")
+          .replace(/^require\.config\(/, "")
+          .replace(/\);?\s*$/, "")
+          .replace(/^\(/, "")
+          .replace(/\)\s*$/, "")
+          .trim();
+        const wrapped = normalize(tryJson(cleaned));
+        if (wrapped) return wrapped;
+
+        // 3) Last-resort: extract the first JSON object from inside the file (handles
+        // `define({...})`, `var x = {...};`, etc as long as it's JSON-compatible).
+        const firstBrace = trimmed.indexOf("{");
+        const lastBrace = trimmed.lastIndexOf("}");
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+          const inner = trimmed.slice(firstBrace, lastBrace + 1);
+          const extracted = normalize(tryJson(inner));
+          if (extracted) return extracted;
+        }
+
+        return null;
+      };
 
       const getModuleResolutionConfig = async (
         baseUrl: string,
@@ -148,11 +218,7 @@ export const AssessmentPage: React.FC = () => {
           const res = await fetch(url, { method: "GET" });
           if (!res.ok) return null;
           const txt = await res.text();
-          try {
-            return JSON.parse(txt) as ModuleResolutionConfig;
-          } catch {
-            return null;
-          }
+          return parseModuleResolutionConfig(txt);
         };
 
         const candidates: string[] = [];
@@ -163,22 +229,34 @@ export const AssessmentPage: React.FC = () => {
           candidates.push(url);
         };
 
-        // qti-components asks for `/modules/module_resolution.*` relative to *the PCI baseUrl*.
-        // In practice, module resolution files often live at the package root, but sometimes per-item.
-        push(`${packageRootUrl}${fileUrl}`);
-        push(`${baseUrl}${fileUrl}`);
-        push(`${itemDirUrl}${fileUrl}`);
+        const maybePushConfigAtBase = (base: string, url: string) => {
+          // If `baseUrl` already points at `/modules`, also try without the `/modules/` prefix
+          // (so `/modules/module_resolution.js` becomes `/module_resolution.js`).
+          if (base.endsWith("/modules") && url.startsWith("/modules/")) {
+            push(`${base}${url.slice("/modules".length)}`);
+          }
+          push(`${base}${url}`);
+        };
+
+        // Prefer item-specific configs over package-root aliases. Some packages contain multiple
+        // `module_resolution.*` files and only the item-local one matches the current PCI.
+        maybePushConfigAtBase(itemDirUrl, fileUrl);
+        if (itemStemDirUrl) maybePushConfigAtBase(itemStemDirUrl, fileUrl);
+        maybePushConfigAtBase(baseUrl, fileUrl);
+        maybePushConfigAtBase(packageRootUrl, fileUrl);
 
         if (fileUrl.endsWith(".js")) {
           const alt = `${fileUrl.slice(0, -3)}.json`;
-          push(`${packageRootUrl}${alt}`);
-          push(`${baseUrl}${alt}`);
-          push(`${itemDirUrl}${alt}`);
+          maybePushConfigAtBase(itemDirUrl, alt);
+          if (itemStemDirUrl) maybePushConfigAtBase(itemStemDirUrl, alt);
+          maybePushConfigAtBase(baseUrl, alt);
+          maybePushConfigAtBase(packageRootUrl, alt);
         } else if (fileUrl.endsWith(".json")) {
           const alt = `${fileUrl.slice(0, -5)}.js`;
-          push(`${packageRootUrl}${alt}`);
-          push(`${baseUrl}${alt}`);
-          push(`${itemDirUrl}${alt}`);
+          maybePushConfigAtBase(itemDirUrl, alt);
+          if (itemStemDirUrl) maybePushConfigAtBase(itemStemDirUrl, alt);
+          maybePushConfigAtBase(baseUrl, alt);
+          maybePushConfigAtBase(packageRootUrl, alt);
         }
 
         for (const url of candidates) {
@@ -282,6 +360,265 @@ export const AssessmentPage: React.FC = () => {
 
           await inlineIframedPciStyles();
 
+          const debugEnabled =
+            typeof window !== "undefined" &&
+            typeof window.localStorage !== "undefined" &&
+            window.localStorage.getItem("__qti_debug_pci__") === "1";
+          const debug = (...args: unknown[]) => {
+            if (debugEnabled) console.debug("[pci]", ...args);
+          };
+
+          const encodePathSegments = (value: string) =>
+            value
+              .split("/")
+              .map((seg) => encodeURIComponent(seg))
+              .join("/");
+
+          const existsCache = new Map<string, Promise<boolean>>();
+          const urlExistsPath = async (path: string): Promise<boolean> => {
+            const absolute = `${window.location.origin}${path}`;
+            if (existsCache.has(absolute)) return await existsCache.get(absolute)!;
+            const p = (async () => {
+              try {
+                const res = await fetch(absolute, { method: "GET" });
+                return res.ok;
+              } catch {
+                return false;
+              }
+            })();
+            existsCache.set(absolute, p);
+            return await p;
+          };
+
+          const toScriptUrl = (baseUrl: string, maybePath: string) => {
+            const base = `${window.location.origin}${baseUrl.replace(/\/+$/, "")}/`;
+            const abs = /^(data:|blob:|https?:)/.test(maybePath)
+              ? maybePath
+              : maybePath.startsWith("/")
+                ? `${window.location.origin}${maybePath}`
+                : new URL(maybePath, base).toString();
+            const u = new URL(abs, window.location.origin);
+            const pathname = u.pathname;
+            if (pathname.endsWith(".js")) return u.toString();
+            u.pathname = `${pathname}.js`;
+            return u.toString();
+          };
+
+          const extractAmdDeps = (source: string): string[] => {
+            const match = source.match(
+              /define\s*\(\s*(?:["'][^"']+["']\s*,\s*)?\[([\s\S]*?)\]/,
+            );
+            if (!match) return [];
+            const deps: string[] = [];
+            const body = match[1] || "";
+            const re = /["']([^"']+)["']/g;
+            let m: RegExpExecArray | null = null;
+            while ((m = re.exec(body))) {
+              if (m[1]) deps.push(m[1]);
+            }
+            return deps;
+          };
+
+          const isSkippableDep = (dep: string) => {
+            const d = dep.trim();
+            if (!d) return true;
+            if (d === "require" || d === "exports" || d === "module")
+              return true;
+            if (d.includes("!")) return true;
+            if (d.startsWith(".")) return true;
+            return false;
+          };
+
+          const escapeCss = (value: string) => {
+            if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+              return CSS.escape(value);
+            }
+            return value.replace(/["\\]/g, "\\$&");
+          };
+
+          const findModuleScript = async (
+            moduleId: string,
+          ): Promise<string | null> => {
+            const id = moduleId.replace(/\.js$/i, "");
+            const encoded = encodePathSegments(id);
+            const candidates: string[] = [];
+            const push = (p: string | null) => {
+              if (!p) return;
+              if (!p.startsWith("/")) return;
+              if (!candidates.includes(p)) candidates.push(p);
+            };
+
+            push(`${itemDirUrl}/modules/${encoded}.js`);
+            if (itemStemDirUrl) push(`${itemStemDirUrl}/modules/${encoded}.js`);
+            push(`${packageRootUrl}/modules/${encoded}.js`);
+            push(`${itemDirUrl}/${encoded}.js`);
+            if (itemStemDirUrl) push(`${itemStemDirUrl}/${encoded}.js`);
+            push(`${packageRootUrl}/${encoded}.js`);
+
+            for (const path of candidates) {
+              if (await urlExistsPath(path)) {
+                // RequireJS expects paths without the .js extension.
+                return `${window.location.origin}${path.slice(0, -3)}`;
+              }
+            }
+            return null;
+          };
+
+          const ensurePciModuleMappings = async () => {
+            const pcis = Array.from(
+              doc.querySelectorAll("qti-portable-custom-interaction"),
+            );
+            if (pcis.length === 0) return;
+
+            debug("assessment pciBaseUrl", pciBaseUrl);
+
+            for (const pci of pcis) {
+              const entryRaw = (pci.getAttribute("module") || "").trim();
+              if (!entryRaw) continue;
+              const entryModule = entryRaw.replace(/\.js$/i, "");
+
+              let interactionModules =
+                pci.querySelector("qti-interaction-modules");
+              if (!interactionModules) {
+                interactionModules = doc.createElement("qti-interaction-modules");
+                pci.appendChild(interactionModules);
+              }
+
+              const moduleEls = Array.from(
+                interactionModules.querySelectorAll("qti-interaction-module"),
+              );
+              const moduleMap = new Map<
+                string,
+                { el: Element; primary: string | null; fallback: string | null }
+              >();
+              for (const el of moduleEls) {
+                const id = el.getAttribute("id")?.trim() || "";
+                if (!id) continue;
+                moduleMap.set(id, {
+                  el,
+                  primary: el.getAttribute("primary-path"),
+                  fallback: el.getAttribute("fallback-path"),
+                });
+              }
+
+              const upsertModule = (id: string, primary: string) => {
+                const escaped = escapeCss(id);
+                let el =
+                  interactionModules!.querySelector(
+                    `qti-interaction-module[id="${escaped}"]`,
+                  ) || null;
+                if (!el) {
+                  el = doc.createElement("qti-interaction-module");
+                  el.setAttribute("id", id);
+                  interactionModules!.appendChild(el);
+                }
+                el.setAttribute("primary-path", primary);
+                moduleMap.set(id, {
+                  el,
+                  primary,
+                  fallback: el.getAttribute("fallback-path"),
+                });
+              };
+
+              const ensureMapped = async (id: string) => {
+                if (moduleMap.has(id)) return true;
+
+                const encoded = encodePathSegments(id);
+                if (await urlExistsPath(`${pciBaseUrl}/${encoded}.js`)) {
+                  // It's directly resolvable by RequireJS baseUrl; no mapping needed.
+                  return true;
+                }
+
+                const found = await findModuleScript(id);
+                if (found) {
+                  upsertModule(id, found);
+                  return true;
+                }
+                return false;
+              };
+
+              // Ensure the PCI entry module itself is mapped if it isn't directly resolvable.
+              await ensureMapped(entryModule);
+
+              const maxDepth = 3;
+              const maxScan = 20;
+              const visited = new Set<string>();
+              const queue: Array<{ id: string; depth: number }> = [
+                { id: entryModule, depth: 0 },
+              ];
+
+              let scanned = 0;
+              while (queue.length > 0 && scanned < maxScan) {
+                const { id, depth } = queue.shift()!;
+                if (visited.has(id)) continue;
+                visited.add(id);
+                scanned++;
+
+                const record = moduleMap.get(id);
+                const primary = record?.primary?.trim() || "";
+                const fallback = record?.fallback?.trim() || "";
+
+                const scriptCandidates: string[] = [];
+                if (primary) scriptCandidates.push(primary);
+                if (fallback && fallback !== primary)
+                  scriptCandidates.push(fallback);
+
+                // If we still have no mapping, try to locate it on disk.
+                if (scriptCandidates.length === 0) {
+                  const located = await findModuleScript(id);
+                  if (located) {
+                    upsertModule(id, located);
+                    scriptCandidates.push(located);
+                  }
+                }
+                if (scriptCandidates.length === 0) continue;
+
+                let source: string | null = null;
+                for (const candidate of scriptCandidates) {
+                  try {
+                    const url = toScriptUrl(pciBaseUrl, candidate);
+                    const res = await fetch(url, { method: "GET" });
+                    if (!res.ok) continue;
+                    source = await res.text();
+                    break;
+                  } catch {
+                    // try next
+                  }
+                }
+                if (!source) {
+                  const located = await findModuleScript(id);
+                  if (located) {
+                    upsertModule(id, located);
+                    try {
+                      const url = toScriptUrl(pciBaseUrl, located);
+                      const res = await fetch(url, { method: "GET" });
+                      if (res.ok) source = await res.text();
+                    } catch {
+                      // ignore
+                    }
+                  }
+                }
+                if (!source) continue;
+
+                const deps = extractAmdDeps(source).filter(
+                  (d) => !isSkippableDep(d),
+                );
+                if (deps.length === 0) continue;
+
+                for (const dep of deps) {
+                  const depId = dep.replace(/\.js$/i, "");
+                  const ok = await ensureMapped(depId);
+                  if (!ok) continue;
+                  if (depth + 1 <= maxDepth) {
+                    queue.push({ id: depId, depth: depth + 1 });
+                  }
+                }
+              }
+            }
+          };
+
+          await ensurePciModuleMappings();
+
           const stripLeadingPrefix = (value: string, prefix: string) => {
             const withSlash = prefix.endsWith("/") ? prefix : `${prefix}/`;
             if (value.startsWith(withSlash)) return value.slice(withSlash.length);
@@ -301,22 +638,34 @@ export const AssessmentPage: React.FC = () => {
               value.startsWith("__qti_pkg__/") ||
               value.startsWith("/__qti_pkg__/") ||
               value.startsWith("/items/") ||
+              value.startsWith("modules/") ||
               value.startsWith("/modules/") ||
               value.startsWith(packageRootUrl) ||
-              value.startsWith(itemDirUrl);
+              value.startsWith(itemDirUrl) ||
+              (itemStemDirUrl ? value.startsWith(itemStemDirUrl) : false) ||
+              value.startsWith(pciBaseUrl);
             if (!shouldNormalize) return value;
 
             const packageRootPath = packageRootUrl.replace(/^\/+/, "");
+            const pciBasePath = pciBaseUrl.replace(/^\/+/, "");
             const itemDirPath = itemDirUrl.replace(/^\/+/, "");
+            const itemStemDirPath = (itemStemDirUrl || "").replace(/^\/+/, "");
 
             // Normalize to a package-relative path so qti-components can safely prefix `baseUrl`.
             let next = value.replace(/^\/+/, "");
             for (let i = 0; i < 4; i++) {
               const prev = next;
+              if (itemStemDirPath) next = stripLeadingPrefix(next, itemStemDirPath);
               next = stripLeadingPrefix(next, itemDirPath);
+              next = stripLeadingPrefix(next, pciBasePath);
               next = stripLeadingPrefix(next, packageRootPath);
               next = next.replace(/^\/+/, "");
               if (next === prev) break;
+            }
+            // If baseUrl is already the modules folder, strip a leading `modules/` to avoid `/modules/modules/...`.
+            if (pciBaseUrl.endsWith("/modules")) {
+              if (next.startsWith("modules/")) next = next.slice("modules/".length);
+              if (next.startsWith("/modules/")) next = next.slice("/modules/".length);
             }
             return next;
           };
@@ -327,6 +676,19 @@ export const AssessmentPage: React.FC = () => {
             const fallback = maybeNormalize(el.getAttribute("fallback-path"));
             if (fallback !== null) el.setAttribute("fallback-path", fallback);
           });
+
+          // Normalize PCI entry module values that were turned into absolute package paths.
+          doc
+            .querySelectorAll("qti-portable-custom-interaction[module]")
+            .forEach((el) => {
+              const moduleValue = el.getAttribute("module")?.trim() || "";
+              if (!moduleValue) return;
+              if (/^(data:|blob:|https?:)/.test(moduleValue)) return;
+              const normalized = maybeNormalize(moduleValue);
+              if (normalized !== null && normalized !== moduleValue) {
+                el.setAttribute("module", normalized);
+              }
+            });
         }
 
         return configured;

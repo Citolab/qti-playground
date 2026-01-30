@@ -17,6 +17,8 @@ try {
   const proto: any = ctor?.prototype;
   if (proto && !proto.__qtiPlaygroundPatchedSrcdocIframe) {
     const originalCreateIframe = proto.createIframe;
+    const originalConnectedCallback = proto.connectedCallback;
+
     proto.createIframe = function patchedCreateIframe() {
       try {
         this.iframe = document.createElement("iframe");
@@ -52,6 +54,35 @@ try {
           return originalCreateIframe.call(this);
         }
         throw error;
+      }
+    };
+
+    // When multiple PCIs exist on the page (e.g. item grid previews), each host element
+    // receives all `window.postMessage` events from all PCI iframes. Filter by message source
+    // so each PCI instance only processes messages from its own iframe.
+    proto.connectedCallback = function patchedConnectedCallback() {
+      try {
+        if (this.useIframe && !this.__qtiPlaygroundMessageFilterPatched) {
+          const originalHandler = this.handleIframeMessage;
+
+          this.handleIframeMessage = (event: MessageEvent) => {
+            try {
+              const fromOwnIframe =
+                !this.iframe?.contentWindow ||
+                event.source === this.iframe.contentWindow;
+              if (!fromOwnIframe) return;
+            } catch {
+              // ignore
+            }
+            if (typeof originalHandler === "function") return originalHandler(event);
+          };
+          this.__qtiPlaygroundMessageFilterPatched = true;
+        }
+      } catch {
+        // ignore
+      }
+      if (typeof originalConnectedCallback === "function") {
+        return originalConnectedCallback.call(this);
       }
     };
     proto.__qtiPlaygroundPatchedSrcdocIframe = true;

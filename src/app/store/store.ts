@@ -370,6 +370,9 @@ export const useStore = create<Store>()(
               p.endsWith(`/modules/${filename}.json`),
           );
           if (candidates.length === 0) return;
+          // If multiple configs exist, don't alias a random one. Per-item/per-PCI configs are common
+          // and must be resolved at runtime based on the current item's baseUrl.
+          if (candidates.length !== 1) return;
 
           const pick = candidates[0];
           const zipKey = normalizedToZipKey.get(pick);
