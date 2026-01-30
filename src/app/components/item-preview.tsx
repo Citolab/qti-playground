@@ -139,6 +139,66 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
               );
             });
 
+          // Resolve relative asset URLs (images, object data, etc) against the item location.
+          // In the assessment flow, qti-components resolves these via item/test base URLs; in the /package
+          // grid preview we need to do it ourselves to avoid broken images.
+          if (packageRootUrl && itemDirUrl) {
+            transformer.fnCh(($) => {
+              const origin =
+                typeof window !== "undefined" ? window.location.origin : "";
+              const base = origin
+                ? `${origin}${itemDirUrl.replace(/\/+$/, "")}/`
+                : `${itemDirUrl.replace(/\/+$/, "")}/`;
+
+              const normalizePathname = (pathname: string) => {
+                const absolute = pathname.startsWith("/");
+                const parts = pathname.split("/");
+                const out: string[] = [];
+                for (const part of parts) {
+                  if (!part || part === ".") continue;
+                  if (part === "..") {
+                    out.pop();
+                    continue;
+                  }
+                  out.push(part);
+                }
+                return `${absolute ? "/" : ""}${out.join("/")}`;
+              };
+
+              const resolveUrl = (raw: string) => {
+                const value = raw.trim();
+                if (!value) return raw;
+                if (value.startsWith("#")) return raw;
+                if (/^(data:|blob:|https?:)/.test(value)) return raw;
+                if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value)) return raw;
+                if (value.startsWith("/assets/")) return raw;
+
+                try {
+                  // QTI packages sometimes use rooted paths (e.g. `/ref/...`) that are rooted at the package.
+                  const normalizedValue = value.startsWith("/") &&
+                    !value.startsWith(QTI_PKG_URL_PREFIX)
+                    ? `${packageRootUrl}${value}`
+                    : value;
+
+                  const u = new URL(normalizedValue, base);
+                  const normalized = normalizePathname(u.pathname);
+                  return `${normalized}${u.search}${u.hash}`;
+                } catch {
+                  return raw;
+                }
+              };
+
+              $("[src],[href],[data]").each((_, el) => {
+                for (const attr of ["src", "href", "data"] as const) {
+                  const current = $(el).attr(attr);
+                  if (!current) continue;
+                  const next = resolveUrl(current);
+                  if (next !== current) $(el).attr(attr, next);
+                }
+              });
+            });
+          }
+
           // Best-effort PCI support for the /package grid:
           // - ensure iframe mode (isolation)
           // - set correct baseUrl (/__qti_pkg__/<id>) so RequireJS resolves modules
