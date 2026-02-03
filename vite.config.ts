@@ -10,12 +10,17 @@ function spaHtmlFallbackForPackageRoute(): Plugin {
     name: "qti-playground-spa-package-route-fallback",
     configureServer(server) {
       server.middlewares.use((req, _res, next) => {
-        const url = req.url || "";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const request = req as any;
+        const url = request.url || "";
         const pathname = url.split("?", 1)[0];
-        const accept = req.headers.accept || "";
+        const accept = request.headers.accept || "";
         const isHtmlNav = accept.includes("text/html");
-        if (isHtmlNav && (pathname === "/package" || pathname === "/package/")) {
-          req.url = "/index.html";
+        if (
+          isHtmlNav &&
+          (pathname === "/package" || pathname === "/package/")
+        ) {
+          request.url = "/index.html";
         }
         next();
       });
