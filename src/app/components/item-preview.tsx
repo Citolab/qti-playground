@@ -1,5 +1,8 @@
 import React, { useState, useEffect, memo, useRef } from "react";
-import { qtiTransform, type ModuleResolutionConfig } from "@citolab/qti-convert/qti-transformer";
+import {
+  qtiTransform,
+  type ModuleResolutionConfig,
+} from "@citolab/qti-convert/qti-transformer";
 import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ItemInfoWithBlobRef } from "../store/store";
@@ -118,7 +121,9 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
                   if (match) {
                     const type = match[1];
                     const newTag = `${tagName}-${type}`;
-                    const newClasses = classes.replace(`type:${type}`, "").trim();
+                    const newClasses = classes
+                      .replace(`type:${type}`, "")
+                      .trim();
                     const $newElement = $(
                       `<${newTag} class="${newClasses}">${$el.html()}</${newTag}>`,
                     );
@@ -138,6 +143,99 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
                 `<div>Removed media</div>`,
               );
             });
+
+          // Legacy CES / "qti-custom-interaction" support (non-RequireJS).
+          // qti-components expects:
+          // - <qti-custom-interaction data="...manifest.json" data-base-item="..." data-base-ref="...">
+          // but some packages use <qti-custom-interaction><object data="...manifest.json" ... /></qti-custom-interaction>.
+          if (packageRootUrl && itemDirUrl) {
+            transformer.fnCh(($) => {
+              const origin =
+                typeof window !== "undefined" ? window.location.origin : "";
+              const itemBasePath = itemDirUrl.replace(/\/+$/, "");
+              const itemBase = origin
+                ? `${origin}${itemBasePath}/`
+                : `${itemBasePath}/`;
+
+              const dirnamePath = (pathname: string) => {
+                const idx = pathname.lastIndexOf("/");
+                return idx >= 0 ? pathname.slice(0, idx) : pathname;
+              };
+
+              const relativePath = (
+                fromDirPath: string,
+                toPathname: string,
+              ) => {
+                const fromSegs = fromDirPath.split("/").filter(Boolean);
+                const toSegs = toPathname.split("/").filter(Boolean);
+                let i = 0;
+                while (
+                  i < fromSegs.length &&
+                  i < toSegs.length &&
+                  fromSegs[i] === toSegs[i]
+                ) {
+                  i += 1;
+                }
+                const up = fromSegs.length - i;
+                const rel = [
+                  ...Array.from({ length: up }).map(() => ".."),
+                  ...toSegs.slice(i),
+                ];
+                return rel.length ? rel.join("/") : ".";
+              };
+
+              $("qti-custom-interaction").each((_, el) => {
+                const $ci = $(el);
+
+                const object = $ci.find("object[data]").first();
+                const objectData = (object.attr("data") || "").trim();
+
+                let data = ($ci.attr("data") || "").trim();
+                if (!data && objectData) data = objectData;
+                if (!data) return;
+
+                // Ensure width/height are on the host element (qti-components reads them from the host).
+                const width =
+                  ($ci.attr("width") || "").trim() ||
+                  (object.attr("width") || "").trim();
+                const height =
+                  ($ci.attr("height") || "").trim() ||
+                  (object.attr("height") || "").trim();
+                if (width && !$ci.attr("width")) $ci.attr("width", width);
+                if (height && !$ci.attr("height")) $ci.attr("height", height);
+
+                $ci.attr("data-base-item", itemBasePath);
+
+                try {
+                  const isAbsolute = /^(data:|blob:|https?:)/.test(data);
+                  const isPkgRooted =
+                    data.startsWith("/") &&
+                    !data.startsWith(QTI_PKG_URL_PREFIX);
+
+                  const abs = isAbsolute
+                    ? data
+                    : isPkgRooted
+                      ? `${origin}${packageRootUrl}${data}`
+                      : new URL(data, itemBase).toString();
+                  const u = new URL(abs, origin);
+                  const baseRefPath = dirnamePath(u.pathname);
+                  $ci.attr("data-base-ref", baseRefPath);
+
+                  if (!isAbsolute) {
+                    const rel = relativePath(itemBasePath, u.pathname);
+                    const nextData = `${rel}${u.search}${u.hash}`;
+                    $ci.attr("data", nextData);
+                    if (object.length > 0) object.attr("data", nextData);
+                  } else {
+                    $ci.attr("data", data);
+                    if (object.length > 0) object.attr("data", data);
+                  }
+                } catch {
+                  // ignore
+                }
+              });
+            });
+          }
 
           // Resolve relative asset URLs (images, object data, etc) against the item location.
           // In the assessment flow, qti-components resolves these via item/test base URLs; in the /package
@@ -175,10 +273,11 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
 
                 try {
                   // QTI packages sometimes use rooted paths (e.g. `/ref/...`) that are rooted at the package.
-                  const normalizedValue = value.startsWith("/") &&
+                  const normalizedValue =
+                    value.startsWith("/") &&
                     !value.startsWith(QTI_PKG_URL_PREFIX)
-                    ? `${packageRootUrl}${value}`
-                    : value;
+                      ? `${packageRootUrl}${value}`
+                      : value;
 
                   const u = new URL(normalizedValue, base);
                   const normalized = normalizePathname(u.pathname);
@@ -189,9 +288,19 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
               };
 
               $("[src],[href],[data]").each((_, el) => {
+                const tagName = (
+                  ((el as unknown as HTMLElement)?.tagName as
+                    | string
+                    | undefined) || ""
+                ).toLowerCase();
+                const inLegacyCustomInteraction =
+                  tagName === "qti-custom-interaction" ||
+                  (tagName === "object" &&
+                    $(el).closest("qti-custom-interaction").length > 0);
                 for (const attr of ["src", "href", "data"] as const) {
                   const current = $(el).attr(attr);
                   if (!current) continue;
+                  if (attr === "data" && inLegacyCustomInteraction) continue;
                   const next = resolveUrl(current);
                   if (next !== current) $(el).attr(attr, next);
                 }
@@ -203,7 +312,9 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
           // - ensure iframe mode (isolation)
           // - set correct baseUrl (/__qti_pkg__/<id>) so RequireJS resolves modules
           // - load module_resolution.* and apply it (configurePciAsync)
-          const hasPci = itemContent.includes("qti-portable-custom-interaction");
+          const hasPci = itemContent.includes(
+            "qti-portable-custom-interaction",
+          );
           if (hasPci && packageRootUrl) {
             const encodePathSegments = (value: string) =>
               value
@@ -212,7 +323,8 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
                 .join("/");
 
             const urlExists = async (url: string): Promise<boolean> => {
-              if (urlExistsCache.has(url)) return await urlExistsCache.get(url)!;
+              if (urlExistsCache.has(url))
+                return await urlExistsCache.get(url)!;
               const p = (async () => {
                 try {
                   const res = await fetch(url, { method: "GET" });
@@ -234,9 +346,12 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
                   const res = await fetch(url, { method: "GET" });
                   if (!res.ok) return null;
                   const txt = await res.text();
-                  const parsed = JSON.parse(txt) as Partial<ModuleResolutionConfig>;
+                  const parsed = JSON.parse(
+                    txt,
+                  ) as Partial<ModuleResolutionConfig>;
                   if (!parsed || typeof parsed !== "object") return null;
-                  if (!parsed.paths || typeof parsed.paths !== "object") return null;
+                  if (!parsed.paths || typeof parsed.paths !== "object")
+                    return null;
                   return {
                     ...parsed,
                     paths: parsed.paths,
@@ -254,7 +369,8 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
             transformer.fnCh(($) => {
               $("qti-portable-custom-interaction[module]").each((_, el) => {
                 const name = ($(el).attr("module") || "").trim();
-                if (name && !pciModuleNames.includes(name)) pciModuleNames.push(name);
+                if (name && !pciModuleNames.includes(name))
+                  pciModuleNames.push(name);
               });
             });
 
@@ -280,9 +396,7 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
                 for (const moduleName of pciModuleNames) {
                   const encoded = encodePathSegments(moduleName);
                   if (
-                    await urlExists(
-                      `${packageRootUrl}/modules/${encoded}.js`,
-                    )
+                    await urlExists(`${packageRootUrl}/modules/${encoded}.js`)
                   ) {
                     return packageRootUrl;
                   }
@@ -344,7 +458,8 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
               // Normalize module paths to package-relative so qti-components can prefix baseUrl once.
               const stripLeadingPrefix = (value: string, prefix: string) => {
                 const withSlash = prefix.endsWith("/") ? prefix : `${prefix}/`;
-                if (value.startsWith(withSlash)) return value.slice(withSlash.length);
+                if (value.startsWith(withSlash))
+                  return value.slice(withSlash.length);
                 if (value === prefix) return "";
                 return value;
               };
@@ -380,7 +495,8 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
                 const primary = normalize($(el).attr("primary-path"));
                 if (primary !== undefined) $(el).attr("primary-path", primary);
                 const fallback = normalize($(el).attr("fallback-path"));
-                if (fallback !== undefined) $(el).attr("fallback-path", fallback);
+                if (fallback !== undefined)
+                  $(el).attr("fallback-path", fallback);
               });
             });
 
@@ -405,7 +521,9 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
                     .map((seg) => encodeURIComponent(seg))
                     .join("/");
                   const candidates = [
-                    itemDirUrl ? `${itemDirUrl}/modules/${encodedModule}.js` : null,
+                    itemDirUrl
+                      ? `${itemDirUrl}/modules/${encodedModule}.js`
+                      : null,
                     itemStemDirUrl
                       ? `${itemStemDirUrl}/modules/${encodedModule}.js`
                       : null,
@@ -446,7 +564,9 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
 
                 let modulesEl = $pci.find("qti-interaction-modules").first();
                 if (modulesEl.length === 0) {
-                  $pci.append("<qti-interaction-modules></qti-interaction-modules>");
+                  $pci.append(
+                    "<qti-interaction-modules></qti-interaction-modules>",
+                  );
                   modulesEl = $pci.find("qti-interaction-modules").first();
                 }
 
@@ -490,7 +610,9 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
       const targetHeightPx = 600; // 4:3
 
       const ensureInjected = (itemContainer: Element) => {
-        const el = itemContainer as HTMLElement & { shadowRoot?: ShadowRoot | null };
+        const el = itemContainer as HTMLElement & {
+          shadowRoot?: ShadowRoot | null;
+        };
         const shadow = el.shadowRoot;
         if (!shadow) return false;
         if (shadow.querySelector(`style[${previewScaleAttr}]`)) return true;
@@ -530,7 +652,9 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
           ),
         );
 
-        const itemContainers = Array.from(host.querySelectorAll("item-container"));
+        const itemContainers = Array.from(
+          host.querySelectorAll("item-container"),
+        );
         for (const itemContainer of itemContainers) {
           if (!ensureInjected(itemContainer)) continue;
           (itemContainer as HTMLElement).style.setProperty(
@@ -560,9 +684,13 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
       return () => {
         window.clearInterval(intervalId);
         ro?.disconnect();
-        const itemContainers = Array.from(host.querySelectorAll("item-container"));
+        const itemContainers = Array.from(
+          host.querySelectorAll("item-container"),
+        );
         for (const itemContainer of itemContainers) {
-          const el = itemContainer as HTMLElement & { shadowRoot?: ShadowRoot | null };
+          const el = itemContainer as HTMLElement & {
+            shadowRoot?: ShadowRoot | null;
+          };
           el.shadowRoot?.querySelector(`style[${previewScaleAttr}]`)?.remove();
         }
       };

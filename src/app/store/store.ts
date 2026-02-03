@@ -14,6 +14,7 @@ import {
   normalizeZipPath,
   putBlobFileInPackageCache,
   putTextFileInPackageCache,
+  QTI_PKG_URL_PREFIX,
 } from "./qti-package-cache";
 
 // omit items
@@ -85,12 +86,12 @@ async function checkFileExists(url: string): Promise<boolean> {
 
 const replaceMediaWithMissingImagePlaceholder = async (
   xmlString: string,
-  attributes = ["src", "href", "data"]
+  attributes = ["src", "href", "data"],
 ): Promise<string> => {
   const newXMlDocument = new DOMParser().parseFromString(xmlString, "text/xml");
   for (const attribute of attributes) {
     const srcAttributes = newXMlDocument.querySelectorAll(
-      "[" + attribute + "]"
+      "[" + attribute + "]",
     );
     for (const node of Array.from(srcAttributes)) {
       const srcValue = node.getAttribute(attribute)!;
@@ -169,12 +170,12 @@ interface StoreActions {
   setSelectedItem: (identifier: string, assessmentId: string) => Promise<void>;
   editItem: (identifier: string) => Promise<void>;
   updateTestContext: (
-    context: { assessmentId: string } & ExtendedTestContext
+    context: { assessmentId: string } & ExtendedTestContext,
   ) => void;
   selectAssessment: (assessmentId: string) => void;
   processPackage: (
     file: File,
-    options: { removeStylesheets: boolean; skipValidation: boolean }
+    options: { removeStylesheets: boolean; skipValidation: boolean },
   ) => Promise<StateModel>;
   startAssessment: (assessmentId: string) => void;
   setQti3: (qti: string) => Promise<void>;
@@ -222,7 +223,7 @@ export const useStore = create<Store>()(
         const currentState = get();
         const testContext: { assessmentId: string } & ExtendedTestContext =
           currentState.testContexts.find(
-            (t) => t.assessmentId === currentState.selectedAssessment
+            (t) => t.assessmentId === currentState.selectedAssessment,
           ) || {
             items: [],
             navItemId: identifier,
@@ -239,7 +240,7 @@ export const useStore = create<Store>()(
       editItem: async (identifier: string) => {
         const currentState = get();
         const allItems = currentState.itemsPerAssessment.flatMap(
-          (i) => i.items
+          (i) => i.items,
         );
         const item = allItems.find((i) => i.identifier === identifier);
         if (item) {
@@ -263,7 +264,7 @@ export const useStore = create<Store>()(
       },
 
       updateTestContext: (
-        context: { assessmentId: string } & ExtendedTestContext
+        context: { assessmentId: string } & ExtendedTestContext,
       ) => {
         const currentState = get();
         set({
@@ -279,7 +280,7 @@ export const useStore = create<Store>()(
 
       processPackage: async (
         file: File,
-        options: { removeStylesheets: boolean; skipValidation: boolean }
+        options: { removeStylesheets: boolean; skipValidation: boolean },
       ): Promise<StateModel> => {
         // Clear old storage
         sessionStorage.clear();
@@ -475,6 +476,8 @@ export const useStore = create<Store>()(
           let qti3Xml = await convertQti2toQti3(originalContent, xsltJsonUrl);
           const folderPath =
             relativePath.substring(0, relativePath.lastIndexOf("/") + 1) || "";
+          // Build base URL for custom interaction assets using the package URL prefix
+          // const baseRef = `${QTI_PKG_URL_PREFIX}/${encodeURIComponent(packageId)}/`;
 
           let transformResult = qtiTransform(qti3Xml)
             .objectToImg()
@@ -484,7 +487,8 @@ export const useStore = create<Store>()(
             .stripMaterialInfo()
             .minChoicesToOne()
             .externalScored()
-            .customInteraction("/", folderPath)
+            // .customInteraction(baseRef, folderPath)
+            .customInteraction("", folderPath)
             .qbCleanup()
             .depConvert()
             .upgradePci();
@@ -507,7 +511,10 @@ export const useStore = create<Store>()(
         }
 
         // Convert test to QTI 3 (or synthesize one if none exists).
-        const resolveHref = (baseFilePath: string, href: string | undefined) => {
+        const resolveHref = (
+          baseFilePath: string,
+          href: string | undefined,
+        ) => {
           if (!href) return null;
           try {
             const resolved = new URL(
@@ -525,18 +532,19 @@ export const useStore = create<Store>()(
         let convertedTestXml = "";
         let itemRefs: { itemRefIdentifier?: string; identifier: string }[] = [];
 
-	        if (testFilePath && testIdentifier) {
-	          const originalContent = xmlContentsByPath.get(testFilePath) || "";
-	          const qti3Xml = await convertQti2toQti3(originalContent, xsltJsonUrl);
-	          let transformResult = qtiTransform(qti3Xml)
-	            .objectToImg()
+        if (testFilePath && testIdentifier) {
+          const originalContent = xmlContentsByPath.get(testFilePath) || "";
+          const qti3Xml = await convertQti2toQti3(originalContent, xsltJsonUrl);
+          const testBaseRef = `${QTI_PKG_URL_PREFIX}/${encodeURIComponent(packageId)}/`;
+          let transformResult = qtiTransform(qti3Xml)
+            .objectToImg()
             .objectToVideo()
             .objectToAudio()
             .ssmlSubToSpan()
             .stripMaterialInfo()
             .minChoicesToOne()
             .externalScored()
-            .customInteraction("/", "")
+            .customInteraction(testBaseRef, "")
             .qbCleanup()
             .depConvert()
             .upgradePci();
@@ -544,10 +552,17 @@ export const useStore = create<Store>()(
             transformResult = transformResult.stripStylesheets();
           }
           convertedTestXml = forcePciIframeMode(transformResult.xml());
-          await putTextFileInPackageCache(packageId, testFilePath, convertedTestXml);
+          await putTextFileInPackageCache(
+            packageId,
+            testFilePath,
+            convertedTestXml,
+          );
 
           // Build itemRefs from the (original) test file so href resolution matches the package structure.
-          const $ = cheerio3.load(originalContent, { xmlMode: true, xml: true });
+          const $ = cheerio3.load(originalContent, {
+            xmlMode: true,
+            xml: true,
+          });
           const refs: { itemRefIdentifier?: string; identifier: string }[] = [];
           $("qti-assessment-item-ref, assessmentItemRef").each((_, el) => {
             const itemRefIdentifierAttr = $(el).attr("identifier");
@@ -605,15 +620,19 @@ export const useStore = create<Store>()(
             effectiveTestPath,
             convertedTestXml,
           );
-	        }
+        }
 
-	        if (effectiveTestPath && effectiveTestIdentifier) {
+        if (effectiveTestPath && effectiveTestIdentifier) {
           const itemsWithRefs = itemRefs
             .map((ref) => {
               const itemPath = itemPaths.get(ref.identifier);
               if (!itemPath) return null;
-              const originalHref = getRelativePath(effectiveTestPath!, itemPath);
-              const hrefResolved = resolveHref(effectiveTestPath!, originalHref) || itemPath;
+              const originalHref = getRelativePath(
+                effectiveTestPath!,
+                itemPath,
+              );
+              const hrefResolved =
+                resolveHref(effectiveTestPath!, originalHref) || itemPath;
               const itemUrl = makePackageUrl(packageId, hrefResolved);
               return {
                 identifier: ref.identifier,
@@ -701,7 +720,7 @@ export const useStore = create<Store>()(
           const sanitizedXml = sanitizeXmlForPreview(qtiWithReplacementMedia);
           const transformedXml = qtiTransform(sanitizedXml)
             .fnCh(($: CheerioAPI) =>
-              $("qti-inline-choice span").contents().unwrap()
+              $("qti-inline-choice span").contents().unwrap(),
             )
             .fnCh(($: CheerioAPI) => $("*").remove("qti-stylesheet"))
             .xml();
@@ -732,10 +751,7 @@ export const useStore = create<Store>()(
             return;
           }
           const xsltJsonUrl = await getUpgraderStylesheetBlobUrl();
-          let qti3 = await convertQti2toQti3(
-            qti,
-            xsltJsonUrl
-          );
+          let qti3 = await convertQti2toQti3(qti, xsltJsonUrl);
           qti3 = await qtiConversionFixes(qti3, "");
           set({
             qti3,
@@ -761,6 +777,6 @@ export const useStore = create<Store>()(
         selectedAssessment: state.selectedAssessment,
         testContexts: state.testContexts,
       }),
-    }
-  )
+    },
+  ),
 );

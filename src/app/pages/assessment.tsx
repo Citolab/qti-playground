@@ -301,10 +301,10 @@ export const AssessmentPage: React.FC = () => {
                 ? href
                 : isRooted
                   ? `${window.location.origin}${href}`
-                  : `${window.location.origin}${new URL(
-                      href,
-                      `${window.location.origin}${itemDirUrl}/`,
-                    ).pathname}`;
+                  : `${window.location.origin}${
+                      new URL(href, `${window.location.origin}${itemDirUrl}/`)
+                        .pathname
+                    }`;
               try {
                 const res = await fetch(resolved, { method: "GET" });
                 if (!res.ok) return null;
@@ -360,6 +360,149 @@ export const AssessmentPage: React.FC = () => {
 
           await inlineIframedPciStyles();
 
+          // Legacy CES / "qti-custom-interaction" support.
+          // qti-components expects `data`, `data-base-item`, and `data-base-ref` on the host element.
+          // Some packages ship these only inside a nested `<object data="...manifest.json" />`.
+          // Some manifests reference scripts/styles relative to the manifest folder (e.g. `../script/bootstrap.js`)
+          // while others reference package-root paths (e.g. `ref/<...>/script/bootstrap.js`). We probe the manifest
+          // to choose a correct `data-base-ref`.
+          const configureLegacyCustomInteractions = async () => {
+            const origin =
+              typeof window !== "undefined" ? window.location.origin : "";
+            const itemBasePath = itemDirUrl.replace(/\/+$/, "");
+            const itemBase = `${origin}${itemBasePath}/`;
+            const manifestCache = new Map<string, Promise<unknown | null>>();
+
+            const dirnamePath = (pathname: string) => {
+              const idx = pathname.lastIndexOf("/");
+              return idx >= 0 ? pathname.slice(0, idx) : pathname;
+            };
+
+            const relativePath = (fromDirPath: string, toPathname: string) => {
+              const fromSegs = fromDirPath.split("/").filter(Boolean);
+              const toSegs = toPathname.split("/").filter(Boolean);
+              let i = 0;
+              while (
+                i < fromSegs.length &&
+                i < toSegs.length &&
+                fromSegs[i] === toSegs[i]
+              ) {
+                i += 1;
+              }
+              const up = fromSegs.length - i;
+              const rel = [
+                ...Array.from({ length: up }).map(() => ".."),
+                ...toSegs.slice(i),
+              ];
+              return rel.length ? rel.join("/") : ".";
+            };
+
+            const getFirstManifestEntry = (manifest: unknown): string => {
+              if (!manifest || typeof manifest !== "object") return "";
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const m = manifest as any;
+              const candidates = [
+                ...(Array.isArray(m?.script) ? m.script : []),
+                ...(Array.isArray(m?.style) ? m.style : []),
+                ...(Array.isArray(m?.media) ? m.media : []),
+              ]
+                .map((v: unknown) => (typeof v === "string" ? v.trim() : ""))
+                .filter(Boolean);
+              return candidates[0] || "";
+            };
+
+            const fetchManifest = async (
+              url: string,
+            ): Promise<unknown | null> => {
+              if (manifestCache.has(url)) return await manifestCache.get(url)!;
+              const p = (async () => {
+                try {
+                  const res = await fetch(url, { method: "GET" });
+                  if (!res.ok) return null;
+                  return (await res.json()) as unknown;
+                } catch {
+                  return null;
+                }
+              })();
+              manifestCache.set(url, p);
+              return await p;
+            };
+
+            for (const el of Array.from(
+              doc.querySelectorAll("qti-custom-interaction"),
+            )) {
+              const host = el as Element;
+
+              const object = host.querySelector("object[data]");
+              const objectData = object?.getAttribute("data")?.trim() || "";
+
+              let data = host.getAttribute("data")?.trim() || "";
+              if (!data && objectData) data = objectData;
+              if (!data) continue;
+
+              // Ensure width/height are on the host element (qti-components reads them from the host).
+              const width =
+                host.getAttribute("width")?.trim() ||
+                object?.getAttribute("width")?.trim() ||
+                "";
+              const height =
+                host.getAttribute("height")?.trim() ||
+                object?.getAttribute("height")?.trim() ||
+                "";
+              if (width && !host.getAttribute("width"))
+                host.setAttribute("width", width);
+              if (height && !host.getAttribute("height"))
+                host.setAttribute("height", height);
+
+              host.setAttribute("data-base-item", itemBasePath);
+
+              try {
+                const isAbsolute = /^(data:|blob:|https?:)/.test(data);
+                const isPkgRooted =
+                  data.startsWith("/") && !data.startsWith(QTI_PKG_URL_PREFIX);
+
+                const abs = isAbsolute
+                  ? data
+                  : isPkgRooted
+                    ? `${origin}${packageRootUrl}${data}`
+                    : new URL(data, itemBase).toString();
+                const u = new URL(abs, origin);
+                const baseRefByManifest = dirnamePath(u.pathname);
+
+                // Fetch the manifest to check if paths are package-root relative
+                const manifest = isAbsolute
+                  ? null
+                  : await fetchManifest(u.toString());
+                const firstEntry = getFirstManifestEntry(manifest);
+                const usePackageRootBaseRef =
+                  firstEntry.startsWith("/") ||
+                  firstEntry.startsWith("ref/") ||
+                  firstEntry.startsWith("/ref/") ||
+                  firstEntry.startsWith("items/") ||
+                  firstEntry.startsWith("/items/");
+
+                const baseRefPath = usePackageRootBaseRef
+                  ? packageRootUrl
+                  : baseRefByManifest;
+                host.setAttribute("data-base-ref", baseRefPath);
+
+                if (!isAbsolute) {
+                  const rel = relativePath(itemBasePath, u.pathname);
+                  const nextData = `${rel}${u.search}${u.hash}`;
+                  host.setAttribute("data", nextData);
+                  if (object) object.setAttribute("data", nextData);
+                } else {
+                  host.setAttribute("data", data);
+                  if (object) object.setAttribute("data", data);
+                }
+              } catch {
+                // ignore
+              }
+            }
+          };
+
+          await configureLegacyCustomInteractions();
+
           const debugEnabled =
             typeof window !== "undefined" &&
             typeof window.localStorage !== "undefined" &&
@@ -377,7 +520,8 @@ export const AssessmentPage: React.FC = () => {
           const existsCache = new Map<string, Promise<boolean>>();
           const urlExistsPath = async (path: string): Promise<boolean> => {
             const absolute = `${window.location.origin}${path}`;
-            if (existsCache.has(absolute)) return await existsCache.get(absolute)!;
+            if (existsCache.has(absolute))
+              return await existsCache.get(absolute)!;
             const p = (async () => {
               try {
                 const res = await fetch(absolute, { method: "GET" });
@@ -430,7 +574,10 @@ export const AssessmentPage: React.FC = () => {
           };
 
           const escapeCss = (value: string) => {
-            if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+            if (
+              typeof CSS !== "undefined" &&
+              typeof CSS.escape === "function"
+            ) {
               return CSS.escape(value);
             }
             return value.replace(/["\\]/g, "\\$&");
@@ -477,10 +624,13 @@ export const AssessmentPage: React.FC = () => {
               if (!entryRaw) continue;
               const entryModule = entryRaw.replace(/\.js$/i, "");
 
-              let interactionModules =
-                pci.querySelector("qti-interaction-modules");
+              let interactionModules = pci.querySelector(
+                "qti-interaction-modules",
+              );
               if (!interactionModules) {
-                interactionModules = doc.createElement("qti-interaction-modules");
+                interactionModules = doc.createElement(
+                  "qti-interaction-modules",
+                );
                 pci.appendChild(interactionModules);
               }
 
@@ -621,7 +771,8 @@ export const AssessmentPage: React.FC = () => {
 
           const stripLeadingPrefix = (value: string, prefix: string) => {
             const withSlash = prefix.endsWith("/") ? prefix : `${prefix}/`;
-            if (value.startsWith(withSlash)) return value.slice(withSlash.length);
+            if (value.startsWith(withSlash))
+              return value.slice(withSlash.length);
             if (value === prefix) return "";
             return value;
           };
@@ -655,7 +806,8 @@ export const AssessmentPage: React.FC = () => {
             let next = value.replace(/^\/+/, "");
             for (let i = 0; i < 4; i++) {
               const prev = next;
-              if (itemStemDirPath) next = stripLeadingPrefix(next, itemStemDirPath);
+              if (itemStemDirPath)
+                next = stripLeadingPrefix(next, itemStemDirPath);
               next = stripLeadingPrefix(next, itemDirPath);
               next = stripLeadingPrefix(next, pciBasePath);
               next = stripLeadingPrefix(next, packageRootPath);
@@ -664,8 +816,10 @@ export const AssessmentPage: React.FC = () => {
             }
             // If baseUrl is already the modules folder, strip a leading `modules/` to avoid `/modules/modules/...`.
             if (pciBaseUrl.endsWith("/modules")) {
-              if (next.startsWith("modules/")) next = next.slice("modules/".length);
-              if (next.startsWith("/modules/")) next = next.slice("/modules/".length);
+              if (next.startsWith("modules/"))
+                next = next.slice("modules/".length);
+              if (next.startsWith("/modules/"))
+                next = next.slice("/modules/".length);
             }
             return next;
           };
@@ -723,8 +877,9 @@ export const AssessmentPage: React.FC = () => {
     (element) => {
       if (element) {
         qtiTestRef.current = element;
-        (element as unknown as { postLoadTransformCallback?: unknown }).postLoadTransformCallback =
-          postLoadTransformCallback;
+        (
+          element as unknown as { postLoadTransformCallback?: unknown }
+        ).postLoadTransformCallback = postLoadTransformCallback;
         element.addEventListener(
           "qti-assessment-item-connected",
           handleItemConnected,
@@ -748,8 +903,9 @@ export const AssessmentPage: React.FC = () => {
 
   useEffect(() => {
     if (!qtiTestRef.current) return;
-    (qtiTestRef.current as unknown as { postLoadTransformCallback?: unknown }).postLoadTransformCallback =
-      postLoadTransformCallback;
+    (
+      qtiTestRef.current as unknown as { postLoadTransformCallback?: unknown }
+    ).postLoadTransformCallback = postLoadTransformCallback;
   }, [postLoadTransformCallback]);
 
   const handleToggle = useCallback((mode: string) => {
@@ -920,8 +1076,10 @@ export const AssessmentPage: React.FC = () => {
   const overviewNavTargets = useMemo(() => {
     const ctxItems = stampContext?.activeTestpart?.items || [];
     const ids: string[] = ctxItems
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((i: any) => i.identifier)
       .filter(Boolean);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const activeIndex = ctxItems.findIndex((i: any) => i.active);
     return {
       activeIndex,
@@ -987,7 +1145,7 @@ export const AssessmentPage: React.FC = () => {
         return next;
       });
     },
-    [currentItemRefIdentifier]
+    [currentItemRefIdentifier],
   );
 
   // Stamp context handler with change detection to prevent unnecessary re-renders
@@ -1149,7 +1307,9 @@ export const AssessmentPage: React.FC = () => {
                       className="flex items-center gap-2 rounded p-1"
                     >
                       <ToolBar
-                        marked={bookmarkedItemRefIds.has(currentItemRefIdentifier)}
+                        marked={bookmarkedItemRefIds.has(
+                          currentItemRefIdentifier,
+                        )}
                         onMarkCurrentItem={handleMarkCurrentItem}
                         onZoomIn={handleZoomIn}
                         onZoomOut={handleZoomOut}

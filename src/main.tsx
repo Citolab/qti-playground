@@ -91,6 +91,115 @@ try {
   // ignore
 }
 
+// Optional debug patch for legacy `qti-custom-interaction` (CES) issues.
+// Enable via: `localStorage.__qti_debug_custom_interaction__ = "1"` (then reload).
+try {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ctor: any = window.customElements?.get("qti-custom-interaction");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const proto: any = ctor?.prototype;
+  if (proto && !proto.__qtiPlaygroundPatchedCustomInteractionDebug) {
+    const originalConnectedCallback = proto.connectedCallback;
+    const originalSetupCES = proto.setupCES;
+
+    const isEnabled = () => {
+      try {
+        return (
+          typeof window !== "undefined" &&
+          window.localStorage?.getItem("__qti_debug_custom_interaction__") === "1"
+        );
+      } catch {
+        return false;
+      }
+    };
+
+    const normalizeDoubleSlashes = (value: string) =>
+      value
+        .replace(/([^:]\/)\/+/g, "$1")
+        .replace(/\/\//g, "/")
+        .replace("http:/", "http://")
+        .replace("https:/", "https://");
+
+    proto.connectedCallback = function patchedCustomInteractionConnectedCallback() {
+      if (isEnabled()) {
+        try {
+          const data = (this.data || this.getAttribute?.("data") || "").toString();
+          const baseItemUrl = (
+            this.baseItemUrl ||
+            this.getAttribute?.("data-base-item") ||
+            ""
+          ).toString();
+          const baseRefUrl = (
+            this.baseRefUrl ||
+            this.getAttribute?.("data-base-ref") ||
+            ""
+          ).toString();
+
+          const manifestUrl =
+            data.startsWith("http") || data.startsWith("blob")
+              ? data
+              : normalizeDoubleSlashes(`${baseItemUrl}/${data}`);
+
+          console.debug("[custom-interaction]", {
+            responseIdentifier: this.getAttribute?.("response-identifier"),
+            data,
+            baseItemUrl,
+            baseRefUrl,
+            manifestUrl,
+          });
+        } catch {
+          // ignore
+        }
+      }
+      if (typeof originalConnectedCallback === "function") {
+        return originalConnectedCallback.call(this);
+      }
+    };
+
+    proto.setupCES = function patchedCustomInteractionSetupCES() {
+      if (isEnabled()) {
+        try {
+          const manifest = this.manifest;
+          const baseRefUrl = (
+            this.baseRefUrl ||
+            this.getAttribute?.("data-base-ref") ||
+            ""
+          ).toString();
+          const style0 = manifest?.style?.[0] || "";
+          const script0 = manifest?.script?.[0] || "";
+          const styleUrl =
+            style0.startsWith("http") || style0.startsWith("blob")
+              ? style0
+              : normalizeDoubleSlashes(`${baseRefUrl}/${style0}`);
+          const scriptUrl =
+            script0.startsWith("http") || script0.startsWith("blob")
+              ? script0
+              : normalizeDoubleSlashes(`${baseRefUrl}/${script0}`);
+
+          console.debug("[custom-interaction] manifest", {
+            responseIdentifier: this.getAttribute?.("response-identifier"),
+            baseRefUrl,
+            style0,
+            script0,
+            styleUrl,
+            scriptUrl,
+            media: Array.isArray(manifest?.media) ? manifest.media : null,
+          });
+        } catch {
+          // ignore
+        }
+      }
+      if (typeof originalSetupCES === "function") {
+        return originalSetupCES.call(this);
+      }
+    };
+
+    proto.__qtiPlaygroundPatchedCustomInteractionDebug = true;
+  }
+} catch {
+  // ignore
+}
+
 if (import.meta.env.DEV) {
   // Optional debugging aid for PCI/RequireJS script loading issues.
   // Enable via: `localStorage.__qti_debug_requirejs__ = "1"` (then reload).
