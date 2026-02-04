@@ -100,7 +100,7 @@ export const PreviewPage = () => {
 
   const debouncedPreview = useDebouncedCallback(
     (qti: string) => setQti3(qti),
-    1000
+    1000,
   );
 
   useEffect(() => {
@@ -267,7 +267,7 @@ export const PreviewPage = () => {
                   const container =
                     qtiItemRef.current?.querySelector("item-container");
                   const assessmentItem = container?.shadowRoot?.querySelector(
-                    "qti-assessment-item"
+                    "qti-assessment-item",
                   ) as QtiAssessmentItem;
                   if (assessmentItem) {
                     assessmentItem.showCorrectResponse(true);
@@ -287,7 +287,7 @@ export const PreviewPage = () => {
                   // navigate in new tab to: https://github.com/citolab/qti-components
                   window.open(
                     "https://github.com/citolab/qti-components",
-                    "_blank"
+                    "_blank",
                   );
                 }}
                 className="inline-flex items-center gap-x-1.5 rounded-md bg-citolab-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-citolab-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"

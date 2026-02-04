@@ -151,8 +151,7 @@ const resolvePreviewAssetUrls = (
   let itemDirPath = "";
   let packageRootUrl: string | null = null;
   try {
-    const origin =
-      typeof window !== "undefined" ? window.location.origin : "";
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
     const baseUrl = new URL(previewItemHref, origin || "http://localhost");
     const pathname = baseUrl.pathname;
     const isPackageHost = baseUrl.hostname === "__qti_pkg__";
