@@ -280,6 +280,7 @@ const forcePciIframeMode = (xmlString: string): string => {
 interface StoreActions {
   // State setters
   cleanupBlobs: () => void;
+  clearFillSource: () => void;
 
   // Async actions
   loadQti: (href: string) => Promise<void>;
@@ -313,6 +314,10 @@ export const useStore = create<Store>()(
         if (pkgId) {
           void deletePackageCache(pkgId);
         }
+      },
+
+      clearFillSource: () => {
+        set({ fillSource: false });
       },
 
       loadQti: async (href: string) => {

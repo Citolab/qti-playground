@@ -40,6 +40,7 @@ export const PreviewPage = () => {
   console.log("PreviewPage component rendered");
   const sourceEditor = useRef<editor.IStandaloneCodeEditor>(null);
   const qtiItemRef = useRef<QtiItem>(null);
+  const [isEditorReady, setIsEditorReady] = useState(false);
   const [openTooltip, setOpenTooltip] = useState(false);
   const [shareTooltipOpen, setShareTooltipOpen] = useState(false);
   const [sharePopupOpen, setSharePopupOpen] = useState(false);
@@ -51,6 +52,7 @@ export const PreviewPage = () => {
   const qti3 = useStore((state) => state.qti3);
   const qti3ForPreview = useStore((state) => state.qti3ForPreview);
   const fillSource = useStore((state) => state.fillSource);
+  const clearFillSource = useStore((state) => state.clearFillSource);
   const isConverting = useStore((state) => state.isConverting);
   const errorMessage = useStore((state) => state.errorMessage);
   const loadQti = useStore((state) => state.loadQti);
@@ -102,11 +104,16 @@ export const PreviewPage = () => {
   );
 
   useEffect(() => {
-    if (fillSource) {
-      sourceEditor.current?.setValue(qti3 || "");
-      debouncedPreview(qti3 || "");
+    if (!fillSource || !isEditorReady) return;
+    const nextValue = qti3 || "";
+    const editorInstance = sourceEditor.current;
+    if (!editorInstance) return;
+    if (editorInstance.getValue() !== nextValue) {
+      editorInstance.setValue(nextValue);
+      debouncedPreview(nextValue);
     }
-  }, [debouncedPreview, fillSource, qti3]);
+    clearFillSource();
+  }, [clearFillSource, debouncedPreview, fillSource, isEditorReady, qti3]);
 
   useEffect(() => {
     if (hasLoadedSharedItem.current) {
@@ -234,6 +241,7 @@ export const PreviewPage = () => {
           options={editorOptions}
           onMount={(editor) => {
             sourceEditor.current = editor;
+            setIsEditorReady(true);
           }}
           onChange={(value) => {
             debouncedPreview(value || "");
