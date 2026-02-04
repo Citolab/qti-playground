@@ -40,6 +40,7 @@ export interface StateModel {
   qtiInput: string;
   qti3: string;
   qti3ForPreview: string;
+  previewItemHref?: string;
   isConverting: boolean;
   isPreparingForPreview: boolean;
   errorMessage: string;
@@ -59,6 +60,7 @@ export const initialState: StateModel = {
   downloadUrl: "",
   downloadUrlQti3: "",
   qti3ForPreview: "",
+  previewItemHref: undefined,
   isConverting: false,
   isPreparingForPreview: false,
   fillSource: false,
@@ -140,6 +142,120 @@ const sanitizeXmlForPreview = (xmlString: string): string => {
   return new XMLSerializer().serializeToString(doc);
 };
 
+const resolvePreviewAssetUrls = (
+  xmlString: string,
+  previewItemHref?: string,
+): string => {
+  if (!previewItemHref) return xmlString;
+
+  let itemDirPath = "";
+  let packageRootUrl: string | null = null;
+  try {
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : "";
+    const baseUrl = new URL(previewItemHref, origin || "http://localhost");
+    const pathname = baseUrl.pathname;
+    const isPackageHost = baseUrl.hostname === "__qti_pkg__";
+    const pathnameWithPrefix = isPackageHost
+      ? `${QTI_PKG_URL_PREFIX}${pathname}`
+      : pathname;
+    const idx = pathnameWithPrefix.lastIndexOf("/");
+    itemDirPath =
+      idx >= 0 ? pathnameWithPrefix.slice(0, idx + 1) : pathnameWithPrefix;
+
+    if (isPackageHost) {
+      const parts = pathname.split("/").filter(Boolean);
+      const packageId = parts[0] || "";
+      if (packageId) {
+        packageRootUrl = `${QTI_PKG_URL_PREFIX}/${packageId}`;
+      }
+    } else {
+      const parts = pathname.split("/").filter(Boolean);
+      const prefix = QTI_PKG_URL_PREFIX.replace(/^\//, "");
+      const pkgIdx = parts.indexOf(prefix);
+      if (pkgIdx >= 0) {
+        const packageId = parts[pkgIdx + 1] || "";
+        if (packageId) {
+          packageRootUrl = `${QTI_PKG_URL_PREFIX}/${packageId}`;
+        }
+      }
+    }
+  } catch {
+    return xmlString;
+  }
+
+  if (!itemDirPath) return xmlString;
+
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const base = origin
+    ? `${origin}${itemDirPath}`
+    : `http://localhost${itemDirPath}`;
+
+  const resolveUrl = (raw: string) => {
+    const value = raw.trim();
+    if (!value) return raw;
+    if (value.startsWith("#")) return raw;
+    const originPrefix =
+      typeof window !== "undefined" ? window.location.origin : "";
+    if (/^https?:\/\/__qti_pkg__\//.test(value)) {
+      const pathOnly = value.replace(/^https?:\/\/__qti_pkg__/, "");
+      return originPrefix ? `${originPrefix}${pathOnly}` : pathOnly;
+    }
+    if (value.startsWith("//__qti_pkg__/")) {
+      const pathOnly = value.slice(1);
+      return originPrefix ? `${originPrefix}${pathOnly}` : pathOnly;
+    }
+    if (value.startsWith("__qti_pkg__/")) {
+      const pathOnly = `/${value}`;
+      return originPrefix ? `${originPrefix}${pathOnly}` : pathOnly;
+    }
+    if (value.startsWith("/__qti_pkg__/")) {
+      return originPrefix ? `${originPrefix}${value}` : value;
+    }
+    if (/^(data:|blob:|https?:)/.test(value)) return raw;
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value)) return raw;
+    if (value.startsWith("/assets/")) return raw;
+
+    try {
+      const normalizedValue =
+        value.startsWith("/") &&
+        packageRootUrl &&
+        !value.startsWith(QTI_PKG_URL_PREFIX)
+          ? `${packageRootUrl}${value}`
+          : value;
+      const u = new URL(normalizedValue, base);
+      const path =
+        u.hostname === "__qti_pkg__"
+          ? `${QTI_PKG_URL_PREFIX}${u.pathname}${u.search}${u.hash}`
+          : `${u.pathname}${u.search}${u.hash}`;
+      return originPrefix && path.startsWith("/")
+        ? `${originPrefix}${path}`
+        : path;
+    } catch {
+      return raw;
+    }
+  };
+
+  const doc = new DOMParser().parseFromString(xmlString, "text/xml");
+  const nodes = doc.querySelectorAll("[src],[href],[data]");
+  nodes.forEach((node) => {
+    const el = node as Element;
+    const tagName = el.tagName.toLowerCase();
+    const inLegacyCustomInteraction =
+      tagName === "qti-custom-interaction" ||
+      (tagName === "object" && el.closest("qti-custom-interaction"));
+    (["src", "href", "data"] as const).forEach((attr) => {
+      const current = el.getAttribute(attr);
+      if (!current) return;
+      if (attr === "data" && inLegacyCustomInteraction) return;
+      const next = resolveUrl(current);
+      if (next !== current) el.setAttribute(attr, next);
+    });
+  });
+
+  return new XMLSerializer().serializeToString(doc);
+};
+
 const forcePciIframeMode = (xmlString: string): string => {
   try {
     const doc = new DOMParser().parseFromString(xmlString, "text/xml");
@@ -202,6 +318,7 @@ export const useStore = create<Store>()(
       loadQti: async (href: string) => {
         try {
           set({ isConverting: true, errorMessage: "" });
+          set({ previewItemHref: href });
           const qtiResultData = await axios.get(href, {
             responseType: "text",
           });
@@ -252,8 +369,9 @@ export const useStore = create<Store>()(
             set({
               fillSource: true,
               qti3: content,
-              qti3ForPreview: content,
+              previewItemHref: item.href,
             });
+            await get().prepareForPreview();
           } catch (error) {
             console.error("Failed to load item content:", error);
             set({
@@ -484,7 +602,7 @@ export const useStore = create<Store>()(
             .objectToVideo()
             .objectToAudio()
             .ssmlSubToSpan()
-            .stripMaterialInfo()
+            // .stripMaterialInfo()
             .minChoicesToOne()
             .externalScored()
             // .customInteraction(baseRef, folderPath)
@@ -541,7 +659,7 @@ export const useStore = create<Store>()(
             .objectToVideo()
             .objectToAudio()
             .ssmlSubToSpan()
-            .stripMaterialInfo()
+            // .stripMaterialInfo()
             .minChoicesToOne()
             .externalScored()
             .customInteraction(testBaseRef, "")
@@ -690,6 +808,7 @@ export const useStore = create<Store>()(
           qti3: qti,
           fillSource: true,
           errorMessage: "",
+          previewItemHref: undefined,
         });
         await get().prepareForPreview();
       },
@@ -724,8 +843,12 @@ export const useStore = create<Store>()(
             )
             .fnCh(($: CheerioAPI) => $("*").remove("qti-stylesheet"))
             .xml();
+          const resolvedXml = resolvePreviewAssetUrls(
+            transformedXml,
+            currentState.previewItemHref,
+          );
           set({
-            qti3ForPreview: transformedXml,
+            qti3ForPreview: resolvedXml,
             isPreparingForPreview: false,
           });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -742,6 +865,7 @@ export const useStore = create<Store>()(
           set({
             isConverting: true,
             errorMessage: "",
+            previewItemHref: undefined,
           });
           if (!qti || !isValidXml(qti)) {
             set({

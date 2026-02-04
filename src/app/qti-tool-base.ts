@@ -55,6 +55,23 @@ export abstract class QtiBaseTool extends LitElement {
   }
 
   protected setupReferences() {
+    // First, try to find qti-assessment-item by traversing UP from this element
+    // This works when the tool is rendered from within the QTI content (e.g., inside qti-companion-materials-info)
+    this.qtiAssessmentItem = this.findAncestorAcrossShadowBoundaries(
+      "qti-assessment-item",
+    ) as HTMLElement | null;
+
+    if (this.qtiAssessmentItem) {
+      this.currentItemIdentifier =
+        this.qtiAssessmentItem.getAttribute("identifier") || null;
+      // Find test-container by going up further
+      this.testContainer = this.findAncestorAcrossShadowBoundaries(
+        this.hostTagName,
+      ) as HTMLElement | null;
+      return;
+    }
+
+    // Fallback: search DOWN from document (for hardcoded tools outside QTI content)
     this.testContainer = document.querySelector(
       this.hostTagName,
     ) as HTMLElement | null;
@@ -69,9 +86,56 @@ export abstract class QtiBaseTool extends LitElement {
         this.testContainer,
       ) as HTMLElement | null;
 
+      if (!this.qtiAssessmentItem) {
+        // Also try without shadow root
+        this.qtiAssessmentItem = this.querySelectorDeep(
+          "qti-assessment-item",
+          document,
+        ) as HTMLElement | null;
+      }
+
       this.currentItemIdentifier =
         this.qtiAssessmentItem?.getAttribute("identifier") || null;
     }
+  }
+
+  protected findAncestorAcrossShadowBoundaries(
+    tagName: string,
+  ): Element | null {
+    const targetTag = tagName.toLowerCase();
+    let current: Node | null = this as Node;
+
+    while (current) {
+      if (
+        current.nodeType === Node.ELEMENT_NODE &&
+        (current as Element).tagName.toLowerCase() === targetTag
+      ) {
+        return current as Element;
+      }
+
+      // If we're at a shadow root, jump to the host element
+      if (current instanceof ShadowRoot) {
+        current = current.host;
+        continue;
+      }
+
+      // Try parent node first
+      if (current.parentNode) {
+        current = current.parentNode;
+        continue;
+      }
+
+      // If no parent, check if we're in a shadow root
+      const root = (current as Element).getRootNode?.();
+      if (root && root instanceof ShadowRoot) {
+        current = root.host;
+        continue;
+      }
+
+      break;
+    }
+
+    return null;
   }
 
   private attachEventListeners() {

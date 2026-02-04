@@ -9,6 +9,119 @@ td {
   padding: 0.125rem 0;
 }
 
+/* Match CitoTestUit: tabular match interaction styling */
+qti-match-interaction.qti-match-tabular::part(table) {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+qti-match-interaction.qti-match-tabular::part(r-header) {
+  background-color: transparent;
+  font-weight: 500;
+  text-align: center;
+  padding: 8px 15px;
+  border: 1px solid #ddd;
+  width: auto;
+  word-wrap: break-word;
+  white-space: normal;
+  min-width: 4rem;
+}
+
+qti-match-interaction.qti-match-tabular::part(c-header) {
+  background-color: transparent;
+  font-weight: 500;
+  text-align: left;
+  padding: 8px;
+  border: 1px solid #ddd;
+  width: 8rem;
+  white-space: normal;
+}
+
+qti-match-interaction.qti-match-tabular::part(row) {
+  border-bottom: 1px solid #ddd;
+}
+
+qti-match-interaction.qti-match-tabular::part(input-cell) {
+  text-align: center;
+  vertical-align: middle;
+  height: 48px;
+  border: 1px solid #ddd;
+  padding: 8px;
+  width: 1%;
+}
+
+qti-match-interaction.qti-match-tabular::part(rb),
+qti-match-interaction.qti-match-tabular::part(cb) {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  background-color: transparent !important;
+  margin: 0 auto;
+  cursor: pointer;
+  display: block;
+}
+
+qti-match-interaction.qti-match-tabular::part(rb) {
+  border-radius: 50%;
+  border: 2px solid var(--qti-border-active, #2196f3);
+}
+
+qti-match-interaction.qti-match-tabular::part(rb-checked) {
+  box-shadow: inset 0 0 0 6px var(--qti-border-active, #2196f3);
+}
+
+qti-match-interaction.qti-match-tabular::part(cb) {
+  border-radius: 3px;
+  border: 2px solid var(--qti-border-active, #2196f3);
+}
+
+qti-match-interaction.qti-match-tabular::part(cb-checked) {
+  background-color: var(--qti-border-active, #2196f3) !important;
+}
+
+qti-match-interaction.qti-match-tabular::part(checkmark) {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  top: 3px;
+  left: 3px;
+  pointer-events: none;
+}
+
+qti-match-interaction.qti-match-tabular::part(rb-correct) {
+  border-color: var(--qti-correct, #4caf50);
+}
+
+qti-match-interaction.qti-match-tabular::part(rb-checked rb-correct) {
+  box-shadow: inset 0 0 0 6px var(--qti-correct, #4caf50);
+}
+
+qti-match-interaction.qti-match-tabular::part(cb-correct) {
+  border-color: var(--qti-correct, #4caf50);
+}
+
+qti-match-interaction.qti-match-tabular::part(cb-checked cb-correct) {
+  background-color: var(--qti-correct, #4caf50) !important;
+}
+
+qti-match-interaction.qti-match-tabular::part(rb-incorrect) {
+  border-color: var(--qti-incorrect, #f44336);
+}
+
+qti-match-interaction.qti-match-tabular::part(rb-checked rb-incorrect) {
+  box-shadow: inset 0 0 0 6px var(--qti-incorrect, #f44336);
+}
+
+qti-match-interaction.qti-match-tabular::part(cb-incorrect) {
+  border-color: var(--qti-incorrect, #f44336);
+}
+
+qti-match-interaction.qti-match-tabular::part(cb-checked cb-incorrect) {
+  background-color: var(--qti-incorrect, #f44336) !important;
+}
+
 qti-assessment-item {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;

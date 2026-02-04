@@ -45,6 +45,7 @@ export const PreviewPage = () => {
   const [sharePopupOpen, setSharePopupOpen] = useState(false);
   const [searchParams] = useSearchParams();
   const hasLoadedSharedItem = useRef(false);
+  const hasLoadedItemFromQuery = useRef(false);
 
   // Zustand store - use selectors for optimal re-renders
   const qti3 = useStore((state) => state.qti3);
@@ -55,6 +56,7 @@ export const PreviewPage = () => {
   const loadQti = useStore((state) => state.loadQti);
   const setQti3 = useStore((state) => state.setQti3);
   const loadSharedQti = useStore((state) => state.loadSharedQti);
+  const editItem = useStore((state) => state.editItem);
 
   const items = useRef([
     {
@@ -122,6 +124,16 @@ export const PreviewPage = () => {
       console.error("Failed to load shared QTI content", error);
     }
   }, [searchParams, loadSharedQti]);
+
+  useEffect(() => {
+    if (hasLoadedItemFromQuery.current) return;
+    const sharedQti = searchParams.get("sharedQti");
+    if (sharedQti) return;
+    const itemId = searchParams.get("itemId");
+    if (!itemId) return;
+    hasLoadedItemFromQuery.current = true;
+    void editItem(itemId);
+  }, [searchParams, editItem]);
 
   const buildShareUrl = () => {
     const encoded = encodeXmlToShareParam(qti3 || "");

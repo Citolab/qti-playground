@@ -254,9 +254,27 @@ export class DepTextMarker extends QtiBaseTool {
     let current: Node | null = node;
     while (current) {
       if (current === root) return true;
-      const shadowHost = (current as any).host;
-      if (shadowHost) current = shadowHost as Node;
-      else current = current.parentNode;
+
+      // Try regular parent traversal first
+      const parent: Node | null = current.parentNode;
+      if (parent) {
+        // If parent is a ShadowRoot, jump to its host
+        if (parent instanceof ShadowRoot) {
+          current = parent.host;
+        } else {
+          current = parent;
+        }
+        continue;
+      }
+
+      // No parent - check if we're at a shadow root boundary
+      const nodeRoot = current.getRootNode?.();
+      if (nodeRoot && nodeRoot instanceof ShadowRoot) {
+        current = nodeRoot.host;
+        continue;
+      }
+
+      break;
     }
     return false;
   }

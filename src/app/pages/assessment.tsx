@@ -10,6 +10,7 @@ import { useStore } from "../store/store";
 import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { CustomElements } from "@citolab/qti-components/react";
 import { IQtiTest, QtiAssessmentItem } from "@citolab/qti-components";
+import type { TestContext } from "@citolab/qti-components";
 // import { QtiTest } from "@citolab/qti-components";
 import {
   ChevronLeft,
@@ -28,6 +29,7 @@ import { ToolBar } from "../components/tool-bar";
 import { NavigationBar } from "./nav-list";
 import { AssessmentOverviewPage } from "./assessment-overview";
 import { AssessmentIntroScreen } from "./assessment-intro";
+import { ExtendedItemContext, ExtendedTestContext } from "@citolab/qti-api";
 
 /* React */
 declare module "react" {
@@ -51,9 +53,12 @@ declare module "react" {
   }
 }
 
+type AssessmentTestContext = { assessmentId: string } & ExtendedTestContext;
+
 export const AssessmentPage: React.FC = () => {
   const navigate = useNavigate();
   const qtiTestRef = useRef<IQtiTest>(null);
+  const [qtiTestElement, setQtiTestElement] = useState<IQtiTest | null>(null);
   const hasRedirectedForMissingPackageCacheRef = useRef(false);
   const [queryParams, setQueryParams] = useSearchParams();
   const [showVariables, setShowVariables] = useState(false);
@@ -72,6 +77,34 @@ export const AssessmentPage: React.FC = () => {
   );
   const [zoomLevel, setZoomLevel] = useState(1);
   const initialZoomRef = useRef<string>("");
+
+  useEffect(() => {
+    const handleContextUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        itemContext?: {
+          identifier?: string;
+          state?: Record<string, string | null> | undefined;
+        };
+      }>;
+
+      const state = customEvent.detail?.itemContext?.state;
+      if (!state || Object.keys(state).length === 0) return;
+
+      console.log(
+        "[PCI STATE]->",
+        customEvent.detail?.itemContext?.identifier || "unknown",
+        state,
+      );
+    };
+
+    window.addEventListener("qti-item-context-updated", handleContextUpdated);
+    return () => {
+      window.removeEventListener(
+        "qti-item-context-updated",
+        handleContextUpdated,
+      );
+    };
+  }, []);
   const initialBodyZoomRef = useRef<string>("");
 
   // Zustand store - use selectors for optimal re-renders
@@ -79,6 +112,8 @@ export const AssessmentPage: React.FC = () => {
   const selectedAssessment = useStore((state) => state.selectedAssessment);
   const itemsPerAssessment = useStore((state) => state.itemsPerAssessment);
   const editItem = useStore((state) => state.editItem);
+  const testContexts = useStore((state) => state.testContexts);
+  const updateTestContext = useStore((state) => state.updateTestContext);
 
   const { assessmentId } = useParams<{
     assessmentId: string;
@@ -92,6 +127,12 @@ export const AssessmentPage: React.FC = () => {
     if (!assessment?.packageId) return null;
     return `${QTI_PKG_URL_PREFIX}/${encodeURIComponent(assessment.packageId)}`;
   }, [assessment?.packageId]);
+
+  const testContextsRef = useRef<AssessmentTestContext[]>([]);
+  useEffect(() => {
+    testContextsRef.current = testContexts;
+  }, [testContexts]);
+  const lastAppliedContextRef = useRef<ExtendedTestContext | null>(null);
 
   type ModuleResolutionConfig = {
     paths?: Record<string, string | string[]>;
@@ -872,34 +913,63 @@ export const AssessmentPage: React.FC = () => {
     window.dispatchEvent(new CustomEvent("qti-test-loaded"));
   }, []);
 
+  const handleTestContextUpdated = useCallback(
+    (event: CustomEvent<TestContext>) => {
+      const assessmentId = assessment?.id;
+      if (!assessmentId) return;
+      const detail = event.detail;
+      if (!detail) return;
+
+      const previous = testContextsRef.current.find(
+        (ctx) => ctx.assessmentId === assessmentId,
+      );
+
+      const nextContext: AssessmentTestContext = {
+        assessmentId,
+        items: detail.items as ExtendedItemContext[],
+        testOutcomeVariables: detail.testOutcomeVariables,
+        navPartId: previous?.navPartId ?? null,
+        navSectionId: previous?.navSectionId ?? null,
+        navItemId: previous?.navItemId ?? null,
+        navItemLoading: previous?.navItemLoading ?? false,
+        navTestLoading: previous?.navTestLoading ?? false,
+      };
+
+      updateTestContext(nextContext);
+    },
+    [assessment?.id, updateTestContext],
+  );
+
   // Stable ref callback for QTI test element
   const refCallback: RefCallback<IQtiTest> = useCallback(
     (element) => {
       if (element) {
         qtiTestRef.current = element;
+        setQtiTestElement(element);
         (
           element as unknown as { postLoadTransformCallback?: unknown }
         ).postLoadTransformCallback = postLoadTransformCallback;
-        element.addEventListener(
-          "qti-assessment-item-connected",
-          handleItemConnected,
-        );
+      } else {
+        qtiTestRef.current = null;
+        setQtiTestElement(null);
       }
     },
-    [handleItemConnected, postLoadTransformCallback],
+    [postLoadTransformCallback],
   );
 
-  // Cleanup event listeners on unmount
   useEffect(() => {
+    if (!qtiTestElement) return;
+    qtiTestElement.addEventListener(
+      "qti-assessment-item-connected",
+      handleItemConnected,
+    );
     return () => {
-      if (qtiTestRef.current) {
-        qtiTestRef.current.removeEventListener(
-          "qti-assessment-item-connected",
-          handleItemConnected,
-        );
-      }
+      qtiTestElement.removeEventListener(
+        "qti-assessment-item-connected",
+        handleItemConnected,
+      );
     };
-  }, []);
+  }, [handleItemConnected, qtiTestElement]);
 
   useEffect(() => {
     if (!qtiTestRef.current) return;
@@ -907,6 +977,40 @@ export const AssessmentPage: React.FC = () => {
       qtiTestRef.current as unknown as { postLoadTransformCallback?: unknown }
     ).postLoadTransformCallback = postLoadTransformCallback;
   }, [postLoadTransformCallback]);
+
+  useEffect(() => {
+    if (!qtiTestElement) return;
+    const listener = (event: Event) =>
+      handleTestContextUpdated(event as CustomEvent<TestContext>);
+    qtiTestElement.addEventListener("qti-test-context-updated", listener);
+    return () => {
+      qtiTestElement.removeEventListener("qti-test-context-updated", listener);
+    };
+  }, [handleTestContextUpdated, qtiTestElement]);
+
+  useEffect(() => {
+    if (!qtiTestElement) {
+      lastAppliedContextRef.current = null;
+      return;
+    }
+    if (!assessment?.id) return;
+
+    const stored = testContexts.find(
+      (ctx) => ctx.assessmentId === assessment.id,
+    );
+    if (!stored || lastAppliedContextRef.current === stored) return;
+
+    qtiTestElement.testContext = {
+      items: stored.items.map((item) => ({
+        ...item,
+        variables: item.variables?.map((variable) => ({ ...variable })),
+        state: item.state ? { ...item.state } : undefined,
+      })),
+      testOutcomeVariables: stored.testOutcomeVariables,
+    };
+
+    lastAppliedContextRef.current = stored;
+  }, [assessment?.id, qtiTestElement, testContexts]);
 
   const handleToggle = useCallback((mode: string) => {
     if (qtiTestRef.current)
@@ -965,7 +1069,9 @@ export const AssessmentPage: React.FC = () => {
   const onEditItem = useCallback(async () => {
     try {
       await editItem(currentItemIdentifier);
-      navigate("/preview");
+      navigate(
+        `/preview?itemId=${encodeURIComponent(currentItemIdentifier || "")}`,
+      );
     } catch (error) {
       console.error("Edit item error:", error);
     }
@@ -1316,10 +1422,6 @@ export const AssessmentPage: React.FC = () => {
                         onResetZoom={handleResetZoom}
                         zoomLevel={zoomLevel}
                       />
-
-                      {/* DEP tools mount points (render into #toolbar via QtiBaseTool) */}
-                      <dep-textmarker style={{ display: "none" }} />
-                      <dep-symbolpicker style={{ display: "none" }} />
                     </div>
                   </div>
                 </div>
