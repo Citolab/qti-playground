@@ -845,6 +845,16 @@ export const useStore = create<Store>()(
             .fnCh(($: CheerioAPI) =>
               $("qti-inline-choice span").contents().unwrap(),
             )
+            .fnCh(($) => {
+              // Add default paths/shims attributes to PCIs in TAO items
+              if ($('qti-assessment-item[tool-name="TAO"]').length > 0) {
+                console.log("Adding default paths/shims to TAO PCI");
+                $("qti-portable-custom-interaction")
+                  .attr("data-use-default-paths", "true")
+                  .attr("data-use-default-shims", "true");
+              }
+              return $;
+            })
             .fnCh(($: CheerioAPI) => $("*").remove("qti-stylesheet"))
             .xml();
           const resolvedXml = resolvePreviewAssetUrls(

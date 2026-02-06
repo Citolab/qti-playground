@@ -322,12 +322,16 @@ export const AssessmentPage: React.FC = () => {
           // Force iframe mode for PCIs. Many TAO-exported PCIs assume an iframe-based engine/runtime.
           // Without this, qti-components hides `qti-interaction-markup` and expects the PCI to render
           // its own UI, which some packages don't do correctly in non-iframe mode.
-          doc
-            .querySelectorAll("qti-portable-custom-interaction")
-            .forEach((el) => {
-              if (!el.hasAttribute("data-use-iframe"))
-                el.setAttribute("data-use-iframe", "");
-            });
+          doc.querySelectorAll("qti-portable-custom-interaction");
+          // Add default paths/shims attributes to PCIs in TAO items
+          if (doc.querySelector('qti-assessment-item[tool-name="TAO"]')) {
+            doc
+              .querySelectorAll("qti-portable-custom-interaction")
+              .forEach((el) => {
+                el.setAttribute("data-use-default-paths", "true");
+                el.setAttribute("data-use-default-shims", "true");
+              });
+          }
 
           // In iframe mode (`data-use-iframe`), qti-components renders the PCI markup inside a data-URL iframe.
           // `qti-stylesheet` loads CSS into the *parent* document, so those styles won't apply inside the iframe.
@@ -642,6 +646,8 @@ export const AssessmentPage: React.FC = () => {
             push(`${itemDirUrl}/${encoded}.js`);
             if (itemStemDirUrl) push(`${itemStemDirUrl}/${encoded}.js`);
             push(`${packageRootUrl}/${encoded}.js`);
+            push(`${packageRootUrl}/runtime/${encoded}.js`);
+            push(`${packageRootUrl}/runtime/${encoded}.min.js`);
 
             for (const path of candidates) {
               if (await urlExistsPath(path)) {
@@ -809,6 +815,58 @@ export const AssessmentPage: React.FC = () => {
           };
 
           await ensurePciModuleMappings();
+
+          const ensureRuntimeRequirePaths = async () => {
+            const pcis = Array.from(
+              doc.querySelectorAll("qti-portable-custom-interaction"),
+            );
+            for (const pci of pcis) {
+              const moduleName = (pci.getAttribute("module") || "").trim();
+              if (!moduleName) continue;
+
+              const encoded = encodePathSegments(moduleName);
+              const runtimeCandidates = [
+                `${packageRootUrl}/runtime/${encoded}.js`,
+                `${packageRootUrl}/runtime/${encoded}.min.js`,
+              ];
+              let hasRuntime = false;
+              for (const path of runtimeCandidates) {
+                if (await urlExistsPath(path)) {
+                  hasRuntime = true;
+                  break;
+                }
+              }
+              if (!hasRuntime) continue;
+
+              let existing: Record<string, string> = {};
+              const existingRaw = pci.getAttribute("data-require-paths");
+              if (existingRaw) {
+                try {
+                  const parsed = JSON.parse(existingRaw);
+                  if (parsed && typeof parsed === "object") {
+                    existing = parsed as Record<string, string>;
+                  }
+                } catch {
+                  // ignore
+                }
+              }
+
+              const key = `${moduleName}/runtime`;
+              const value = `${packageRootUrl}/runtime`;
+              if (existing[key] !== value) {
+                existing[key] = value;
+                pci.setAttribute(
+                  "data-require-paths",
+                  JSON.stringify(existing),
+                );
+              }
+              if (!pci.hasAttribute("data-use-default-paths")) {
+                pci.setAttribute("data-use-default-paths", "true");
+              }
+            }
+          };
+
+          await ensureRuntimeRequirePaths();
 
           const stripLeadingPrefix = (value: string, prefix: string) => {
             const withSlash = prefix.endsWith("/") ? prefix : `${prefix}/`;

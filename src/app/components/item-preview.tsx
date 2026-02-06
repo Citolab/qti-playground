@@ -455,6 +455,13 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
                 }
               });
 
+              // Add default paths/shims attributes to PCIs in TAO items
+              if ($('qti-assessment-item[tool-name="TAO"]').length > 0) {
+                $("qti-portable-custom-interaction")
+                  .attr("data-use-default-paths", "true")
+                  .attr("data-use-default-shims", "true");
+              }
+
               // Normalize module paths to package-relative so qti-components can prefix baseUrl once.
               const stripLeadingPrefix = (value: string, prefix: string) => {
                 const withSlash = prefix.endsWith("/") ? prefix : `${prefix}/`;
@@ -528,6 +535,8 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
                       ? `${itemStemDirUrl}/modules/${encodedModule}.js`
                       : null,
                     `${packageRootUrl}/modules/${encodedModule}.js`,
+                    `${packageRootUrl}/runtime/${encodedModule}.js`,
+                    `${packageRootUrl}/runtime/${encodedModule}.min.js`,
                     `${pciBaseUrl}/modules/${encodedModule}.js`,
                     `${pciBaseUrl}/${encodedModule}.js`,
                   ].filter(Boolean) as string[];
@@ -579,6 +588,52 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
                   modulesEl.append(
                     `<qti-interaction-module id="${moduleName}" primary-path="${resolved}"/>`,
                   );
+                }
+              }
+            });
+
+            await transformer.fnChAsync(async ($) => {
+              const pcis = $("qti-portable-custom-interaction");
+              for (const pci of pcis) {
+                const $pci = $(pci);
+                const moduleName = ($pci.attr("module") || "").trim();
+                if (!moduleName) continue;
+
+                const encoded = encodePathSegments(moduleName);
+                const runtimeCandidates = [
+                  `${packageRootUrl}/runtime/${encoded}.js`,
+                  `${packageRootUrl}/runtime/${encoded}.min.js`,
+                ];
+                let hasRuntime = false;
+                for (const url of runtimeCandidates) {
+                  if (await urlExists(url)) {
+                    hasRuntime = true;
+                    break;
+                  }
+                }
+                if (!hasRuntime) continue;
+
+                let existing: Record<string, string> = {};
+                const raw = $pci.attr("data-require-paths") || "";
+                if (raw) {
+                  try {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && typeof parsed === "object") {
+                      existing = parsed as Record<string, string>;
+                    }
+                  } catch {
+                    // ignore
+                  }
+                }
+
+                const key = `${moduleName}/runtime`;
+                const value = `${packageRootUrl}/runtime`;
+                if (existing[key] !== value) {
+                  existing[key] = value;
+                  $pci.attr("data-require-paths", JSON.stringify(existing));
+                }
+                if (!$pci.attr("data-use-default-paths")) {
+                  $pci.attr("data-use-default-paths", "true");
                 }
               }
             });

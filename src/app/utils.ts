@@ -122,6 +122,16 @@ export const qtiConversionFixes = async (qti3: string, itemXmlPath: string) => {
     .ssmlSubToSpan()
     .hideInputsForChoiceInteractionWithImages()
     .upgradePci()
+    .fnCh(($) => {
+      // Add default paths/shims attributes to PCIs in TAO items
+      if ($('qti-assessment-item[tool-name="TAO"]').length > 0) {
+        console.log("Adding default paths/shims to TAO PCI");
+        $("qti-portable-custom-interaction")
+          .attr("data-use-default-paths", "true")
+          .attr("data-use-default-shims", "true");
+      }
+      return $;
+    })
     .changeAssetLocationAsync(async (srcValue) => {
       if (
         srcValue?.startsWith("http") ||

@@ -145,7 +145,9 @@ function OverviewGridItem({
           >
             {displayNumber}
           </div>
-          <div className="text-xs font-semibold text-gray-600">{stateLabel}</div>
+          <div className="text-xs font-semibold text-gray-600">
+            {stateLabel}
+          </div>
           {bookmarked && <Bookmark className="h-4 w-4 text-amber-500" />}
         </div>
       </div>
