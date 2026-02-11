@@ -21,34 +21,29 @@ try {
 
     proto.createIframe = function patchedCreateIframe() {
       try {
-        this.iframe = document.createElement("iframe");
-        this.iframe.id = `pci-iframe-${this.responseIdentifier}`;
-        this.iframe.setAttribute("title", "QTI PCI Iframe");
-        this.iframe.setAttribute("aria-label", "QTI PCI Iframe");
-        this.iframe.setAttribute("aria-hidden", "false");
-        this.iframe.setAttribute("role", "application");
+        if (typeof originalCreateIframe === "function") {
+          originalCreateIframe.call(this);
+        }
+
+        if (!this.iframe) return;
+
         // Keep the iframe same-origin (so SW can serve `/__qti_pkg__/...`) but prevent it from
         // navigating the top window (some PCIs may use links/redirects).
-        this.iframe.setAttribute(
-          "sandbox",
-          "allow-scripts allow-same-origin allow-forms",
-        );
-        this.iframe.style.width = "100%";
-        this.iframe.style.border = "none";
-        this.iframe.style.display = "block";
-        this.iframe.onload = () => {
-          this._iframeLoaded = true;
-          this.addMarkupToIframe();
-          this.sendIframeInitData();
-        };
+        if (!this.iframe.getAttribute("sandbox")) {
+          this.iframe.setAttribute(
+            "sandbox",
+            "allow-scripts allow-same-origin allow-forms",
+          );
+        }
 
-        const iframeName = `qti-pci-${this.responseIdentifier}-${Date.now()}`;
-        this.iframe.name = iframeName;
-
-        const iframeContent = this.generateIframeContent();
-        this.iframe.srcdoc = iframeContent;
-
-        this.appendChild(this.iframe);
+        const iframeContent =
+          typeof this.generateIframeContent === "function"
+            ? this.generateIframeContent()
+            : "";
+        if (iframeContent) {
+          this.iframe.srcdoc = iframeContent;
+          this.iframe.removeAttribute("src");
+        }
       } catch (error) {
         if (typeof originalCreateIframe === "function") {
           return originalCreateIframe.call(this);

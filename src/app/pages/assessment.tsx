@@ -199,9 +199,71 @@ export const AssessmentPage: React.FC = () => {
         }
       })();
 
-      // Keep the PCI RequireJS baseUrl stable (package root). If a PCI (or one of its deps) actually lives
-      // under `modules/` or an item-local `modules/`, we inject explicit per-module paths later.
-      const pciBaseUrl = packageRootUrl;
+      const encodePathSegments = (value: string) =>
+        value
+          .split("/")
+          .map((seg) => encodeURIComponent(seg))
+          .join("/");
+
+      const existsCache = new Map<string, Promise<boolean>>();
+      const urlExistsPath = async (path: string): Promise<boolean> => {
+        const absolute = `${window.location.origin}${path}`;
+        if (existsCache.has(absolute))
+          return await existsCache.get(absolute)!;
+        const p = (async () => {
+          try {
+            const res = await fetch(absolute, { method: "GET" });
+            return res.ok;
+          } catch {
+            return false;
+          }
+        })();
+        existsCache.set(absolute, p);
+        return await p;
+      };
+
+      const detectPciBaseUrl = async (): Promise<string> => {
+        if (!itemDirUrl && !itemStemDirUrl) return packageRootUrl;
+
+        const doc = transformer?.xmlDoc?.();
+        if (!doc) return packageRootUrl;
+
+        const moduleNames = Array.from(
+          doc.querySelectorAll("qti-portable-custom-interaction[module]"),
+        )
+          .map((el) => (el.getAttribute("module") || "").trim())
+          .filter(Boolean);
+
+        if (moduleNames.length === 0) return packageRootUrl;
+
+        for (const moduleName of moduleNames) {
+          const encoded = encodePathSegments(moduleName);
+          if (
+            itemDirUrl &&
+            (await urlExistsPath(`${itemDirUrl}/modules/${encoded}.js`))
+          ) {
+            return itemDirUrl;
+          }
+          if (
+            itemStemDirUrl &&
+            (await urlExistsPath(`${itemStemDirUrl}/modules/${encoded}.js`))
+          ) {
+            return itemStemDirUrl;
+          }
+        }
+
+        for (const moduleName of moduleNames) {
+          const encoded = encodePathSegments(moduleName);
+          if (await urlExistsPath(`${packageRootUrl}/modules/${encoded}.js`)) {
+            return packageRootUrl;
+          }
+        }
+
+        return packageRootUrl;
+      };
+
+      // Prefer an item-local baseUrl when modules live under `/items/<item>/modules`.
+      const pciBaseUrl = await detectPciBaseUrl();
 
       const parseModuleResolutionConfig = (
         text: string,
@@ -554,29 +616,6 @@ export const AssessmentPage: React.FC = () => {
             window.localStorage.getItem("__qti_debug_pci__") === "1";
           const debug = (...args: unknown[]) => {
             if (debugEnabled) console.debug("[pci]", ...args);
-          };
-
-          const encodePathSegments = (value: string) =>
-            value
-              .split("/")
-              .map((seg) => encodeURIComponent(seg))
-              .join("/");
-
-          const existsCache = new Map<string, Promise<boolean>>();
-          const urlExistsPath = async (path: string): Promise<boolean> => {
-            const absolute = `${window.location.origin}${path}`;
-            if (existsCache.has(absolute))
-              return await existsCache.get(absolute)!;
-            const p = (async () => {
-              try {
-                const res = await fetch(absolute, { method: "GET" });
-                return res.ok;
-              } catch {
-                return false;
-              }
-            })();
-            existsCache.set(absolute, p);
-            return await p;
           };
 
           const toScriptUrl = (baseUrl: string, maybePath: string) => {
