@@ -12,7 +12,9 @@ import App from "./app/app";
 // Patch the element to use `srcdoc` instead, so the iframe inherits our origin and is SW-controlled.
 try {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ctor: any = window.customElements?.get("qti-portable-custom-interaction");
+  const ctor: any = window.customElements?.get(
+    "qti-portable-custom-interaction",
+  );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const proto: any = ctor?.prototype;
   if (proto && !proto.__qtiPlaygroundPatchedSrcdocIframe) {
@@ -69,7 +71,8 @@ try {
             } catch {
               // ignore
             }
-            if (typeof originalHandler === "function") return originalHandler(event);
+            if (typeof originalHandler === "function")
+              return originalHandler(event);
           };
           this.__qtiPlaygroundMessageFilterPatched = true;
         }
@@ -101,7 +104,8 @@ try {
       try {
         return (
           typeof window !== "undefined" &&
-          window.localStorage?.getItem("__qti_debug_custom_interaction__") === "1"
+          window.localStorage?.getItem("__qti_debug_custom_interaction__") ===
+            "1"
         );
       } catch {
         return false;
@@ -115,41 +119,46 @@ try {
         .replace("http:/", "http://")
         .replace("https:/", "https://");
 
-    proto.connectedCallback = function patchedCustomInteractionConnectedCallback() {
-      if (isEnabled()) {
-        try {
-          const data = (this.data || this.getAttribute?.("data") || "").toString();
-          const baseItemUrl = (
-            this.baseItemUrl ||
-            this.getAttribute?.("data-base-item") ||
-            ""
-          ).toString();
-          const baseRefUrl = (
-            this.baseRefUrl ||
-            this.getAttribute?.("data-base-ref") ||
-            ""
-          ).toString();
+    proto.connectedCallback =
+      function patchedCustomInteractionConnectedCallback() {
+        if (isEnabled()) {
+          try {
+            const data = (
+              this.data ||
+              this.getAttribute?.("data") ||
+              ""
+            ).toString();
+            const baseItemUrl = (
+              this.baseItemUrl ||
+              this.getAttribute?.("data-base-item") ||
+              ""
+            ).toString();
+            const baseRefUrl = (
+              this.baseRefUrl ||
+              this.getAttribute?.("data-base-ref") ||
+              ""
+            ).toString();
 
-          const manifestUrl =
-            data.startsWith("http") || data.startsWith("blob")
-              ? data
-              : normalizeDoubleSlashes(`${baseItemUrl}/${data}`);
+            const manifestUrl =
+              data.startsWith("http") || data.startsWith("blob")
+                ? data
+                : normalizeDoubleSlashes(`${baseItemUrl}/${data}`);
 
-          console.debug("[custom-interaction]", {
-            responseIdentifier: this.getAttribute?.("response-identifier"),
-            data,
-            baseItemUrl,
-            baseRefUrl,
-            manifestUrl,
-          });
-        } catch {
-          // ignore
+            console.debug("[custom-interaction]", {
+              responseIdentifier: this.getAttribute?.("response-identifier"),
+              data,
+              baseItemUrl,
+              baseRefUrl,
+              manifestUrl,
+            });
+          } catch {
+            // ignore
+          }
         }
-      }
-      if (typeof originalConnectedCallback === "function") {
-        return originalConnectedCallback.call(this);
-      }
-    };
+        if (typeof originalConnectedCallback === "function") {
+          return originalConnectedCallback.call(this);
+        }
+      };
 
     proto.setupCES = function patchedCustomInteractionSetupCES() {
       if (isEnabled()) {

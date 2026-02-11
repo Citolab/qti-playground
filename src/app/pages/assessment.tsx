@@ -208,8 +208,7 @@ export const AssessmentPage: React.FC = () => {
       const existsCache = new Map<string, Promise<boolean>>();
       const urlExistsPath = async (path: string): Promise<boolean> => {
         const absolute = `${window.location.origin}${path}`;
-        if (existsCache.has(absolute))
-          return await existsCache.get(absolute)!;
+        if (existsCache.has(absolute)) return await existsCache.get(absolute)!;
         const p = (async () => {
           try {
             const res = await fetch(absolute, { method: "GET" });
