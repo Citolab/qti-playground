@@ -1,6 +1,10 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
+import { playwright } from "@vitest/browser-playwright";
 
 function spaHtmlFallbackForPackageRoute(): Plugin {
   // In dev, `GET /package` can sometimes be served as `package.json` (Vite JSON-as-ESM),
@@ -29,6 +33,11 @@ function spaHtmlFallbackForPackageRoute(): Plugin {
 }
 
 // https://vite.dev/config/
+const dirname =
+  typeof __dirname !== "undefined"
+    ? __dirname
+    : path.dirname(fileURLToPath(import.meta.url));
+
 export default defineConfig({
   plugins: [spaHtmlFallbackForPackageRoute(), react(), tailwindcss()],
 
@@ -40,12 +49,39 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ["boolbase", "xml-formatter"],
+    include: ["boolbase", "xml-formatter", "@storybook/react-vite", "storybook/test"],
     exclude: [
       "@citolab/qti-components",
       "@citolab/qti-extended",
       "@citolab/qti-convert",
       "lucide-react",
+    ],
+  },
+  test: {
+    projects: [
+      {
+        extends: true,
+        plugins: [
+          storybookTest({
+            configDir: path.join(dirname, ".storybook"),
+            tags: {
+              include: ["test"],
+              exclude: ["manual"],
+              skip: [],
+            },
+          }),
+        ],
+        test: {
+          name: "storybook",
+          browser: {
+            enabled: true,
+            headless: true,
+            provider: playwright({}),
+            instances: [{ browser: "chromium" }],
+          },
+          setupFiles: [".storybook/vitest.setup.ts"],
+        },
+      },
     ],
   },
 });

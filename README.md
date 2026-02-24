@@ -42,6 +42,31 @@ npm run dev
 
 The application will be available at http://localhost:portnumber
 
+#### Running Storybook for QTI Testing
+
+For comprehensive testing of QTI portable custom interactions:
+
+```bash
+npm run storybook
+```
+
+Storybook provides isolated testing of QTI items from `storybook-assets/` with debugging tools to help identify issues with PCI implementations. See [STORYBOOK_README.md](STORYBOOK_README.md) for detailed usage instructions.
+
+#### Testing with Storybook
+
+For testing and debugging QTI items, especially portable custom interactions:
+
+```bash
+npm run storybook
+```
+
+This will start Storybook with comprehensive test stories for QTI items, including:
+- Working PCI-Conformance items (reference implementation)
+- Problematic qti3-pci-QtiPci items (for debugging)
+- Side-by-side comparisons and debugging tools
+
+See [STORYBOOK_README.md](STORYBOOK_README.md) for detailed Storybook usage and debugging guide.
+
 ### Usage
 
 Upon launching the application, you can:

@@ -25,3 +25,7 @@ dist-ssr
 .firebase/hosting.ZGlzdA.cache
 .yalc
 .playwright-mcp/
+
+# Storybook generated/local artifacts
+storybook-static/
+.storybook-cache/
