@@ -55,6 +55,76 @@ declare module "react" {
 
 type AssessmentTestContext = { assessmentId: string } & ExtendedTestContext;
 
+const mergeRestoredTestContext = (
+  current: ExtendedTestContext | undefined,
+  stored: ExtendedTestContext,
+): ExtendedTestContext => {
+  if (!current) return stored;
+
+  const currentItems = Array.isArray(current.items) ? current.items : [];
+  const storedItems = Array.isArray(stored.items) ? stored.items : [];
+
+  const mergedItems = currentItems.map((currentItem) => {
+    const currentIdentifier = String(
+      (currentItem as { identifier?: string }).identifier || "",
+    );
+    const storedItem = storedItems.find(
+      (candidate) =>
+        String((candidate as { identifier?: string }).identifier || "") ===
+        currentIdentifier,
+    );
+    if (!storedItem) return currentItem;
+
+    const currentVariables = Array.isArray(currentItem.variables)
+      ? currentItem.variables
+      : [];
+    const storedVariables = Array.isArray(storedItem.variables)
+      ? storedItem.variables
+      : [];
+
+    const mergedVariables = [
+      ...currentVariables.filter((currentVariable) => {
+        const id = String(
+          (currentVariable as { identifier?: string }).identifier || "",
+        );
+        return !storedVariables.some(
+          (storedVariable) =>
+            String((storedVariable as { identifier?: string }).identifier || "") ===
+            id,
+        );
+      }),
+      ...storedVariables,
+    ];
+
+    return {
+      ...currentItem,
+      ...storedItem,
+      variables: mergedVariables,
+      state: {
+        ...(currentItem.state || {}),
+        ...(storedItem.state || {}),
+      },
+    };
+  });
+
+  const missingStoredItems = storedItems.filter((storedItem) => {
+    const storedIdentifier = String(
+      (storedItem as { identifier?: string }).identifier || "",
+    );
+    return !currentItems.some(
+      (currentItem) =>
+        String((currentItem as { identifier?: string }).identifier || "") ===
+        storedIdentifier,
+    );
+  });
+
+  return {
+    ...current,
+    ...stored,
+    items: [...mergedItems, ...missingStoredItems],
+  };
+};
+
 export const AssessmentPage: React.FC = () => {
   const navigate = useNavigate();
   const qtiTestRef = useRef<IQtiTest>(null);
@@ -133,6 +203,7 @@ export const AssessmentPage: React.FC = () => {
     testContextsRef.current = testContexts;
   }, [testContexts]);
   const lastAppliedContextRef = useRef<ExtendedTestContext | null>(null);
+  const hasReceivedLiveContextRef = useRef(false);
 
   type ModuleResolutionConfig = {
     paths?: Record<string, string | string[]>;
@@ -1031,6 +1102,9 @@ export const AssessmentPage: React.FC = () => {
         navTestLoading: previous?.navTestLoading ?? false,
       };
 
+      hasReceivedLiveContextRef.current = true;
+      // This update comes from the active qti-test instance, so avoid immediately replaying it back.
+      lastAppliedContextRef.current = nextContext;
       updateTestContext(nextContext);
     },
     [assessment?.id, updateTestContext],
@@ -1087,22 +1161,31 @@ export const AssessmentPage: React.FC = () => {
   useEffect(() => {
     if (!qtiTestElement) {
       lastAppliedContextRef.current = null;
+      hasReceivedLiveContextRef.current = false;
       return;
     }
     if (!assessment?.id) return;
+    // Only restore persisted context after the runtime has produced at least one live context snapshot.
+    // This avoids clobbering declaration defaults (e.g. QTI_CONTEXT) during initial item boot.
+    if (!hasReceivedLiveContextRef.current) return;
 
     const stored = testContexts.find(
       (ctx) => ctx.assessmentId === assessment.id,
     );
     if (!stored || lastAppliedContextRef.current === stored) return;
 
+    const merged = mergeRestoredTestContext(
+      qtiTestElement.testContext as ExtendedTestContext | undefined,
+      stored,
+    );
+
     qtiTestElement.testContext = {
-      items: stored.items.map((item) => ({
+      items: merged.items.map((item) => ({
         ...item,
         variables: item.variables?.map((variable) => ({ ...variable })),
         state: item.state ? { ...item.state } : undefined,
       })),
-      testOutcomeVariables: stored.testOutcomeVariables,
+      testOutcomeVariables: merged.testOutcomeVariables,
     };
 
     lastAppliedContextRef.current = stored;

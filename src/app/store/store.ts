@@ -283,6 +283,7 @@ interface StoreActions {
 
   // Async actions
   loadQti: (href: string) => Promise<void>;
+  loadQti3: (href: string) => Promise<void>;
   setSelectedItem: (identifier: string, assessmentId: string) => Promise<void>;
   editItem: (identifier: string) => Promise<void>;
   updateTestContext: (
@@ -332,6 +333,27 @@ export const useStore = create<Store>()(
           });
           await get().convertQti(qtiResultData.data);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (e: any) {
+          set({
+            errorMessage: e.message,
+            isConverting: false,
+          });
+        }
+      },
+
+      loadQti3: async (href: string) => {
+        try {
+          set({ isConverting: true, errorMessage: "", previewItemHref: href });
+          const qtiResultData = await axios.get(href, {
+            responseType: "text",
+          });
+          set({
+            qtiInput: qtiResultData.data,
+            qti3: qtiResultData.data,
+            fillSource: true,
+            isConverting: false,
+          });
+          await get().prepareForPreview();
         } catch (e: any) {
           set({
             errorMessage: e.message,

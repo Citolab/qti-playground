@@ -1,0 +1,41 @@
+.qti-beta-choice-interaction {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.qti-beta-prompt {
+  font-weight: 600;
+  color: #111827;
+}
+
+.qti-beta-simple-choice {
+  position: relative;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background: #f9fafb;
+  padding: 0.5rem 0.75rem 0.5rem 2rem;
+  color: #111827;
+}
+
+.qti-beta-simple-choice::before {
+  content: "\2610";
+  position: absolute;
+  left: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
+  font-size: 1rem;
+}
+
+.ProseMirror:focus,
+.ProseMirror-focused,
+.ProseMirror *:focus,
+.ProseMirror *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.ProseMirror-selectednode {
+  outline: none !important;
+}

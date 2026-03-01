@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   GitCommit,
@@ -9,50 +9,123 @@ import {
   Repeat,
   Shield,
   Package,
+  FlaskConical,
 } from "lucide-react";
 import {
-  blocksQtiResponse,
-  qtiLandingChoice,
   qtiLandingFeatures,
+  blocksQtiResponse,
 } from "./items";
 import { itemCss } from "../itemCss";
-import {
-  QtiAssessmentItem,
-  QtiItem,
-  QtiPortableCustomInteraction,
-} from "@citolab/qti-components";
+import { QtiProsemirrorEditor } from "../components/editor/qti-prosemirror-editor";
+
+const LANDING_CHOICE_ITEM_XML = `<qti-assessment-item xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" xsi:schema-location="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd" identifier="landing-choice-editor" title="Landing Choice Editor" adaptive="false" time-dependent="false">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="identifier"></qti-response-declaration>
+  <qti-item-body>
+    <qti-choice-interaction response-identifier="RESPONSE" shuffle="false" max-choices="1" min-choices="1">
+      <qti-prompt>What do you want to do?</qti-prompt>
+      <qti-simple-choice identifier="ChoiceA">Use QTI-components to display items.</qti-simple-choice>
+      <qti-simple-choice identifier="ChoiceB">Theme your own assessment player.</qti-simple-choice>
+      <qti-simple-choice identifier="ChoiceC">Use our tooling to modify our convert QTI packages</qti-simple-choice>
+      <qti-simple-choice identifier="ChoiceD">Use our tooling that empowers software developers with a head start in building PCIs by generating boilerplate code using a simple CLI.</qti-simple-choice>
+    </qti-choice-interaction>
+  </qti-item-body>
+</qti-assessment-item>`;
+
+const LANDING_PCI_ITEM_XML = `<qti-assessment-item xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" xsi:schema-location="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd" identifier="landing-pci" title="Landing PCI" adaptive="false" time-dependent="false">
+  <qti-response-declaration identifier="RESPONSE2" cardinality="single" base-type="string"></qti-response-declaration>
+  <qti-item-body>
+    <p>QTI component can be integrated into nearly any web application, regardless of the frontend framework you use.</p>
+    <p>
+      <qti-portable-custom-interaction custom-interaction-type-identifier="blocks" data-version="1.0.0" data-grid-divisions="10" data-cube-pixel-size="80" data-height="280" module="blocks" response-identifier="RESPONSE2">
+        <qti-interaction-modules>
+          <qti-interaction-module id="blocks" primary-path="pci/blocks/interaction/runtime/js/index.js" />
+        </qti-interaction-modules>
+        <qti-interaction-markup>
+          <div class="pciInteraction">
+            <div class="prompt" />
+            <ul class="pci" />
+          </div>
+        </qti-interaction-markup>
+      </qti-portable-custom-interaction>
+    </p>
+  </qti-item-body>
+</qti-assessment-item>`;
+
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const qtiLandingChoiceRef = useRef<QtiItem>(null);
+  const pciItemRef = useRef<HTMLElement | null>(null);
+  const [isInlineEditorOpen, setIsInlineEditorOpen] = useState(false);
+  const [landingChoiceXml, setLandingChoiceXml] = useState(LANDING_CHOICE_ITEM_XML);
 
   useEffect(() => {
-    if (qtiLandingChoiceRef.current) {
-      // NORMALLY YOU WOULD NOT RESTORE THE RESPONSE IN A SINGLE QTI ITEM.
-      // FOR QTI-TEST THERE IS A PROPER WAY TO DO THIS, BUT FOR THIS DEMO IT IS OK
-      const qtiItem = qtiLandingChoiceRef.current as QtiItem;
-      qtiItem.addEventListener("qti-assessment-item-connected", (e) => {
-        const assessmentItem = (e as CustomEvent<QtiAssessmentItem>).detail;
-        assessmentItem.updateResponseVariable(
-          "RESPONSE2",
-          JSON.stringify(blocksQtiResponse),
-        );
-      });
-      setTimeout(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const assessmentItem = (qtiItem as any)
-          ._qtiAssessmentItem as QtiAssessmentItem;
-        const interaction = assessmentItem.querySelector(
-          'qti-portable-custom-interaction[response-identifier="RESPONSE2"]',
-        ) as QtiPortableCustomInteraction;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        // const pci = (interaction as any).pci;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if (interaction) {
-          interaction.value = JSON.stringify(blocksQtiResponse);
+    let attempts = 0;
+    const maxAttempts = 24;
+    const serializedResponse = JSON.stringify(blocksQtiResponse);
+
+    const applyResponse = (): boolean => {
+      const container = pciItemRef.current?.querySelector("item-container");
+      const assessmentItem = container?.shadowRoot?.querySelector(
+        "qti-assessment-item",
+      ) as
+        | {
+            updateResponseVariable?: (identifier: string, value: string) => void;
+            getResponse?: (identifier: string) => { value?: unknown } | null;
+            shadowRoot?: ShadowRoot | null;
+            querySelector?: (selector: string) => Element | null;
+          }
+        | null;
+
+      assessmentItem?.updateResponseVariable?.("RESPONSE2", serializedResponse);
+
+      const pciElement = assessmentItem?.shadowRoot?.querySelector(
+        "qti-portable-custom-interaction"
+      ) as
+        | {
+            setResponse?: (value: unknown) => void;
+            getResponse?: () => unknown;
+          }
+        | null;
+      const pciElementInLightDom = assessmentItem?.querySelector?.(
+        "qti-portable-custom-interaction"
+      ) as
+        | {
+            setResponse?: (value: unknown) => void;
+            getResponse?: () => unknown;
+          }
+        | null;
+      pciElement?.setResponse?.(serializedResponse);
+      pciElement?.setResponse?.(blocksQtiResponse);
+      pciElementInLightDom?.setResponse?.(serializedResponse);
+      pciElementInLightDom?.setResponse?.(blocksQtiResponse);
+
+      const currentResponse =
+        assessmentItem?.getResponse?.("RESPONSE2")?.value ??
+        pciElement?.getResponse?.() ??
+        pciElementInLightDom?.getResponse?.();
+      if (
+        currentResponse !== null &&
+        currentResponse !== undefined &&
+        String(currentResponse) !== ""
+      ) {
+        return true;
+      }
+      return false;
+    };
+
+    const startTimer = window.setTimeout(() => {
+      const interval = window.setInterval(() => {
+        const settled = applyResponse();
+        attempts += 1;
+        if (settled || attempts >= maxAttempts) {
+          window.clearInterval(interval);
         }
-      }, 200);
-    }
-  }, [qtiLandingChoiceRef]);
+      }, 650);
+    }, 1200);
+
+    return () => {
+      window.clearTimeout(startTimer);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
@@ -81,9 +154,9 @@ export const LandingPage: React.FC = () => {
 
           {/* Hero Image - only on larger screens */}
           <div className="mt-8 lg:mt-0 lg:w-1/2">
-            <div className="bg-gray-100 rounded-lg p-4">
-              <qti-item ref={qtiLandingChoiceRef}>
-                <item-container itemXML={qtiLandingChoice}>
+            <div className="mt-4 bg-gray-100 rounded-lg p-4 -mb-40">
+              <qti-item ref={pciItemRef}>
+                <item-container itemXML={LANDING_PCI_ITEM_XML}>
                   <template
                     dangerouslySetInnerHTML={{
                       __html: `<style>${itemCss}</style>`,
@@ -91,6 +164,41 @@ export const LandingPage: React.FC = () => {
                   ></template>
                 </item-container>
               </qti-item>
+            </div>
+            <div className="mt-4 bg-gray-100 rounded-lg p-4">
+              <div className="h-[24rem] overflow-auto">
+                {isInlineEditorOpen ? (
+                  <QtiProsemirrorEditor
+                    sourceXml={landingChoiceXml}
+                    onSourceChange={(nextXml) => setLandingChoiceXml(nextXml)}
+                    className="h-full overflow-auto rounded border border-gray-200 bg-white p-4"
+                  />
+                ) : (
+                  <qti-item>
+                    <item-container itemXML={landingChoiceXml}>
+                      <template
+                        dangerouslySetInnerHTML={{
+                          __html: `<style>${itemCss}</style>`,
+                        }}
+                      ></template>
+                    </item-container>
+                  </qti-item>
+                )}
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() =>
+                  setIsInlineEditorOpen((current) => !current)
+                }
+                className="inline-flex items-center gap-x-1.5 rounded-md border border-citolab-600 px-2.5 py-1.5 text-sm font-semibold text-citolab-700 hover:bg-citolab-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
+              >
+                <FlaskConical className="-ml-0.5 h-4 w-4" aria-hidden="true" />
+                {isInlineEditorOpen ? "Save" : "Try our editor now!"}
+                <span className="rounded bg-citolab-600 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-white">
+                  Beta
+                </span>
+              </button>
             </div>
           </div>
         </div>

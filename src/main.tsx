@@ -89,6 +89,62 @@ try {
   // ignore
 }
 
+// qti-components test navigation initializes QTI_CONTEXT.environmentIdentifier with "default".
+// In assessment mode this can override item-level qti-context-declaration defaults (e.g. CONFORMANCE),
+// while item preview mode still uses the declaration defaults correctly.
+// Patch PCI context record building so a concrete item default environmentIdentifier wins over runtime "default".
+try {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ctor: any = window.customElements?.get(
+    "qti-portable-custom-interaction",
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const proto: any = ctor?.prototype;
+  if (proto && !proto.__qtiPlaygroundPatchedQtiContextEnvironment) {
+    const originalGetQtiContextRecord = proto.getQtiContextRecord;
+    proto.getQtiContextRecord = function patchedGetQtiContextRecord() {
+      try {
+        const defaults =
+          typeof this.getQtiContextDefaultsFromItem === "function"
+            ? this.getQtiContextDefaultsFromItem()
+            : {};
+        const runtime = this.qtiContext?.QTI_CONTEXT || {};
+
+        const merged = { ...defaults, ...runtime };
+        if (
+          runtime.environmentIdentifier === "default" &&
+          typeof defaults.environmentIdentifier === "string" &&
+          defaults.environmentIdentifier.length > 0 &&
+          defaults.environmentIdentifier !== "default"
+        ) {
+          merged.environmentIdentifier = defaults.environmentIdentifier;
+        }
+
+        if (!Object.keys(merged).length) return null;
+        const normalized = {
+          candidateIdentifier: merged.candidateIdentifier ?? "",
+          testIdentifier: merged.testIdentifier ?? "",
+          environmentIdentifier: merged.environmentIdentifier ?? "",
+          ...merged,
+        };
+
+        if (typeof this.recordToQtiVariableJSON === "function") {
+          return this.recordToQtiVariableJSON(normalized);
+        }
+      } catch {
+        // ignore and fall back
+      }
+      if (typeof originalGetQtiContextRecord === "function") {
+        return originalGetQtiContextRecord.call(this);
+      }
+      return null;
+    };
+    proto.__qtiPlaygroundPatchedQtiContextEnvironment = true;
+  }
+} catch {
+  // ignore
+}
+
 // Optional debug patch for legacy `qti-custom-interaction` (CES) issues.
 // Enable via: `localStorage.__qti_debug_custom_interaction__ = "1"` (then reload).
 try {

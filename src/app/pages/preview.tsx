@@ -3,7 +3,7 @@ import { useDebouncedCallback } from "use-debounce";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store/store";
 import { editor } from "monaco-editor";
-import { Clipboard, Info, Share2 } from "lucide-react";
+import { Clipboard, FlaskConical, Info, Share2 } from "lucide-react";
 import { Tooltip } from "react-tooltip";
 import { Dropdown } from "../components/dropdown";
 import { Panel } from "../components/panel";
@@ -12,6 +12,7 @@ import { QtiAssessmentItem, QtiItem } from "@citolab/qti-components";
 import { CustomElements } from "@citolab/qti-components/react";
 import { useSearchParams } from "react-router-dom";
 import { itemCss } from "../itemCss";
+import { QtiProsemirrorEditor } from "../components/editor/qti-prosemirror-editor";
 
 const encodeXmlToShareParam = (xml: string) => {
   const bytes = new TextEncoder().encode(xml);
@@ -37,10 +38,12 @@ declare module "react" {
   }
 }
 export const PreviewPage = () => {
-  console.log("PreviewPage component rendered");
   const sourceEditor = useRef<editor.IStandaloneCodeEditor>(null);
   const qtiItemRef = useRef<QtiItem>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
+  const [sourceEditorMode, setSourceEditorMode] = useState<
+    "monaco" | "prosemirror"
+  >("monaco");
   const [openTooltip, setOpenTooltip] = useState(false);
   const [shareTooltipOpen, setShareTooltipOpen] = useState(false);
   const [sharePopupOpen, setSharePopupOpen] = useState(false);
@@ -55,7 +58,7 @@ export const PreviewPage = () => {
   const clearFillSource = useStore((state) => state.clearFillSource);
   const isConverting = useStore((state) => state.isConverting);
   const errorMessage = useStore((state) => state.errorMessage);
-  const loadQti = useStore((state) => state.loadQti);
+  const loadQti3 = useStore((state) => state.loadQti3);
   const setQti3 = useStore((state) => state.setQti3);
   const loadSharedQti = useStore((state) => state.loadSharedQti);
   const editItem = useStore((state) => state.editItem);
@@ -104,16 +107,28 @@ export const PreviewPage = () => {
   );
 
   useEffect(() => {
+    if (sourceEditorMode !== "monaco") {
+      if (fillSource) {
+        clearFillSource();
+      }
+      return;
+    }
     if (!fillSource || !isEditorReady) return;
     const nextValue = qti3 || "";
     const editorInstance = sourceEditor.current;
     if (!editorInstance) return;
     if (editorInstance.getValue() !== nextValue) {
       editorInstance.setValue(nextValue);
-      debouncedPreview(nextValue);
     }
     clearFillSource();
-  }, [clearFillSource, debouncedPreview, fillSource, isEditorReady, qti3]);
+  }, [
+    clearFillSource,
+    debouncedPreview,
+    fillSource,
+    isEditorReady,
+    qti3,
+    sourceEditorMode,
+  ]);
 
   useEffect(() => {
     if (hasLoadedSharedItem.current) {
@@ -174,6 +189,23 @@ export const PreviewPage = () => {
       <Panel
         title="QTI 3"
         actionComponents={[
+          // <button
+          //   type="button"
+          //   onClick={() =>
+          //     setSourceEditorMode((current) =>
+          //       current === "monaco" ? "prosemirror" : "monaco",
+          //     )
+          //   }
+          //   className="inline-flex items-center gap-x-1.5 rounded-md border border-citolab-600 px-2.5 py-1.5 text-sm font-semibold text-citolab-700 hover:bg-citolab-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
+          // >
+          //   <FlaskConical className="-ml-0.5 h-4 w-4" aria-hidden="true" />
+          //   {sourceEditorMode === "monaco"
+          //     ? "Try our editor now!"
+          //     : "Hide beta editor"}
+          //   <span className="rounded bg-citolab-600 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-white">
+          //     Beta
+          //   </span>
+          // </button>,
           <Dropdown
             name="Examples"
             items={[
@@ -184,7 +216,7 @@ export const PreviewPage = () => {
             ]}
             onMenuClick={(name) => {
               const i = allItems.find((i) => i.name === name);
-              loadQti(`/3${i?.href || ""}`);
+              loadQti3(`/3${i?.href || ""}`);
             }}
           />,
           <div className="flex gap-2">
@@ -237,22 +269,29 @@ export const PreviewPage = () => {
           <div></div>
         )}
 
-        <Editor
-          options={editorOptions}
-          onMount={(editor) => {
-            sourceEditor.current = editor;
-            setIsEditorReady(true);
-          }}
-          onChange={(value) => {
-            debouncedPreview(value || "");
-          }}
-          width="100%"
-          height="75vh"
-          value={qti3 || ""}
-          defaultLanguage="xml"
-          language="xml"
-          defaultValue=""
-        />
+        {sourceEditorMode === "monaco" ? (
+          <Editor
+            options={editorOptions}
+            onMount={(editor) => {
+              sourceEditor.current = editor;
+              setIsEditorReady(true);
+            }}
+            onChange={(value) => {
+              debouncedPreview(value || "");
+            }}
+            width="100%"
+            height="75vh"
+            value={qti3 || ""}
+            defaultLanguage="xml"
+            language="xml"
+            defaultValue=""
+          />
+        ) : (
+          <QtiProsemirrorEditor
+            sourceXml={qti3 || ""}
+            onSourceChange={(nextXml) => debouncedPreview(nextXml)}
+          />
+        )}
       </Panel>
       <Panel
         title="QTI Preview"
