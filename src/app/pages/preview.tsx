@@ -3,7 +3,7 @@ import { useDebouncedCallback } from "use-debounce";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store/store";
 import { editor } from "monaco-editor";
-import { Clipboard, FlaskConical, Info, Share2 } from "lucide-react";
+import { Clipboard, Info, Share2 } from "lucide-react";
 import { Tooltip } from "react-tooltip";
 import { Dropdown } from "../components/dropdown";
 import { Panel } from "../components/panel";
@@ -41,7 +41,7 @@ export const PreviewPage = () => {
   const sourceEditor = useRef<editor.IStandaloneCodeEditor>(null);
   const qtiItemRef = useRef<QtiItem>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
-  const [sourceEditorMode, setSourceEditorMode] = useState<
+  const [sourceEditorMode] = useState<
     "monaco" | "prosemirror"
   >("monaco");
   const [openTooltip, setOpenTooltip] = useState(false);
