@@ -21,10 +21,10 @@ const LANDING_CHOICE_ITEM_XML = `<qti-assessment-item xmlns:xsi="http://www.w3.o
   <qti-item-body>
     <qti-choice-interaction response-identifier="RESPONSE" shuffle="false" max-choices="1" min-choices="1">
       <qti-prompt>What do you want to do?</qti-prompt>
-      <qti-simple-choice identifier="ChoiceA">Use QTI-components to display items.</qti-simple-choice>
-      <qti-simple-choice identifier="ChoiceB">Theme your own assessment player.</qti-simple-choice>
-      <qti-simple-choice identifier="ChoiceC">Use our tooling to modify our convert QTI packages</qti-simple-choice>
-      <qti-simple-choice identifier="ChoiceD">Use our tooling that empowers software developers with a head start in building PCIs by generating boilerplate code using a simple CLI.</qti-simple-choice>
+      <qti-simple-choice identifier="ChoiceA">Create, edit and display items.</qti-simple-choice>
+      <qti-simple-choice identifier="ChoiceB">Create and theme your own assessment player</qti-simple-choice>
+      <qti-simple-choice identifier="ChoiceC">Convert QTI packages</qti-simple-choice>
+      <qti-simple-choice identifier="ChoiceD">Build PCI's</qti-simple-choice>
     </qti-choice-interaction>
   </qti-item-body>
 </qti-assessment-item>`;
