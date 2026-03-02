@@ -1516,8 +1516,8 @@ export const AssessmentPage: React.FC = () => {
             title="Close assessment"
             type="button"
           >
-            <LogOut className="mr-1 h-4 w-4" />
-            Close assessment
+            <LogOut className="sm:mr-1 h-4 w-4" />
+            <span className="hidden sm:inline">Close assessment</span>
           </button>
           <h1 className="text-lg font-medium text-gray-800">
             {selectedAssessmentData?.name || "Assessment"}
@@ -1528,8 +1528,8 @@ export const AssessmentPage: React.FC = () => {
             className="inline-flex items-center rounded-md bg-citolab-600 px-3 py-2 text-sm font-medium text-white hover:bg-citolab-500 transition-colors"
             onClick={onEditItem}
           >
-            <Edit className="mr-1 h-4 w-4" />
-            Edit QTI
+            <Edit className="sm:mr-1 h-4 w-4" />
+            <span className="hidden sm:inline">Edit QTI</span>
           </button>
           <button
             className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
@@ -1539,8 +1539,8 @@ export const AssessmentPage: React.FC = () => {
             }`}
             onClick={() => setShowVariables((current) => !current)}
           >
-            <Code className="mr-1 h-4 w-4" />
-            {showVariables ? "Hide Output" : "Show Output"}
+            <Code className="sm:mr-1 h-4 w-4" />
+            <span className="hidden sm:inline">{showVariables ? "Hide Output" : "Show Output"}</span>
           </button>
           <button
             className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
@@ -1552,8 +1552,8 @@ export const AssessmentPage: React.FC = () => {
             title="Overview"
             type="button"
           >
-            <LayoutGrid className="mr-1 h-4 w-4" />
-            Overview
+            <LayoutGrid className="sm:mr-1 h-4 w-4" />
+            <span className="hidden sm:inline">Overview</span>
           </button>
         </div>
       </div>

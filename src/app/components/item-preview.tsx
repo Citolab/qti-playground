@@ -18,12 +18,14 @@ const moduleScriptUrlCache = new Map<string, Promise<string | null>>();
 const urlExistsCache = new Map<string, Promise<boolean>>();
 
 interface ItemPreviewProps {
-  item: ItemInfoWithBlobRef & { assessmentId: string };
-  index: number;
+  item: ItemInfoWithBlobRef & { assessmentId?: string };
+  index?: number;
+  onItemClick?: () => void;
+  headerContent?: React.ReactNode;
 }
 
 export const ItemPreview: React.FC<ItemPreviewProps> = memo(
-  ({ item, index }) => {
+  ({ item, index, onItemClick, headerContent }) => {
     const [itemContent, setItemContent] = useState<string>("");
     const [itemDoc, setItemDoc] = useState<DocumentFragment | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -754,6 +756,7 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
     if (isLoading) {
       return (
         <div className="relative bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+          {headerContent && <div className="px-4 pt-4">{headerContent}</div>}
           <div className="aspect-[4/3] overflow-hidden m-3 flex items-center justify-center">
             <div className="text-gray-500 text-sm">Loading...</div>
           </div>
@@ -764,6 +767,7 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
     if (error) {
       return (
         <div className="relative bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+          {headerContent && <div className="px-4 pt-4">{headerContent}</div>}
           <div className="aspect-[4/3] overflow-hidden m-3 flex items-center justify-center">
             <div className="text-red-500 text-sm">{error}</div>
           </div>
@@ -774,6 +778,7 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
     if (!itemDoc) {
       return (
         <div className="relative bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+          {headerContent && <div className="px-4 pt-4">{headerContent}</div>}
           <div className="aspect-[4/3] overflow-hidden m-3 flex items-center justify-center">
             <div className="text-gray-500 text-sm">Rendering...</div>
           </div>
@@ -786,6 +791,7 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
         key={index}
         className="relative bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow group"
       >
+        {headerContent && <div className="px-4 pt-4">{headerContent}</div>}
         <div className="aspect-[4/3] overflow-hidden m-3" ref={containerRef}>
           <qti-item>
             <item-container itemDoc={itemDoc}>
@@ -799,11 +805,15 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
         </div>
 
         <div
-          onClick={() =>
-            navigate(
-              `/assessment/${item.assessmentId}/?item=${item.identifier}`,
-            )
-          }
+          onClick={() => {
+            if (onItemClick) {
+              onItemClick();
+            } else if (item.assessmentId) {
+              navigate(
+                `/assessment/${item.assessmentId}/?item=${item.identifier}`,
+              );
+            }
+          }}
           className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-end justify-center"
         >
           <div className="w-full p-3 text-white font-medium flex items-center justify-center">

@@ -141,7 +141,7 @@ export const UploadPage: React.FC = () => {
     return (
       <div className="h-full w-full overflow-y-auto">
         {/* Top Action Bar */}
-        <div className="sticky top-0 bg-white z-10 shadow-sm px-6 py-3 flex items-center justify-between">
+        <div className="sticky top-0 bg-white z-10 shadow-sm px-4 py-3 flex items-center justify-between gap-3">
           <button
             className="flex items-center px-4 py-2 bg-citolab-600 text-white rounded-lg hover:bg-citolab-700 transition-colors"
             onClick={() => {
@@ -162,15 +162,15 @@ export const UploadPage: React.FC = () => {
               window.location.reload();
             }}
           >
-            <Upload className="w-5 h-5 mr-2" />
-            <span>Select New Package</span>
+            <Upload className="w-5 h-5 sm:mr-2" />
+            <span className="hidden sm:inline">Select New Package</span>
           </button>
 
-          <div className="flex flex-col items-end gap-1">
-            <div className="text-xs font-semibold text-gray-600">
+          <div className="flex flex-col gap-1">
+            <div className="text-xs font-semibold text-gray-600 hidden sm:block">
               Start an assessment
             </div>
-            <div className="flex gap-2 flex-wrap justify-end">
+            <div className="flex gap-2 flex-wrap">
               {assessments?.map((assessment) => (
                 <button
                   key={assessment.id}
@@ -180,7 +180,7 @@ export const UploadPage: React.FC = () => {
                   type="button"
                 >
                   <Play className="w-4 h-4" />
-                  <div className="flex flex-col items-start leading-tight">
+                  <div className="hidden sm:flex flex-col items-start leading-tight">
                     <span className="text-[11px] opacity-90">
                       Start assessment
                     </span>

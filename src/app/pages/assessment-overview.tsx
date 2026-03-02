@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { qtiTransform } from "@citolab/qti-convert/qti-transformer";
+import { useMemo } from "react";
 import { Bookmark } from "lucide-react";
 import { ItemInfoWithBlobRef } from "../store/store";
-import { itemCss } from "../itemCss";
+import { ItemPreview } from "../components/item-preview";
 
 type ResponseState = "missing" | "incomplete" | "complete";
 
@@ -19,109 +18,6 @@ function OverviewGridItem({
   bookmarked: boolean;
   onOpen: () => void;
 }) {
-  const [itemContent, setItemContent] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string>("");
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    let isActive = true;
-    const loadItemContent = async () => {
-      try {
-        setIsLoading(true);
-        setError("");
-        const res = await fetch(item.href, { method: "GET" });
-        if (!res.ok) {
-          throw new Error(`Failed to fetch item (${res.status})`);
-        }
-        const content = await res.text();
-        if (!isActive) return;
-        setItemContent(content);
-      } catch (err) {
-        console.error("Failed to load item content:", err);
-        if (!isActive) return;
-        setError("Failed to load preview");
-      } finally {
-        if (isActive) setIsLoading(false);
-      }
-    };
-    void loadItemContent();
-    return () => {
-      isActive = false;
-    };
-  }, [item.href]);
-
-  useEffect(() => {
-    if (!containerRef.current || !itemContent) return;
-    const previewScaleAttr = "data-qti-preview-scale";
-    const itemContainers = Array.from(
-      containerRef.current.querySelectorAll("item-container"),
-    );
-    for (const itemContainer of itemContainers) {
-      if (
-        itemContainer.shadowRoot &&
-        !itemContainer.shadowRoot.querySelector(`style[${previewScaleAttr}]`)
-      ) {
-        const styleElement = document.createElement("style");
-        styleElement.setAttribute(previewScaleAttr, "true");
-        styleElement.textContent = `
-          qti-assessment-item {
-            margin-top: -50px;
-            padding: 1rem;
-            display: block;
-            aspect-ratio: 4 / 3;
-            width: 800px;
-            transform: scale(0.25);
-            transform-origin: top left;
-          }
-        `;
-        itemContainer.shadowRoot.appendChild(styleElement);
-      }
-    }
-    return () => {
-      for (const itemContainer of itemContainers) {
-        itemContainer.shadowRoot
-          ?.querySelector(`style[${previewScaleAttr}]`)
-          ?.remove();
-      }
-    };
-  }, [itemContent]);
-
-  const qti = useMemo(() => {
-    if (!itemContent) return "";
-    return qtiTransform(itemContent)
-      .fnCh(($) => {
-        $(`[class*="type:"]`).each((_, element) => {
-          const $el = $(element);
-          const classes = $el.attr("class");
-          if (classes) {
-            const tagName = $el[0].tagName;
-            const match = classes.match(/type:(\w+)/);
-            if (match) {
-              const type = match[1];
-              const newTag = `${tagName}-${type}`;
-              const newClasses = classes.replace(`type:${type}`, "").trim();
-              const $newElement = $(
-                `<${newTag} class="${newClasses}">${$el.html()}</${newTag}>`,
-              );
-              $el[0].attributes.forEach((attr) => {
-                if (attr.name !== "class") {
-                  $newElement.attr(attr.name, attr.value);
-                }
-              });
-              $el.replaceWith($newElement);
-            }
-          }
-        });
-      })
-      .fnCh(($) => {
-        $(`qti-media-interaction, audio, video`).replaceWith(
-          `<div>Removed media</div>`,
-        );
-      })
-      .browser.htmldoc();
-  }, [itemContent]);
-
   const stateLabel =
     responseState === "complete"
       ? "Answered"
@@ -136,57 +32,24 @@ function OverviewGridItem({
         ? "bg-citolab-400"
         : "bg-gray-400";
 
-  return (
-    <div className="relative bg-white border-2 border-gray-200 rounded-xl p-4 transition-all duration-200 hover:shadow-md">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div
-            className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-white ${numberBg}`}
-          >
-            {displayNumber}
-          </div>
-          <div className="text-xs font-semibold text-gray-600">
-            {stateLabel}
-          </div>
-          {bookmarked && <Bookmark className="h-4 w-4 text-amber-500" />}
-        </div>
-      </div>
-
+  const headerContent = (
+    <div className="flex items-center gap-3">
       <div
-        role="button"
-        tabIndex={0}
-        onClick={onOpen}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onOpen();
-          }
-        }}
-        className="mb-2 aspect-[4/3] w-full overflow-hidden rounded bg-white border border-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-citolab-500"
+        className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-white ${numberBg}`}
       >
-        <div className="h-full w-full" ref={containerRef}>
-          {isLoading ? (
-            <div className="flex h-full items-center justify-center px-2 text-[11px] text-gray-400">
-              Preview laden...
-            </div>
-          ) : error ? (
-            <div className="flex h-full items-center justify-center px-2 text-[11px] text-rose-500">
-              {error}
-            </div>
-          ) : (
-            <qti-item>
-              <item-container itemDoc={qti}>
-                <template
-                  dangerouslySetInnerHTML={{
-                    __html: `<style>${itemCss}</style>`,
-                  }}
-                ></template>
-              </item-container>
-            </qti-item>
-          )}
-        </div>
+        {displayNumber}
       </div>
+      <div className="text-xs font-semibold text-gray-600">{stateLabel}</div>
+      {bookmarked && <Bookmark className="h-4 w-4 text-amber-500" />}
     </div>
+  );
+
+  return (
+    <ItemPreview
+      item={item}
+      onItemClick={onOpen}
+      headerContent={headerContent}
+    />
   );
 }
 
