@@ -593,7 +593,7 @@ export const LandingPage: React.FC = () => {
             </div>
             <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
               <MonacoEditor
-                height="24rem"
+                height="18rem"
                 language="xml"
                 theme="vs-dark"
                 value={prettyLandingChoiceXml}
