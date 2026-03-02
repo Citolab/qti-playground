@@ -19,7 +19,13 @@ import { defineBasicExtension } from "prosekit/basic";
 import { DOMParser as PMDOMParser, DOMSerializer } from "prosekit/pm/model";
 import { toggleMark } from "prosekit/pm/commands";
 import { redo, undo } from "prosekit/pm/history";
-import { Plugin, type Command, type EditorState, type Transaction } from "prosekit/pm/state";
+import {
+  Plugin,
+  TextSelection,
+  type Command,
+  type EditorState,
+  type Transaction,
+} from "prosekit/pm/state";
 import type { EditorView } from "prosekit/pm/view";
 import type { NodeSpec } from "prosekit/pm/model";
 
@@ -293,6 +299,115 @@ const insertTextEntryInteraction: Command = (
   return true;
 };
 
+function getNextAlphabeticIdentifier(value: string): string {
+  const chars = value.split("");
+  let carry = true;
+  for (let i = chars.length - 1; i >= 0; i -= 1) {
+    if (!carry) break;
+    if (chars[i] === "Z") {
+      chars[i] = "A";
+      carry = true;
+    } else {
+      chars[i] = String.fromCharCode(chars[i].charCodeAt(0) + 1);
+      carry = false;
+    }
+  }
+  if (carry) chars.unshift("A");
+  return chars.join("");
+}
+
+function findUniqueSimpleChoiceIdentifier(
+  usedIdentifiers: Set<string>,
+  currentIdentifier: string
+): string {
+  const letterMatch = currentIdentifier.match(/^[A-Z]+$/);
+  if (letterMatch) {
+    let candidate = getNextAlphabeticIdentifier(currentIdentifier);
+    while (usedIdentifiers.has(candidate)) {
+      candidate = getNextAlphabeticIdentifier(candidate);
+    }
+    return candidate;
+  }
+
+  const numberedMatch = currentIdentifier.match(/^(.*?)(\d+)$/);
+  if (numberedMatch) {
+    const prefix = numberedMatch[1];
+    let number = Number.parseInt(numberedMatch[2], 10);
+    do {
+      number += 1;
+    } while (usedIdentifiers.has(`${prefix}${number}`));
+    return `${prefix}${number}`;
+  }
+
+  const base = currentIdentifier || "CHOICE";
+  let suffix = 2;
+  let candidate = `${base}_${suffix}`;
+  while (usedIdentifiers.has(candidate)) {
+    suffix += 1;
+    candidate = `${base}_${suffix}`;
+  }
+  return candidate;
+}
+
+const insertUniqueSimpleChoiceOnEnter: Command = (
+  state: EditorState,
+  dispatch?: (tr: Transaction) => void
+) => {
+  if (!state.selection.empty) return false;
+
+  const { schema, selection } = state;
+  const interactionType = schema.nodes.qtiChoiceInteraction;
+  const simpleChoiceType = schema.nodes.qtiSimpleChoice;
+  if (!interactionType || !simpleChoiceType) return false;
+
+  let simpleChoiceDepth = -1;
+  for (let depth = selection.$from.depth; depth >= 0; depth -= 1) {
+    if (selection.$from.node(depth).type === simpleChoiceType) {
+      simpleChoiceDepth = depth;
+      break;
+    }
+  }
+  if (simpleChoiceDepth < 0) return false;
+
+  let interactionDepth = -1;
+  for (let depth = simpleChoiceDepth; depth >= 0; depth -= 1) {
+    if (selection.$from.node(depth).type === interactionType) {
+      interactionDepth = depth;
+      break;
+    }
+  }
+  if (interactionDepth < 0) return false;
+
+  const interactionNode = selection.$from.node(interactionDepth);
+  const usedIdentifiers = new Set<string>();
+  interactionNode.forEach((child) => {
+    if (child.type === simpleChoiceType) {
+      const identifier = child.attrs.identifier;
+      if (typeof identifier === "string" && identifier.length > 0) {
+        usedIdentifiers.add(identifier);
+      }
+    }
+  });
+
+  const currentChoiceNode = selection.$from.node(simpleChoiceDepth);
+  const currentIdentifier =
+    typeof currentChoiceNode.attrs.identifier === "string"
+      ? currentChoiceNode.attrs.identifier
+      : "CHOICE";
+  const nextIdentifier = findUniqueSimpleChoiceIdentifier(
+    usedIdentifiers,
+    currentIdentifier
+  );
+  const newChoiceNode = simpleChoiceType.create({ identifier: nextIdentifier });
+
+  const insertPos = selection.$from.after(simpleChoiceDepth);
+  const tr = state.tr.insert(insertPos, newChoiceNode);
+  tr.setSelection(TextSelection.near(tr.doc.resolve(insertPos + 1)));
+
+  if (dispatch) dispatch(tr.scrollIntoView());
+  return true;
+};
+
 function extractItemBody(sourceXml: string): string {
   const match = sourceXml.match(ITEM_BODY_PATTERN);
   if (!match) return "";
@@ -467,6 +582,7 @@ function defineQtiExtension() {
     defineNodeSpec({ name: "qtiInlineChoice", ...qtiInlineChoiceNodeSpec }),
     defineNodeSpec({ name: "qtiTextEntryInteraction", ...qtiTextEntryInteractionNodeSpec }),
     defineKeymap({
+      Enter: insertUniqueSimpleChoiceOnEnter,
       "Mod-Shift-q": insertChoiceInteraction,
       "Mod-Shift-t": insertTextEntryInteraction,
       "Mod-Shift-i": insertInlineChoiceInteraction,

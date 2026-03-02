@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { itemCss } from "../itemCss";
-import { QtiProsemirrorEditor } from "../components/editor/qti-prosemirror-editor"
+import { QtiProsemirrorEditor } from "../components/editor/qti-prosemirror-editor";
 import { QtiAssessmentItem } from "@citolab/qti-components";
 
 const LANDING_CHOICE_ITEM_XML = `<qti-assessment-item xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" xsi:schema-location="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd" identifier="landing-choice-editor" title="Landing Choice Editor" adaptive="false" time-dependent="false">
@@ -21,10 +21,10 @@ const LANDING_CHOICE_ITEM_XML = `<qti-assessment-item xmlns:xsi="http://www.w3.o
   <qti-item-body>
     <qti-choice-interaction response-identifier="RESPONSE" shuffle="false" max-choices="1" min-choices="1">
       <qti-prompt>What do you want to do?</qti-prompt>
-      <qti-simple-choice identifier="ChoiceA">Create, edit and display items.</qti-simple-choice>
-      <qti-simple-choice identifier="ChoiceB">Create and theme your own assessment player</qti-simple-choice>
-      <qti-simple-choice identifier="ChoiceC">Convert QTI packages</qti-simple-choice>
-      <qti-simple-choice identifier="ChoiceD">Build PCI's</qti-simple-choice>
+      <qti-simple-choice identifier="A">Create, edit and display items.</qti-simple-choice>
+      <qti-simple-choice identifier="B">Create and theme your own assessment player</qti-simple-choice>
+      <qti-simple-choice identifier="C">Convert QTI packages</qti-simple-choice>
+      <qti-simple-choice identifier="D">Build PCI's</qti-simple-choice>
     </qti-choice-interaction>
   </qti-item-body>
 </qti-assessment-item>`;
@@ -49,7 +49,7 @@ const LANDING_PCI_ITEM_XML = `<qti-assessment-item xmlns:xsi="http://www.w3.org/
   </qti-item-body>
 </qti-assessment-item>`;
 
- const LANDING_ITEM_FEATURES = `<qti-assessment-item xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+const LANDING_ITEM_FEATURES = `<qti-assessment-item xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
 	xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
 	identifier="choice" title="Unattended Luggage" adaptive="false" time-dependent="false">
@@ -455,10 +455,7 @@ const PCI_BLOCKS_RESPONSE = {
 function prettyPrintXml(xml: string): string {
   const indentUnit = "  ";
   const escapeText = (value: string) =>
-    value
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+    value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const escapeAttribute = (value: string) =>
     escapeText(value).replace(/"/g, "&quot;");
 
@@ -488,7 +485,9 @@ function prettyPrintXml(xml: string): string {
       meaningfulChildren.length === 1 &&
       meaningfulChildren[0].nodeType === Node.TEXT_NODE
     ) {
-      const textValue = escapeText(meaningfulChildren[0].textContent?.trim() ?? "");
+      const textValue = escapeText(
+        meaningfulChildren[0].textContent?.trim() ?? "",
+      );
       return `${indent}${openTag}${textValue}${closeTag}`;
     }
 
@@ -506,7 +505,7 @@ function prettyPrintXml(xml: string): string {
   try {
     const documentNode = new DOMParser().parseFromString(
       xml,
-      "application/xml"
+      "application/xml",
     );
     if (documentNode.querySelector("parsererror")) {
       return xml;
@@ -519,10 +518,12 @@ function prettyPrintXml(xml: string): string {
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const [landingChoiceXml, setLandingChoiceXml] = useState(LANDING_CHOICE_ITEM_XML);
+  const [landingChoiceXml, setLandingChoiceXml] = useState(
+    LANDING_CHOICE_ITEM_XML,
+  );
   const prettyLandingChoiceXml = useMemo(
     () => prettyPrintXml(landingChoiceXml),
-    [landingChoiceXml]
+    [landingChoiceXml],
   );
 
   const restoreResponses = useCallback(
@@ -534,8 +535,10 @@ export const LandingPage: React.FC = () => {
 
       // set assessmentItem.variables add if not exists or update if exists with the value from responses
       for (const [identifier, value] of Object.entries(responses)) {
-        assessmentItem.updateResponseVariable(identifier, JSON.stringify(value));
-        
+        assessmentItem.updateResponseVariable(
+          identifier,
+          JSON.stringify(value),
+        );
       }
     },
     [],
@@ -641,9 +644,10 @@ export const LandingPage: React.FC = () => {
                         QTI Player
                       </h3>
                       <p className="mt-2 text-base text-gray-500">
-                        A minimal, fully functional example of a QTI Player using
-                        @citolab/qti-components. It serves as a "Hello World" or
-                        cookbook-style reference for implementing a QTI player.
+                        A minimal, fully functional example of a QTI Player
+                        using @citolab/qti-components. It serves as a "Hello
+                        World" or cookbook-style reference for implementing a
+                        QTI player.
                       </p>
                     </div>
                     <div className="flex items-center gap-5">
