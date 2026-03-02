@@ -629,64 +629,65 @@ export const LandingPage: React.FC = () => {
                         */}
             <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
               {/* QTI Player - always full width */}
-              <div className="pt-6 bg-gray-100 relative sm:col-span-2">
-                <div className="flow-root rounded-lg px-6 pb-8">
-                  <div className="-mt-6">
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                      <div>
-                        <div>
-                          <span className="inline-flex items-center justify-center p-3 bg-[#f6c900] rounded-md shadow-lg">
-                            <Repeat className="h-6 w-6" />
-                          </span>
-                        </div>
-                        <a href="https://site.imsglobal.org/certifications/cito/cito-qti-player">
-                          <img
-                            src="/1edtech_trusted-apps-certified.svg"
-                            alt="1EdTech Trusted Apps Certified"
-                            className="absolute bottom-4 right-4 w-24"
-                          />
-                        </a>
-                        <h3 className="mt-8 text-lg font-medium text-gray-900 tracking-tight">
-                          QTI Player
-                        </h3>
-                        <p className="mt-5 text-base text-gray-500">
-                          a minimal, fully functional example of a QTI Player using
-                          @citolab/qti-components. It serves as a "Hello World" or
-                          cookbook-style reference for implementing a QTI player
-                        </p>
-                        <div className="mt-18">
-                          <a
-                            href="https://github.com/Citolab/qti-player"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500 mr-5"
-                          >
-                            <GitCommit className="h-5 w-5 mr-2" />
-                            GitHub
-                          </a>
-                          <a
-                            href="https://stackblitz.com/~/github.com/Citolab/qti-player?file=index.html"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                          >
-                            <Book className="h-5 w-5 mr-2" />
-                            Stackblitz
-                          </a>
-                        </div>
-                      </div>
-                      <div className="rounded-lg bg-white p-4">
-                        <qti-item onqti-assessment-item-connected={onConnected}>
-                          <item-container itemXML={LANDING_PCI_ITEM_XML}>
-                            <template
-                              dangerouslySetInnerHTML={{
-                                __html: `<style>${itemCss}</style>`,
-                              }}
-                            ></template>
-                          </item-container>
-                        </qti-item>
-                      </div>
+              <div className="sm:col-span-2 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                <div className="grid grid-cols-1 sm:grid-cols-2">
+                  {/* Left: text content */}
+                  <div className="flex flex-col gap-4 p-8">
+                    <span className="inline-flex items-center justify-center p-3 bg-[#f6c900] rounded-md shadow-sm w-fit">
+                      <Repeat className="h-6 w-6" />
+                    </span>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900 tracking-tight">
+                        QTI Player
+                      </h3>
+                      <p className="mt-2 text-base text-gray-500">
+                        A minimal, fully functional example of a QTI Player using
+                        @citolab/qti-components. It serves as a "Hello World" or
+                        cookbook-style reference for implementing a QTI player.
+                      </p>
                     </div>
+                    <div className="flex items-center gap-5">
+                      <a
+                        href="https://github.com/Citolab/qti-player"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
+                      >
+                        <GitCommit className="h-4 w-4 mr-1.5" />
+                        GitHub
+                      </a>
+                      <a
+                        href="https://stackblitz.com/~/github.com/Citolab/qti-player?file=index.html"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
+                      >
+                        <Book className="h-4 w-4 mr-1.5" />
+                        Stackblitz
+                      </a>
+                    </div>
+                  </div>
+                  {/* Right: PCI preview */}
+                  <div className="relative bg-gray-50 border-t sm:border-t-0 sm:border-l border-gray-200 flex items-center justify-center p-4">
+                    <qti-item onqti-assessment-item-connected={onConnected}>
+                      <item-container itemXML={LANDING_PCI_ITEM_XML}>
+                        <template
+                          dangerouslySetInnerHTML={{
+                            __html: `<style>${itemCss}</style>`,
+                          }}
+                        ></template>
+                      </item-container>
+                    </qti-item>
+                    <a
+                      href="https://site.imsglobal.org/certifications/cito/cito-qti-player"
+                      className="absolute bottom-3 right-3"
+                    >
+                      <img
+                        src="/1edtech_trusted-apps-certified.svg"
+                        alt="1EdTech Trusted Apps Certified"
+                        className="w-20"
+                      />
+                    </a>
                   </div>
                 </div>
               </div>
