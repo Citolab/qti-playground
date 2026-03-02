@@ -635,7 +635,7 @@ export const LandingPage: React.FC = () => {
               <div className="sm:col-span-2 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
                 <div className="grid grid-cols-1 sm:grid-cols-2">
                   {/* Left: text content */}
-                  <div className="flex flex-col gap-4 p-8">
+                  <div className="relative flex flex-col gap-4 p-8">
                     <span className="inline-flex items-center justify-center p-3 bg-[#f6c900] rounded-md shadow-sm w-fit">
                       <Repeat className="h-6 w-6" />
                     </span>
@@ -670,18 +670,6 @@ export const LandingPage: React.FC = () => {
                         Stackblitz
                       </a>
                     </div>
-                  </div>
-                  {/* Right: PCI preview */}
-                  <div className="relative bg-gray-50 border-t sm:border-t-0 sm:border-l border-gray-200 flex items-center justify-center p-4">
-                    <qti-item onqti-assessment-item-connected={onConnected}>
-                      <item-container itemXML={LANDING_PCI_ITEM_XML}>
-                        <template
-                          dangerouslySetInnerHTML={{
-                            __html: `<style>${itemCss}</style>`,
-                          }}
-                        ></template>
-                      </item-container>
-                    </qti-item>
                     <a
                       href="https://site.imsglobal.org/certifications/cito/cito-qti-player"
                       className="absolute bottom-3 right-3"
@@ -692,6 +680,18 @@ export const LandingPage: React.FC = () => {
                         className="w-20"
                       />
                     </a>
+                  </div>
+                  {/* Right: PCI preview */}
+                  <div className="bg-gray-50 border-t sm:border-t-0 sm:border-l border-gray-200 flex items-center justify-center p-4">
+                    <qti-item onqti-assessment-item-connected={onConnected}>
+                      <item-container itemXML={LANDING_PCI_ITEM_XML}>
+                        <template
+                          dangerouslySetInnerHTML={{
+                            __html: `<style>${itemCss}</style>`,
+                          }}
+                        ></template>
+                      </item-container>
+                    </qti-item>
                   </div>
                 </div>
               </div>

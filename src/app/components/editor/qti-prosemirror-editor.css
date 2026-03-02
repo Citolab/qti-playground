@@ -42,6 +42,12 @@
   background: #f3f4f6;
 }
 
+.qti-beta-toolbar-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+
 .qti-beta-prompt {
   font-weight: 600;
   color: #111827;

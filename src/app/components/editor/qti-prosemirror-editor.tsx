@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bold,
   Italic,
@@ -556,6 +556,7 @@ function applyChoiceDataToEditorView(view: EditorView, choiceData: ChoiceData) {
     view.state.doc.content.size,
     interactionNode
   );
+  tr.setMeta("addToHistory", false);
   view.dispatch(tr);
 }
 
@@ -716,6 +717,7 @@ function applyBodyHtmlToEditorView(view: EditorView, itemBodyHtml: string) {
       view.state.doc.content.size,
       parsedDoc.content
     );
+    tr.setMeta("addToHistory", false);
     view.dispatch(tr);
   } catch (error) {
     // Keep the editor responsive even when source contains unsupported markup.
@@ -726,6 +728,7 @@ function applyBodyHtmlToEditorView(view: EditorView, itemBodyHtml: string) {
     );
     if (!fallback) return;
     const tr = view.state.tr.replaceWith(0, view.state.doc.content.size, fallback);
+    tr.setMeta("addToHistory", false);
     view.dispatch(tr);
   }
 }
@@ -742,10 +745,32 @@ export function QtiProsemirrorEditor({
   const lastEmittedSourceXmlRef = useRef<string | null>(null);
   const canEmitChangesRef = useRef(false);
   const isApplyingExternalUpdateRef = useRef(false);
+  const [historyState, setHistoryState] = useState({
+    canUndo: false,
+    canRedo: false,
+  });
 
   useEffect(() => {
     lastSourceXmlRef.current = sourceXml;
   }, [sourceXml]);
+
+  const syncHistoryState = useCallback((view?: EditorView) => {
+    if (!view) {
+      setHistoryState({ canUndo: false, canRedo: false });
+      return;
+    }
+
+    const next = {
+      canUndo: undo(view.state),
+      canRedo: redo(view.state),
+    };
+
+    setHistoryState((prev) =>
+      prev.canUndo === next.canUndo && prev.canRedo === next.canRedo
+        ? prev
+        : next
+    );
+  }, []);
 
   const applyToolbarCommand = useCallback((command: Command) => {
     const editor = editorRef.current;
@@ -754,7 +779,8 @@ export function QtiProsemirrorEditor({
     if (!view) return;
     view.focus();
     command(view.state, view.dispatch, view);
-  }, []);
+    syncHistoryState(view);
+  }, [syncHistoryState]);
 
   const toggleMarkByName = useCallback(
     (markName: "bold" | "italic" | "underline"): Command =>
@@ -774,6 +800,7 @@ export function QtiProsemirrorEditor({
           view() {
             return {
               update(updatedView: EditorView, prevState: EditorState) {
+                syncHistoryState(updatedView);
                 if (!canEmitChangesRef.current) return;
                 if (isApplyingExternalUpdateRef.current) return;
                 if (prevState.doc.eq(updatedView.state.doc)) return;
@@ -790,7 +817,7 @@ export function QtiProsemirrorEditor({
         })
       )
     );
-  }, [onSourceChange]);
+  }, [onSourceChange, syncHistoryState]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -806,6 +833,7 @@ export function QtiProsemirrorEditor({
       requestAnimationFrame(() => {
         isApplyingExternalUpdateRef.current = true;
         applySourceToEditorView(view, sourceXml);
+        syncHistoryState(view);
         isApplyingExternalUpdateRef.current = false;
         // Do not emit changes caused by initial content hydration.
         requestAnimationFrame(() => {
@@ -813,7 +841,7 @@ export function QtiProsemirrorEditor({
         });
       });
     }
-  }, [extension, sourceXml]);
+  }, [extension, sourceXml, syncHistoryState]);
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -834,12 +862,13 @@ export function QtiProsemirrorEditor({
 
     isApplyingExternalUpdateRef.current = true;
     applySourceToEditorView(view, sourceXml);
+    syncHistoryState(view);
     isApplyingExternalUpdateRef.current = false;
     // Keep suppressing plugin updates caused by this external sync.
     requestAnimationFrame(() => {
       canEmitChangesRef.current = true;
     });
-  }, [sourceXml]);
+  }, [sourceXml, syncHistoryState]);
 
   return (
     <div
@@ -853,6 +882,7 @@ export function QtiProsemirrorEditor({
             className="qti-beta-toolbar-button"
             aria-label="Undo"
             title="Undo"
+            disabled={!historyState.canUndo}
             data-tooltip-id="qti-editor-toolbar-tooltip"
             data-tooltip-content="Undo"
           >
@@ -864,6 +894,7 @@ export function QtiProsemirrorEditor({
             className="qti-beta-toolbar-button"
             aria-label="Redo"
             title="Redo"
+            disabled={!historyState.canRedo}
             data-tooltip-id="qti-editor-toolbar-tooltip"
             data-tooltip-content="Redo"
           >
