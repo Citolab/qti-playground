@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  Bold,
+  Italic,
+  Redo2,
+  Underline,
+  Undo2,
+} from "lucide-react";
+import { Tooltip } from "react-tooltip";
 import {
   createEditor,
   defineKeymap,
@@ -9,6 +17,8 @@ import {
 } from "prosekit/core";
 import { defineBasicExtension } from "prosekit/basic";
 import { DOMParser as PMDOMParser, DOMSerializer } from "prosekit/pm/model";
+import { toggleMark } from "prosekit/pm/commands";
+import { redo, undo } from "prosekit/pm/history";
 import { Plugin, type Command, type EditorState, type Transaction } from "prosekit/pm/state";
 import type { EditorView } from "prosekit/pm/view";
 import type { NodeSpec } from "prosekit/pm/model";
@@ -22,6 +32,7 @@ type Props = {
   sourceXml: string;
   onSourceChange: (nextXml: string) => void;
   className?: string;
+  showToolbar?: boolean;
 };
 
 const ITEM_BODY_PATTERN = /(<qti-item-body\b[^>]*>)[\s\S]*?(<\/qti-item-body>)/i;
@@ -356,6 +367,7 @@ function stripXmlEnvelope(sourceXml: string): string {
 type ChoiceData = {
   responseIdentifier: string;
   maxChoices: number;
+  correctResponse: string;
   prompt: string;
   choices: { identifier: string; text: string }[];
 };
@@ -372,6 +384,7 @@ function extractChoiceData(sourceXml: string): ChoiceData | null {
     const responseIdentifier =
       interaction.getAttribute("response-identifier") || "RESPONSE";
     const maxChoices = Number(interaction.getAttribute("max-choices") || "1");
+    const correctResponse = interaction.getAttribute("correct-response") || "";
     const prompt =
       interaction.querySelector("qti-prompt")?.textContent?.trim() ||
       "What is the correct answer?";
@@ -385,6 +398,7 @@ function extractChoiceData(sourceXml: string): ChoiceData | null {
     return {
       responseIdentifier,
       maxChoices: Number.isFinite(maxChoices) ? maxChoices : 1,
+      correctResponse,
       prompt,
       choices: choices.length
         ? choices
@@ -417,6 +431,7 @@ function applyChoiceDataToEditorView(view: EditorView, choiceData: ChoiceData) {
     {
       responseIdentifier: choiceData.responseIdentifier,
       maxChoices: choiceData.maxChoices,
+      correctResponse: choiceData.correctResponse || null,
     },
     [promptNode, ...choiceNodes]
   );
@@ -603,6 +618,7 @@ export function QtiProsemirrorEditor({
   sourceXml,
   onSourceChange,
   className,
+  showToolbar = true,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<ProsekitEditor | null>(null);
@@ -614,6 +630,25 @@ export function QtiProsemirrorEditor({
   useEffect(() => {
     lastSourceXmlRef.current = sourceXml;
   }, [sourceXml]);
+
+  const applyToolbarCommand = useCallback((command: Command) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const view = (editor as ProsekitEditor & { view?: EditorView }).view;
+    if (!view) return;
+    view.focus();
+    command(view.state, view.dispatch, view);
+  }, []);
+
+  const toggleMarkByName = useCallback(
+    (markName: "bold" | "italic" | "underline"): Command =>
+      (state, dispatch) => {
+        const markType = state.schema.marks[markName];
+        if (!markType) return false;
+        return toggleMark(markType)(state, dispatch);
+      },
+    []
+  );
 
   const extension = useMemo(() => {
     return union(
@@ -692,12 +727,71 @@ export function QtiProsemirrorEditor({
 
   return (
     <div
-      className={
-        className ||
-        "h-[75vh] overflow-auto rounded border border-gray-200 bg-white p-4"
-      }
+      className={`${className || "h-[75vh] rounded border border-gray-200 bg-white p-4"} qti-beta-editor-root`}
     >
-      <div ref={containerRef} />
+      {showToolbar ? (
+        <div className="qti-beta-toolbar">
+          <button
+            type="button"
+            onClick={() => applyToolbarCommand(undo)}
+            className="qti-beta-toolbar-button"
+            aria-label="Undo"
+            title="Undo"
+            data-tooltip-id="qti-editor-toolbar-tooltip"
+            data-tooltip-content="Undo"
+          >
+            <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => applyToolbarCommand(redo)}
+            className="qti-beta-toolbar-button"
+            aria-label="Redo"
+            title="Redo"
+            data-tooltip-id="qti-editor-toolbar-tooltip"
+            data-tooltip-content="Redo"
+          >
+            <Redo2 className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => applyToolbarCommand(toggleMarkByName("bold"))}
+            className="qti-beta-toolbar-button"
+            aria-label="Bold"
+            title="Bold"
+            data-tooltip-id="qti-editor-toolbar-tooltip"
+            data-tooltip-content="Bold"
+          >
+            <Bold className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => applyToolbarCommand(toggleMarkByName("italic"))}
+            className="qti-beta-toolbar-button"
+            aria-label="Italic"
+            title="Italic"
+            data-tooltip-id="qti-editor-toolbar-tooltip"
+            data-tooltip-content="Italic"
+          >
+            <Italic className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => applyToolbarCommand(toggleMarkByName("underline"))}
+            className="qti-beta-toolbar-button"
+            aria-label="Underline"
+            title="Underline"
+            data-tooltip-id="qti-editor-toolbar-tooltip"
+            data-tooltip-content="Underline"
+          >
+            <Underline className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+      <div ref={containerRef} className="qti-beta-editor-surface" />
+      {showToolbar ? (
+        <Tooltip id="qti-editor-toolbar-tooltip" place="top" />
+      ) : null}
     </div>
   );
 }

@@ -4,6 +4,44 @@
   gap: 0.5rem;
 }
 
+.qti-beta-editor-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.qti-beta-editor-surface {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.qti-beta-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.qti-beta-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background: #fff;
+  color: #111827;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+}
+
+.qti-beta-toolbar-button:hover {
+  background: #f3f4f6;
+}
+
 .qti-beta-prompt {
   font-weight: 600;
   color: #111827;
@@ -38,4 +76,25 @@
 
 .ProseMirror-selectednode {
   outline: none !important;
+}
+
+/* Keep whitespace rendering predictable for inline formatting boundaries. */
+.ProseMirror {
+  white-space: pre-wrap !important;
+  word-break: break-word;
+}
+
+.ProseMirror .qti-beta-prompt,
+.ProseMirror .qti-beta-simple-choice,
+.ProseMirror .qti-beta-prompt *,
+.ProseMirror .qti-beta-simple-choice * {
+  white-space: pre-wrap;
+}
+
+/* Avoid unexpected bullet dots from list behavior in the beta editor surface. */
+.ProseMirror ul,
+.ProseMirror ol {
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
 }

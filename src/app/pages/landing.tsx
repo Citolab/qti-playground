@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
+import { Editor as MonacoEditor } from "@monaco-editor/react";
 import { useNavigate } from "react-router-dom";
 import {
   GitCommit,
@@ -9,14 +10,11 @@ import {
   Repeat,
   Shield,
   Package,
-  FlaskConical,
 } from "lucide-react";
-import {
-  qtiLandingFeatures,
-  blocksQtiResponse,
-} from "./items";
+
 import { itemCss } from "../itemCss";
-import { QtiProsemirrorEditor } from "../components/editor/qti-prosemirror-editor";
+import { QtiProsemirrorEditor } from "../components/editor/qti-prosemirror-editor"
+import { QtiAssessmentItem } from "@citolab/qti-components";
 
 const LANDING_CHOICE_ITEM_XML = `<qti-assessment-item xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" xsi:schema-location="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd" identifier="landing-choice-editor" title="Landing Choice Editor" adaptive="false" time-dependent="false">
   <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="identifier"></qti-response-declaration>
@@ -51,81 +49,507 @@ const LANDING_PCI_ITEM_XML = `<qti-assessment-item xmlns:xsi="http://www.w3.org/
   </qti-item-body>
 </qti-assessment-item>`;
 
-export const LandingPage: React.FC = () => {
-  const navigate = useNavigate();
-  const pciItemRef = useRef<HTMLElement | null>(null);
-  const [isInlineEditorOpen, setIsInlineEditorOpen] = useState(false);
-  const [landingChoiceXml, setLandingChoiceXml] = useState(LANDING_CHOICE_ITEM_XML);
+ const LANDING_ITEM_FEATURES = `<qti-assessment-item xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+	xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+	identifier="choice" title="Unattended Luggage" adaptive="false" time-dependent="false">
+	<qti-item-body>
+		<qti-choice-interaction class="qti-input-control-hidden" response-identifier="RESPONSE" max-choices="0">
+			<p>Here some features of this webapplication in a multiple response item</p>
+			<qti-simple-choice identifier="A">
+				<div
+					class="flex items-start"><div class="flex-shrink-0"><div
+							class="flex items-center justify-center h-12 w-12 rounded-md bg-secondary">
+							<svg
+								xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+								viewBox="0 0 24 24" fill="none" stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round" stroke-linejoin="round"
+								class="lucide lucide-file-search h-6 w-6">
+								<path d="M14 2v4a2 2 0 0 0 2 2h4"></path>
+								<path
+									d="M4.268 21a2 2 0 0 0 1.727 1H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3"></path>
+								<path d="m9 18-1.5-1.5"></path>
+								<circle cx="5" cy="14" r="3"></circle>
+							</svg>
+						</div></div>
+					
+						<div
+						class="ml-4"><h3 class="text-lg font-medium text-gray-900">Preview QTI
+				assessments</h3><p
+							class="mt-2 text-base text-gray-500">Upload and instantly preview QTI
+				2.x or QTI 3 assessments directly in your browser without sending any data to a
+				server.</p></div></div>
+			</qti-simple-choice>
+			<qti-simple-choice identifier="B">
+				<div
+					class="flex items-start"><div class="flex-shrink-0"><div
+							class="flex items-center justify-center h-12 w-12 rounded-md bg-secondary"><svg
+								xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+								viewBox="0 0 24 24" fill="none" stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round" stroke-linejoin="round"
+								class="lucide lucide-repeat h-6 w-6">
+								<path d="m17 2 4 4-4 4"></path>
+								<path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+								<path d="m7 22-4-4 4-4"></path>
+								<path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+							</svg></div></div><div
+						class="ml-4"><h3 class="text-lg font-medium text-gray-900">Convert QTI 2.x
+				to QTI 3</h3><p
+							class="mt-2 text-base text-gray-500">Seamlessly convert between QTI
+				formats using our powerful client-side conversion engine, ensuring compatibility
+				across different assessment platforms.</p></div></div>
+			</qti-simple-choice>
+			<qti-simple-choice identifier="C">
+				<div class="flex items-start"><div
+						class="flex-shrink-0"><div
+							class="flex items-center justify-center h-12 w-12 rounded-md bg-secondary"><svg
+								xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+								viewBox="0 0 24 24" fill="none" stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round" stroke-linejoin="round"
+								class="lucide lucide-split h-6 w-6">
+								<path d="M16 3h5v5"></path>
+								<path d="M8 3H3v5"></path>
+								<path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"></path>
+								<path d="m15 9 6-6"></path>
+							</svg></div></div><div
+						class="ml-4"><h3 class="text-lg font-medium text-gray-900">Tools to remove
+				media and split packages</h3><p class="mt-2 text-base text-gray-500">Optimize your
+				QTI packages by removing unnecessary media files or splitting large packages into
+				manageable pieces, all processed locally on your device.</p></div></div>
+			</qti-simple-choice>
+			<qti-simple-choice identifier="D">
+				<div
+					class="flex items-start"><div
+						class="flex-shrink-0"><div
+							class="flex items-center justify-center h-12 w-12 rounded-md bg-secondary"><svg
+								xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+								viewBox="0 0 24 24" fill="none" stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round" stroke-linejoin="round"
+								class="lucide lucide-square-pen h-6 w-6">
+								<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+								<path
+									d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"></path>
+							</svg></div></div><div
+						class="ml-4"><h3 class="text-lg font-medium text-gray-900">Edit QTI items
+				with a live previewer</h3><p class="mt-2 text-base text-gray-500">Make changes to
+				your QTI items and see the results in real-time with our integrated editor and
+				previewer, all running in your browser for maximum privacy.</p></div></div>
+			</qti-simple-choice>
+		</qti-choice-interaction>
+	</qti-item-body>
+</qti-assessment-item>`;
 
-  useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 24;
-    const serializedResponse = JSON.stringify(blocksQtiResponse);
+const PCI_BLOCKS_RESPONSE = {
+  xPlane: [
+    { y: 0, z: 0, found: false },
+    { y: 0, z: 1, found: false },
+    { y: 0, z: 2, found: false },
+    { y: 0, z: 3, found: false },
+    { y: 0, z: 4, found: true },
+    { y: 0, z: 5, found: true },
+    { y: 0, z: 6, found: false },
+    { y: 0, z: 7, found: false },
+    { y: 0, z: 8, found: true },
+    { y: 0, z: 9, found: false },
+    { y: 1, z: 0, found: false },
+    { y: 1, z: 1, found: false },
+    { y: 1, z: 2, found: false },
+    { y: 1, z: 3, found: false },
+    { y: 1, z: 4, found: true },
+    { y: 1, z: 5, found: true },
+    { y: 1, z: 6, found: false },
+    { y: 1, z: 7, found: false },
+    { y: 1, z: 8, found: true },
+    { y: 1, z: 9, found: false },
+    { y: 2, z: 0, found: false },
+    { y: 2, z: 1, found: false },
+    { y: 2, z: 2, found: false },
+    { y: 2, z: 3, found: false },
+    { y: 2, z: 4, found: true },
+    { y: 2, z: 5, found: true },
+    { y: 2, z: 6, found: false },
+    { y: 2, z: 7, found: false },
+    { y: 2, z: 8, found: true },
+    { y: 2, z: 9, found: false },
+    { y: 3, z: 0, found: false },
+    { y: 3, z: 1, found: false },
+    { y: 3, z: 2, found: false },
+    { y: 3, z: 3, found: false },
+    { y: 3, z: 4, found: false },
+    { y: 3, z: 5, found: false },
+    { y: 3, z: 6, found: false },
+    { y: 3, z: 7, found: false },
+    { y: 3, z: 8, found: false },
+    { y: 3, z: 9, found: false },
+    { y: 4, z: 0, found: false },
+    { y: 4, z: 1, found: false },
+    { y: 4, z: 2, found: false },
+    { y: 4, z: 3, found: false },
+    { y: 4, z: 4, found: false },
+    { y: 4, z: 5, found: false },
+    { y: 4, z: 6, found: false },
+    { y: 4, z: 7, found: false },
+    { y: 4, z: 8, found: false },
+    { y: 4, z: 9, found: false },
+    { y: 5, z: 0, found: false },
+    { y: 5, z: 1, found: false },
+    { y: 5, z: 2, found: false },
+    { y: 5, z: 3, found: false },
+    { y: 5, z: 4, found: false },
+    { y: 5, z: 5, found: false },
+    { y: 5, z: 6, found: false },
+    { y: 5, z: 7, found: false },
+    { y: 5, z: 8, found: false },
+    { y: 5, z: 9, found: false },
+    { y: 6, z: 0, found: false },
+    { y: 6, z: 1, found: false },
+    { y: 6, z: 2, found: false },
+    { y: 6, z: 3, found: false },
+    { y: 6, z: 4, found: false },
+    { y: 6, z: 5, found: false },
+    { y: 6, z: 6, found: false },
+    { y: 6, z: 7, found: false },
+    { y: 6, z: 8, found: false },
+    { y: 6, z: 9, found: false },
+    { y: 7, z: 0, found: false },
+    { y: 7, z: 1, found: false },
+    { y: 7, z: 2, found: false },
+    { y: 7, z: 3, found: false },
+    { y: 7, z: 4, found: false },
+    { y: 7, z: 5, found: false },
+    { y: 7, z: 6, found: false },
+    { y: 7, z: 7, found: false },
+    { y: 7, z: 8, found: false },
+    { y: 7, z: 9, found: false },
+    { y: 8, z: 0, found: false },
+    { y: 8, z: 1, found: false },
+    { y: 8, z: 2, found: false },
+    { y: 8, z: 3, found: false },
+    { y: 8, z: 4, found: false },
+    { y: 8, z: 5, found: false },
+    { y: 8, z: 6, found: false },
+    { y: 8, z: 7, found: false },
+    { y: 8, z: 8, found: false },
+    { y: 8, z: 9, found: false },
+    { y: 9, z: 0, found: false },
+    { y: 9, z: 1, found: false },
+    { y: 9, z: 2, found: false },
+    { y: 9, z: 3, found: false },
+    { y: 9, z: 4, found: false },
+    { y: 9, z: 5, found: false },
+    { y: 9, z: 6, found: false },
+    { y: 9, z: 7, found: false },
+    { y: 9, z: 8, found: false },
+    { y: 9, z: 9, found: false },
+  ],
+  yPlane: [
+    { x: 0, z: 0, found: false },
+    { x: 0, z: 1, found: false },
+    { x: 0, z: 2, found: false },
+    { x: 0, z: 3, found: false },
+    { x: 0, z: 4, found: false },
+    { x: 0, z: 5, found: false },
+    { x: 0, z: 6, found: false },
+    { x: 0, z: 7, found: false },
+    { x: 0, z: 8, found: true },
+    { x: 0, z: 9, found: false },
+    { x: 1, z: 0, found: false },
+    { x: 1, z: 1, found: false },
+    { x: 1, z: 2, found: false },
+    { x: 1, z: 3, found: false },
+    { x: 1, z: 4, found: false },
+    { x: 1, z: 5, found: false },
+    { x: 1, z: 6, found: false },
+    { x: 1, z: 7, found: false },
+    { x: 1, z: 8, found: true },
+    { x: 1, z: 9, found: false },
+    { x: 2, z: 0, found: false },
+    { x: 2, z: 1, found: false },
+    { x: 2, z: 2, found: false },
+    { x: 2, z: 3, found: false },
+    { x: 2, z: 4, found: false },
+    { x: 2, z: 5, found: false },
+    { x: 2, z: 6, found: false },
+    { x: 2, z: 7, found: false },
+    { x: 2, z: 8, found: true },
+    { x: 2, z: 9, found: false },
+    { x: 3, z: 0, found: false },
+    { x: 3, z: 1, found: false },
+    { x: 3, z: 2, found: false },
+    { x: 3, z: 3, found: false },
+    { x: 3, z: 4, found: false },
+    { x: 3, z: 5, found: false },
+    { x: 3, z: 6, found: false },
+    { x: 3, z: 7, found: false },
+    { x: 3, z: 8, found: true },
+    { x: 3, z: 9, found: false },
+    { x: 4, z: 0, found: false },
+    { x: 4, z: 1, found: false },
+    { x: 4, z: 2, found: false },
+    { x: 4, z: 3, found: false },
+    { x: 4, z: 4, found: false },
+    { x: 4, z: 5, found: true },
+    { x: 4, z: 6, found: false },
+    { x: 4, z: 7, found: false },
+    { x: 4, z: 8, found: false },
+    { x: 4, z: 9, found: false },
+    { x: 5, z: 0, found: false },
+    { x: 5, z: 1, found: false },
+    { x: 5, z: 2, found: false },
+    { x: 5, z: 3, found: false },
+    { x: 5, z: 4, found: false },
+    { x: 5, z: 5, found: true },
+    { x: 5, z: 6, found: false },
+    { x: 5, z: 7, found: false },
+    { x: 5, z: 8, found: false },
+    { x: 5, z: 9, found: false },
+    { x: 6, z: 0, found: false },
+    { x: 6, z: 1, found: false },
+    { x: 6, z: 2, found: false },
+    { x: 6, z: 3, found: false },
+    { x: 6, z: 4, found: false },
+    { x: 6, z: 5, found: true },
+    { x: 6, z: 6, found: false },
+    { x: 6, z: 7, found: false },
+    { x: 6, z: 8, found: false },
+    { x: 6, z: 9, found: false },
+    { x: 7, z: 0, found: false },
+    { x: 7, z: 1, found: false },
+    { x: 7, z: 2, found: false },
+    { x: 7, z: 3, found: false },
+    { x: 7, z: 4, found: false },
+    { x: 7, z: 5, found: false },
+    { x: 7, z: 6, found: false },
+    { x: 7, z: 7, found: false },
+    { x: 7, z: 8, found: false },
+    { x: 7, z: 9, found: false },
+    { x: 8, z: 0, found: false },
+    { x: 8, z: 1, found: false },
+    { x: 8, z: 2, found: false },
+    { x: 8, z: 3, found: false },
+    { x: 8, z: 4, found: true },
+    { x: 8, z: 5, found: false },
+    { x: 8, z: 6, found: false },
+    { x: 8, z: 7, found: false },
+    { x: 8, z: 8, found: false },
+    { x: 8, z: 9, found: false },
+    { x: 9, z: 0, found: false },
+    { x: 9, z: 1, found: false },
+    { x: 9, z: 2, found: false },
+    { x: 9, z: 3, found: false },
+    { x: 9, z: 4, found: false },
+    { x: 9, z: 5, found: false },
+    { x: 9, z: 6, found: false },
+    { x: 9, z: 7, found: false },
+    { x: 9, z: 8, found: false },
+    { x: 9, z: 9, found: false },
+  ],
+  zPlane: [
+    { x: 0, y: 0, found: true },
+    { x: 0, y: 1, found: true },
+    { x: 0, y: 2, found: true },
+    { x: 0, y: 3, found: false },
+    { x: 0, y: 4, found: false },
+    { x: 0, y: 5, found: false },
+    { x: 0, y: 6, found: false },
+    { x: 0, y: 7, found: false },
+    { x: 0, y: 8, found: false },
+    { x: 0, y: 9, found: false },
+    { x: 1, y: 0, found: true },
+    { x: 1, y: 1, found: false },
+    { x: 1, y: 2, found: true },
+    { x: 1, y: 3, found: false },
+    { x: 1, y: 4, found: false },
+    { x: 1, y: 5, found: false },
+    { x: 1, y: 6, found: false },
+    { x: 1, y: 7, found: false },
+    { x: 1, y: 8, found: false },
+    { x: 1, y: 9, found: false },
+    { x: 2, y: 0, found: true },
+    { x: 2, y: 1, found: true },
+    { x: 2, y: 2, found: true },
+    { x: 2, y: 3, found: false },
+    { x: 2, y: 4, found: false },
+    { x: 2, y: 5, found: false },
+    { x: 2, y: 6, found: false },
+    { x: 2, y: 7, found: false },
+    { x: 2, y: 8, found: false },
+    { x: 2, y: 9, found: false },
+    { x: 3, y: 0, found: true },
+    { x: 3, y: 1, found: false },
+    { x: 3, y: 2, found: false },
+    { x: 3, y: 3, found: false },
+    { x: 3, y: 4, found: false },
+    { x: 3, y: 5, found: false },
+    { x: 3, y: 6, found: false },
+    { x: 3, y: 7, found: false },
+    { x: 3, y: 8, found: false },
+    { x: 3, y: 9, found: false },
+    { x: 4, y: 0, found: false },
+    { x: 4, y: 1, found: false },
+    { x: 4, y: 2, found: true },
+    { x: 4, y: 3, found: false },
+    { x: 4, y: 4, found: false },
+    { x: 4, y: 5, found: false },
+    { x: 4, y: 6, found: false },
+    { x: 4, y: 7, found: false },
+    { x: 4, y: 8, found: false },
+    { x: 4, y: 9, found: false },
+    { x: 5, y: 0, found: true },
+    { x: 5, y: 1, found: true },
+    { x: 5, y: 2, found: true },
+    { x: 5, y: 3, found: false },
+    { x: 5, y: 4, found: false },
+    { x: 5, y: 5, found: false },
+    { x: 5, y: 6, found: false },
+    { x: 5, y: 7, found: false },
+    { x: 5, y: 8, found: false },
+    { x: 5, y: 9, found: false },
+    { x: 6, y: 0, found: false },
+    { x: 6, y: 1, found: false },
+    { x: 6, y: 2, found: true },
+    { x: 6, y: 3, found: false },
+    { x: 6, y: 4, found: false },
+    { x: 6, y: 5, found: false },
+    { x: 6, y: 6, found: false },
+    { x: 6, y: 7, found: false },
+    { x: 6, y: 8, found: false },
+    { x: 6, y: 9, found: false },
+    { x: 7, y: 0, found: false },
+    { x: 7, y: 1, found: false },
+    { x: 7, y: 2, found: false },
+    { x: 7, y: 3, found: false },
+    { x: 7, y: 4, found: false },
+    { x: 7, y: 5, found: false },
+    { x: 7, y: 6, found: false },
+    { x: 7, y: 7, found: false },
+    { x: 7, y: 8, found: false },
+    { x: 7, y: 9, found: false },
+    { x: 8, y: 0, found: true },
+    { x: 8, y: 1, found: true },
+    { x: 8, y: 2, found: true },
+    { x: 8, y: 3, found: false },
+    { x: 8, y: 4, found: false },
+    { x: 8, y: 5, found: false },
+    { x: 8, y: 6, found: false },
+    { x: 8, y: 7, found: false },
+    { x: 8, y: 8, found: false },
+    { x: 8, y: 9, found: false },
+    { x: 9, y: 0, found: false },
+    { x: 9, y: 1, found: false },
+    { x: 9, y: 2, found: false },
+    { x: 9, y: 3, found: false },
+    { x: 9, y: 4, found: false },
+    { x: 9, y: 5, found: false },
+    { x: 9, y: 6, found: false },
+    { x: 9, y: 7, found: false },
+    { x: 9, y: 8, found: false },
+    { x: 9, y: 9, found: false },
+  ],
+};
 
-    const applyResponse = (): boolean => {
-      const container = pciItemRef.current?.querySelector("item-container");
-      const assessmentItem = container?.shadowRoot?.querySelector(
-        "qti-assessment-item",
-      ) as
-        | {
-            updateResponseVariable?: (identifier: string, value: string) => void;
-            getResponse?: (identifier: string) => { value?: unknown } | null;
-            shadowRoot?: ShadowRoot | null;
-            querySelector?: (selector: string) => Element | null;
-          }
-        | null;
+function prettyPrintXml(xml: string): string {
+  const indentUnit = "  ";
+  const escapeText = (value: string) =>
+    value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  const escapeAttribute = (value: string) =>
+    escapeText(value).replace(/"/g, "&quot;");
 
-      assessmentItem?.updateResponseVariable?.("RESPONSE2", serializedResponse);
+  const formatElement = (element: Element, level: number): string => {
+    const indent = indentUnit.repeat(level);
+    const attrs = Array.from(element.attributes)
+      .map((attr) => `${attr.name}="${escapeAttribute(attr.value)}"`)
+      .join(" ");
+    const openTag = attrs
+      ? `<${element.tagName} ${attrs}>`
+      : `<${element.tagName}>`;
+    const closeTag = `</${element.tagName}>`;
 
-      const pciElement = assessmentItem?.shadowRoot?.querySelector(
-        "qti-portable-custom-interaction"
-      ) as
-        | {
-            setResponse?: (value: unknown) => void;
-            getResponse?: () => unknown;
-          }
-        | null;
-      const pciElementInLightDom = assessmentItem?.querySelector?.(
-        "qti-portable-custom-interaction"
-      ) as
-        | {
-            setResponse?: (value: unknown) => void;
-            getResponse?: () => unknown;
-          }
-        | null;
-      pciElement?.setResponse?.(serializedResponse);
-      pciElement?.setResponse?.(blocksQtiResponse);
-      pciElementInLightDom?.setResponse?.(serializedResponse);
-      pciElementInLightDom?.setResponse?.(blocksQtiResponse);
-
-      const currentResponse =
-        assessmentItem?.getResponse?.("RESPONSE2")?.value ??
-        pciElement?.getResponse?.() ??
-        pciElementInLightDom?.getResponse?.();
-      if (
-        currentResponse !== null &&
-        currentResponse !== undefined &&
-        String(currentResponse) !== ""
-      ) {
-        return true;
+    const meaningfulChildren = Array.from(element.childNodes).filter((node) => {
+      if (node.nodeType === Node.ELEMENT_NODE) return true;
+      if (node.nodeType === Node.TEXT_NODE) {
+        return Boolean(node.textContent?.trim());
       }
       return false;
-    };
+    });
 
-    const startTimer = window.setTimeout(() => {
-      const interval = window.setInterval(() => {
-        const settled = applyResponse();
-        attempts += 1;
-        if (settled || attempts >= maxAttempts) {
-          window.clearInterval(interval);
-        }
-      }, 650);
-    }, 1200);
+    if (meaningfulChildren.length === 0) {
+      return `${indent}${openTag}${closeTag}`;
+    }
 
-    return () => {
-      window.clearTimeout(startTimer);
-    };
-  }, []);
+    if (
+      meaningfulChildren.length === 1 &&
+      meaningfulChildren[0].nodeType === Node.TEXT_NODE
+    ) {
+      const textValue = escapeText(meaningfulChildren[0].textContent?.trim() ?? "");
+      return `${indent}${openTag}${textValue}${closeTag}`;
+    }
+
+    const childLines = meaningfulChildren.map((node) => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        return formatElement(node as Element, level + 1);
+      }
+      const textValue = escapeText(node.textContent?.trim() ?? "");
+      return `${indentUnit.repeat(level + 1)}${textValue}`;
+    });
+
+    return `${indent}${openTag}\n${childLines.join("\n")}\n${indent}${closeTag}`;
+  };
+
+  try {
+    const documentNode = new DOMParser().parseFromString(
+      xml,
+      "application/xml"
+    );
+    if (documentNode.querySelector("parsererror")) {
+      return xml;
+    }
+    return formatElement(documentNode.documentElement, 0);
+  } catch {
+    return xml;
+  }
+}
+
+export const LandingPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [landingChoiceXml, setLandingChoiceXml] = useState(LANDING_CHOICE_ITEM_XML);
+  const prettyLandingChoiceXml = useMemo(
+    () => prettyPrintXml(landingChoiceXml),
+    [landingChoiceXml]
+  );
+
+  const restoreResponses = useCallback(
+    (
+      assessmentItem: QtiAssessmentItem | null,
+      responses: Record<string, unknown>,
+    ) => {
+      if (!assessmentItem) return;
+
+      // set assessmentItem.variables add if not exists or update if exists with the value from responses
+      for (const [identifier, value] of Object.entries(responses)) {
+        assessmentItem.updateResponseVariable(identifier, JSON.stringify(value));
+        
+      }
+    },
+    [],
+  );
+
+  const onConnected = useCallback(
+    (e: CustomEvent) => {
+      const assessmentItem = e.detail as QtiAssessmentItem;
+      restoreResponses(assessmentItem, {
+        RESPONSE2: PCI_BLOCKS_RESPONSE,
+      });
+    },
+    [restoreResponses],
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
@@ -152,53 +576,35 @@ export const LandingPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Hero Image - only on larger screens */}
+          {/* Editor preview */}
           <div className="mt-8 lg:mt-0 lg:w-1/2">
-            <div className="mt-4 bg-gray-100 rounded-lg p-4 -mb-40">
-              <qti-item ref={pciItemRef}>
-                <item-container itemXML={LANDING_PCI_ITEM_XML}>
-                  <template
-                    dangerouslySetInnerHTML={{
-                      __html: `<style>${itemCss}</style>`,
-                    }}
-                  ></template>
-                </item-container>
-              </qti-item>
-            </div>
             <div className="mt-4 bg-gray-100 rounded-lg p-4">
               <div className="h-[24rem] overflow-auto">
-                {isInlineEditorOpen ? (
-                  <QtiProsemirrorEditor
-                    sourceXml={landingChoiceXml}
-                    onSourceChange={(nextXml) => setLandingChoiceXml(nextXml)}
-                    className="h-full overflow-auto rounded border border-gray-200 bg-white p-4"
-                  />
-                ) : (
-                  <qti-item>
-                    <item-container itemXML={landingChoiceXml}>
-                      <template
-                        dangerouslySetInnerHTML={{
-                          __html: `<style>${itemCss}</style>`,
-                        }}
-                      ></template>
-                    </item-container>
-                  </qti-item>
-                )}
+                <QtiProsemirrorEditor
+                  sourceXml={landingChoiceXml}
+                  onSourceChange={(nextXml) => setLandingChoiceXml(nextXml)}
+                  className="h-full rounded border border-gray-200 bg-white p-4"
+                  showToolbar={true}
+                />
               </div>
             </div>
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={() =>
-                  setIsInlineEditorOpen((current) => !current)
-                }
-                className="inline-flex items-center gap-x-1.5 rounded-md border border-citolab-600 px-2.5 py-1.5 text-sm font-semibold text-citolab-700 hover:bg-citolab-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
-              >
-                <FlaskConical className="-ml-0.5 h-4 w-4" aria-hidden="true" />
-                {isInlineEditorOpen ? "Save" : "Try our editor now!"}
-                <span className="rounded bg-citolab-600 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-white">
-                  Beta
-                </span>
-              </button>
+            <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
+              <MonacoEditor
+                height="24rem"
+                language="xml"
+                theme="vs-dark"
+                value={prettyLandingChoiceXml}
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  lineNumbers: "on",
+                  folding: true,
+                  glyphMargin: false,
+                  scrollBeyondLastLine: false,
+                  wordWrap: "off",
+                  renderLineHighlight: "none",
+                }}
+              />
             </div>
           </div>
         </div>
@@ -226,45 +632,60 @@ export const LandingPage: React.FC = () => {
               <div className="pt-6 bg-gray-100 relative sm:col-span-2">
                 <div className="flow-root rounded-lg px-6 pb-8">
                   <div className="-mt-6">
-                    <div>
-                      <span className="inline-flex items-center justify-center p-3 bg-[#f6c900] rounded-md shadow-lg">
-                        <Repeat className="h-6 w-6" />
-                      </span>
-                    </div>
-                    <a href="https://site.imsglobal.org/certifications/cito/cito-qti-player">
-                      <img
-                        src="/1edtech_trusted-apps-certified.svg"
-                        alt="1EdTech Trusted Apps Certified"
-                        className="absolute bottom-4 right-4 w-24"
-                      />
-                    </a>
-                    <h3 className="mt-8 text-lg font-medium text-gray-900 tracking-tight">
-                      QTI Player
-                    </h3>
-                    <p className="mt-5 text-base text-gray-500">
-                      a minimal, fully functional example of a QTI Player using
-                      @citolab/qti-components. It serves as a "Hello World" or
-                      cookbook-style reference for implementing a QTI player
-                    </p>
-                    <div className="mt-18">
-                      <a
-                        href="https://github.com/Citolab/qti-player"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500 mr-5"
-                      >
-                        <GitCommit className="h-5 w-5 mr-2" />
-                        GitHub
-                      </a>
-                      <a
-                        href="https://stackblitz.com/~/github.com/Citolab/qti-player?file=index.html"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                      >
-                        <Book className="h-5 w-5 mr-2" />
-                        Stackblitz
-                      </a>
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                      <div>
+                        <div>
+                          <span className="inline-flex items-center justify-center p-3 bg-[#f6c900] rounded-md shadow-lg">
+                            <Repeat className="h-6 w-6" />
+                          </span>
+                        </div>
+                        <a href="https://site.imsglobal.org/certifications/cito/cito-qti-player">
+                          <img
+                            src="/1edtech_trusted-apps-certified.svg"
+                            alt="1EdTech Trusted Apps Certified"
+                            className="absolute bottom-4 right-4 w-24"
+                          />
+                        </a>
+                        <h3 className="mt-8 text-lg font-medium text-gray-900 tracking-tight">
+                          QTI Player
+                        </h3>
+                        <p className="mt-5 text-base text-gray-500">
+                          a minimal, fully functional example of a QTI Player using
+                          @citolab/qti-components. It serves as a "Hello World" or
+                          cookbook-style reference for implementing a QTI player
+                        </p>
+                        <div className="mt-18">
+                          <a
+                            href="https://github.com/Citolab/qti-player"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500 mr-5"
+                          >
+                            <GitCommit className="h-5 w-5 mr-2" />
+                            GitHub
+                          </a>
+                          <a
+                            href="https://stackblitz.com/~/github.com/Citolab/qti-player?file=index.html"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
+                          >
+                            <Book className="h-5 w-5 mr-2" />
+                            Stackblitz
+                          </a>
+                        </div>
+                      </div>
+                      <div className="rounded-lg bg-white p-4">
+                        <qti-item onqti-assessment-item-connected={onConnected}>
+                          <item-container itemXML={LANDING_PCI_ITEM_XML}>
+                            <template
+                              dangerouslySetInnerHTML={{
+                                __html: `<style>${itemCss}</style>`,
+                              }}
+                            ></template>
+                          </item-container>
+                        </qti-item>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -489,7 +910,7 @@ export const LandingPage: React.FC = () => {
           <div className="mt-12 max-w-3xl mx-auto">
             <div className="bg-gray-100 rounded-lg p-4 pr-8">
               <qti-item>
-                <item-container itemXML={qtiLandingFeatures}>
+                <item-container itemXML={LANDING_ITEM_FEATURES}>
                   <template
                     dangerouslySetInnerHTML={{
                       __html: `<style>${itemCss}</style>`,
