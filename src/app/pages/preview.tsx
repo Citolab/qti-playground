@@ -1,9 +1,9 @@
 import { Editor } from "@monaco-editor/react";
 import { useDebouncedCallback } from "use-debounce";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store/store";
 import { editor } from "monaco-editor";
-import { Clipboard, Info, Share2 } from "lucide-react";
+import { Clipboard, Code, Info, Share2 } from "lucide-react";
 import { Tooltip } from "react-tooltip";
 import { Dropdown } from "../components/dropdown";
 import { Panel } from "../components/panel";
@@ -13,6 +13,16 @@ import { CustomElements } from "@citolab/qti-components/react";
 import { useSearchParams } from "react-router-dom";
 import { itemCss } from "../itemCss";
 import { QtiProsemirrorEditor } from "../components/editor/qti-prosemirror-editor";
+import DraggablePopup from "../components/draggable-popup";
+
+type PreviewVariable = {
+  identifier: string;
+  value?: unknown;
+  cardinality?: string;
+  baseType?: string;
+  correctResponse?: unknown;
+  mapping?: unknown;
+};
 
 const encodeXmlToShareParam = (xml: string) => {
   const bytes = new TextEncoder().encode(xml);
@@ -47,9 +57,14 @@ export const PreviewPage = () => {
   const [openTooltip, setOpenTooltip] = useState(false);
   const [shareTooltipOpen, setShareTooltipOpen] = useState(false);
   const [sharePopupOpen, setSharePopupOpen] = useState(false);
+  const [showVariables, setShowVariables] = useState(false);
+  const [previewVariables, setPreviewVariables] = useState<PreviewVariable[]>(
+    [],
+  );
   const [searchParams] = useSearchParams();
   const hasLoadedSharedItem = useRef(false);
   const hasLoadedItemFromQuery = useRef(false);
+  const lastVariablesSignatureRef = useRef("");
 
   // Zustand store - use selectors for optimal re-renders
   const qti3 = useStore((state) => state.qti3);
@@ -105,6 +120,15 @@ export const PreviewPage = () => {
     (qti: string) => setQti3(qti),
     1000,
   );
+
+  const previewItemDoc = useMemo(() => {
+    if (!qti3ForPreview) return null;
+    return qtiTransformItem()
+      .parse(qti3ForPreview)
+      .extendElementsWithClass("type")
+      .convertCDATAtoComment()
+      .htmlDoc();
+  }, [qti3ForPreview]);
 
   useEffect(() => {
     if (sourceEditorMode !== "monaco") {
@@ -178,6 +202,111 @@ export const PreviewPage = () => {
       console.error("Failed to copy share url", error);
     }
   };
+
+  const getAssessmentItemElement = () => {
+    const container = qtiItemRef.current?.querySelector("item-container");
+    return container?.shadowRoot?.querySelector(
+      "qti-assessment-item",
+    ) as QtiAssessmentItem | null;
+  };
+
+  const snapshotPreviewVariables = (
+    variables: PreviewVariable[] | undefined,
+  ): PreviewVariable[] => {
+    if (!Array.isArray(variables)) return [];
+    return variables.map((variable) => ({
+      identifier: variable.identifier,
+      cardinality: variable.cardinality,
+      baseType: variable.baseType,
+      value:
+        variable.value === undefined
+          ? undefined
+          : JSON.parse(JSON.stringify(variable.value)),
+      correctResponse:
+        variable.correctResponse === undefined
+          ? undefined
+          : JSON.parse(JSON.stringify(variable.correctResponse)),
+      mapping:
+        variable.mapping === undefined
+          ? undefined
+          : JSON.parse(JSON.stringify(variable.mapping)),
+    }));
+  };
+
+  const refreshPreviewVariables = () => {
+    const assessmentItem = getAssessmentItemElement();
+    const variables = (assessmentItem?.variables || []) as PreviewVariable[];
+    const nextVariables = snapshotPreviewVariables(variables);
+    const nextSignature = JSON.stringify(nextVariables);
+    if (nextSignature === lastVariablesSignatureRef.current) return;
+    lastVariablesSignatureRef.current = nextSignature;
+    setPreviewVariables(nextVariables);
+  };
+
+  useEffect(() => {
+    const attach = () => {
+      const assessmentItem = getAssessmentItemElement();
+      if (!assessmentItem) return false;
+      const handleContextUpdate = () => refreshPreviewVariables();
+      const handleInteractionUpdate = () => refreshPreviewVariables();
+      assessmentItem.addEventListener(
+        "qti-item-context-updated",
+        handleContextUpdate as EventListener,
+      );
+      assessmentItem.addEventListener(
+        "qti-interaction-changed",
+        handleInteractionUpdate as EventListener,
+      );
+      assessmentItem.addEventListener(
+        "qti-outcome-changed",
+        handleInteractionUpdate as EventListener,
+      );
+      assessmentItem.addEventListener(
+        "qti-interaction-response",
+        handleInteractionUpdate as EventListener,
+      );
+      refreshPreviewVariables();
+      return () => {
+        assessmentItem.removeEventListener(
+          "qti-item-context-updated",
+          handleContextUpdate as EventListener,
+        );
+        assessmentItem.removeEventListener(
+          "qti-interaction-changed",
+          handleInteractionUpdate as EventListener,
+        );
+        assessmentItem.removeEventListener(
+          "qti-outcome-changed",
+          handleInteractionUpdate as EventListener,
+        );
+        assessmentItem.removeEventListener(
+          "qti-interaction-response",
+          handleInteractionUpdate as EventListener,
+        );
+      };
+    };
+
+    let cleanup: false | (() => void) = false;
+    let attempts = 0;
+    const maxAttempts = 20;
+    const tryAttach = () => {
+      const maybeCleanup = attach();
+      if (maybeCleanup) {
+        cleanup = maybeCleanup;
+        return;
+      }
+      attempts += 1;
+      if (attempts < maxAttempts) {
+        window.setTimeout(tryAttach, 100);
+      }
+    };
+
+    tryAttach();
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [qti3ForPreview]);
 
   return (
     <div className="relative grid md:grid-cols-2 gap-4 bg-gray-200">
@@ -317,6 +446,31 @@ export const PreviewPage = () => {
                 Set correct response
               </button>
             </div>
+            <button
+              type="button"
+              disabled={!qti3}
+              onClick={() => {
+                const assessmentItem = getAssessmentItemElement();
+                assessmentItem?.processResponse(true, true);
+                refreshPreviewVariables();
+              }}
+              className="inline-flex items-center gap-x-1.5 rounded-md bg-citolab-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-citolab-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
+            >
+              Simulate end attempt
+            </button>
+            <button
+              type="button"
+              disabled={!qti3}
+              onClick={() => setShowVariables((current) => !current)}
+              className={`inline-flex items-center gap-x-1.5 rounded-md px-2.5 py-1.5 text-sm font-semibold transition-colors ${
+                showVariables
+                  ? "bg-green-700 text-white"
+                  : "bg-green-600 text-white hover:bg-green-500"
+              }`}
+            >
+              <Code className="h-5 w-5" aria-hidden="true" />
+              <span>{showVariables ? "Hide Output" : "Show Output"}</span>
+            </button>
             <div>
               <button
                 id="info-button"
@@ -347,13 +501,7 @@ export const PreviewPage = () => {
         <>
           {qti3ForPreview ? (
             <qti-item ref={qtiItemRef}>
-              <item-container
-                itemDoc={qtiTransformItem()
-                  .parse(qti3ForPreview)
-                  .extendElementsWithClass("type")
-                  .convertCDATAtoComment()
-                  .htmlDoc()}
-              >
+              <item-container itemDoc={previewItemDoc}>
                 <template
                   dangerouslySetInnerHTML={{
                     __html: `<style>${itemCss}</style>`,
@@ -371,6 +519,74 @@ export const PreviewPage = () => {
               </div>
             </div>
           ) : null}
+          <DraggablePopup
+            isOpen={showVariables}
+            onClose={() => setShowVariables(false)}
+            setIsOpen={setShowVariables}
+            title="Item Variable"
+            storageKey="previewOutputPopupState"
+          >
+            <div className="bg-gray-50 p-3 rounded">
+              {previewVariables.length > 0 ? (
+                <div className="overflow-auto">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="border border-gray-200 px-2 py-1 text-left">
+                          Identifier
+                        </th>
+                        <th className="border border-gray-200 px-2 py-1 text-left">
+                          Value
+                        </th>
+                        <th className="border border-gray-200 px-2 py-1 text-left">
+                          Cardinality
+                        </th>
+                        <th className="border border-gray-200 px-2 py-1 text-left">
+                          Base Type
+                        </th>
+                        <th className="border border-gray-200 px-2 py-1 text-left">
+                          Correct / Mapping
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewVariables.map((variable) => (
+                        <tr key={variable.identifier}>
+                          <td className="border border-gray-200 px-2 py-1 align-top">
+                            {variable.identifier}
+                          </td>
+                          <td className="border border-gray-200 px-2 py-1 align-top">
+                            <pre className="whitespace-pre-wrap break-words">
+                              {JSON.stringify(variable.value ?? null, null, 2)}
+                            </pre>
+                          </td>
+                          <td className="border border-gray-200 px-2 py-1 align-top">
+                            {variable.cardinality || "-"}
+                          </td>
+                          <td className="border border-gray-200 px-2 py-1 align-top">
+                            {variable.baseType || "-"}
+                          </td>
+                          <td className="border border-gray-200 px-2 py-1 align-top">
+                            <pre className="whitespace-pre-wrap break-words">
+                              {JSON.stringify(
+                                variable.correctResponse ?? variable.mapping ?? null,
+                                null,
+                                2,
+                              )}
+                            </pre>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-600">
+                  No item variables available yet.
+                </div>
+              )}
+            </div>
+          </DraggablePopup>
         </>
       </Panel>
     </div>
