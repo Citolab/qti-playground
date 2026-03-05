@@ -19,7 +19,11 @@ import {
 import { Terms } from "../components/terms";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 // Define the tab options
 type TabType = "upgrade" | "media" | "items";
@@ -278,34 +282,23 @@ export const ModifyPackagePage: React.FC = () => {
           </p>
         </div>
 
-        {/* Tab navigation */}
-        <div className="border-b border-gray-200">
-          <nav className="flex -mb-px">
-            {(
-              [
-                { tab: "upgrade", icon: <ArrowUp size={18} />, label: 'Upgrade QTI2 > QTI3' },
-                { tab: "media", icon: <Trash2 size={18} />, label: 'Remove Media' },
-                { tab: "items", icon: <List size={18} />, label: 'Manage Items' },
-              ] as { tab: TabType; icon: React.ReactNode; label: string }[]
-            ).map(({ tab, icon, label }) => (
-              <Button
-                key={tab}
-                variant="ghost"
-                onClick={() => switchTab(tab)}
-                className={`rounded-none py-3 px-6 font-medium text-sm border-b-2 h-auto hover:bg-transparent ${
-                  activeTab === tab
-                    ? "border-citolab-600 text-citolab-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  {icon}
-                  <span>{label}</span>
-                </div>
-              </Button>
-            ))}
-          </nav>
-        </div>
+        <Tabs value={activeTab} onValueChange={(v) => switchTab(v as TabType)} className="flex flex-col flex-1">
+          <div className="border-b border-gray-200 px-2 pt-2">
+            <TabsList className="bg-transparent h-auto gap-1 rounded-none p-0">
+              <TabsTrigger value="upgrade" className="rounded-none border-b-2 border-transparent data-[state=active]:border-citolab-600 data-[state=active]:text-citolab-600 data-[state=active]:shadow-none data-[state=active]:bg-transparent px-5 py-3 gap-2">
+                <ArrowUp size={16} />
+                Upgrade QTI2 &gt; QTI3
+              </TabsTrigger>
+              <TabsTrigger value="media" className="rounded-none border-b-2 border-transparent data-[state=active]:border-citolab-600 data-[state=active]:text-citolab-600 data-[state=active]:shadow-none data-[state=active]:bg-transparent px-5 py-3 gap-2">
+                <Trash2 size={16} />
+                Remove Media
+              </TabsTrigger>
+              <TabsTrigger value="items" className="rounded-none border-b-2 border-transparent data-[state=active]:border-citolab-600 data-[state=active]:text-citolab-600 data-[state=active]:shadow-none data-[state=active]:bg-transparent px-5 py-3 gap-2">
+                <List size={16} />
+                Manage Items
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
         <div className="p-6">
           {inProgress ? (
@@ -329,13 +322,8 @@ export const ModifyPackagePage: React.FC = () => {
                       : "Analyzing package to count available items..."
                     : "Please wait while we convert your QTI2 package to QTI3 format..."}
               </p>
-              <div className="w-full max-w-md bg-gray-200 rounded-full h-2.5 mb-2">
-                <div
-                  className="bg-citolab-600 h-2.5 rounded-full transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                ></div>
-              </div>
-              <p className="text-sm text-gray-500">
+              <Progress value={uploadProgress} className="w-full max-w-md mb-2" />
+              <p className="text-sm text-muted-foreground">
                 {Math.round(uploadProgress)}% complete
               </p>
             </div>
@@ -406,48 +394,36 @@ export const ModifyPackagePage: React.FC = () => {
                         </p>
 
                         <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Start Index
-                            </label>
-                            <input
+                          <div className="space-y-1">
+                            <Label htmlFor="start-index">Start Index</Label>
+                            <Input
+                              id="start-index"
                               type="number"
                               value={startIndex}
                               onChange={(e) => {
                                 const val = parseInt(e.target.value);
-                                if (
-                                  !isNaN(val) &&
-                                  val >= 0 &&
-                                  val <= endIndex
-                                ) {
+                                if (!isNaN(val) && val >= 0 && val <= endIndex) {
                                   setStartIndex(val);
                                 }
                               }}
                               min={0}
                               max={endIndex}
-                              className="w-full p-2 border border-gray-300 rounded focus:ring-citolab-500 focus:border-citolab-500"
                             />
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              End Index
-                            </label>
-                            <input
+                          <div className="space-y-1">
+                            <Label htmlFor="end-index">End Index</Label>
+                            <Input
+                              id="end-index"
                               type="number"
                               value={endIndex}
                               onChange={(e) => {
                                 const val = parseInt(e.target.value);
-                                if (
-                                  !isNaN(val) &&
-                                  val >= startIndex &&
-                                  val < itemCount
-                                ) {
+                                if (!isNaN(val) && val >= startIndex && val < itemCount) {
                                   setEndIndex(val);
                                 }
                               }}
                               min={startIndex}
                               max={itemCount - 1}
-                              className="w-full p-2 border border-gray-300 rounded focus:ring-citolab-500 focus:border-citolab-500"
                             />
                           </div>
                         </div>
@@ -467,28 +443,17 @@ export const ModifyPackagePage: React.FC = () => {
 
                       {processComplete &&
                         (removedItems.length > 0 || removedWebcontent > 0) && (
-                          <div className="bg-green-50 p-3 rounded border border-green-200">
-                            <div className="flex items-center gap-2 mb-2 text-green-700">
-                              <CheckCircle size={16} />
-                              <p className="font-medium">
-                                Successfully processed package
-                              </p>
-                            </div>
-                            <div className="text-sm text-gray-600 space-y-1">
-                              <p>
-                                Removed {removedItems.length} assessment items
-                              </p>
+                          <Alert variant="success">
+                            <CheckCircle className="h-4 w-4" />
+                            <AlertTitle>Successfully processed package</AlertTitle>
+                            <AlertDescription className="space-y-1 text-sm">
+                              <p>Removed {removedItems.length} assessment items</p>
                               {removedWebcontent > 0 && (
-                                <p>
-                                  Removed {removedWebcontent} unused
-                                  media/webcontent resources
-                                </p>
+                                <p>Removed {removedWebcontent} unused media/webcontent resources</p>
                               )}
-                              <p className="pt-1 font-medium">
-                                New package has been downloaded
-                              </p>
-                            </div>
-                          </div>
+                              <p className="font-medium">New package has been downloaded</p>
+                            </AlertDescription>
+                          </Alert>
                         )}
                     </div>
                   ) : selectedFile ? (
@@ -526,22 +491,14 @@ export const ModifyPackagePage: React.FC = () => {
                   </p>
 
                   {processComplete && (
-                    <div className="bg-green-50 p-3 rounded border border-green-200">
-                      <div className="flex items-center gap-2 mb-2 text-green-700">
-                        <CheckCircle size={16} />
-                        <p className="font-medium">
-                          Successfully converted package
-                        </p>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        <p>
-                          Your QTI2 package has been converted to QTI3 format
-                        </p>
-                        <p className="pt-1 font-medium">
-                          New QTI3 package has been downloaded
-                        </p>
-                      </div>
-                    </div>
+                    <Alert variant="success">
+                      <CheckCircle className="h-4 w-4" />
+                      <AlertTitle>Successfully converted package</AlertTitle>
+                      <AlertDescription className="text-sm space-y-1">
+                        <p>Your QTI2 package has been converted to QTI3 format</p>
+                        <p className="font-medium">New QTI3 package has been downloaded</p>
+                      </AlertDescription>
+                    </Alert>
                   )}
                 </div>
               )}
@@ -666,6 +623,7 @@ export const ModifyPackagePage: React.FC = () => {
             </div>
           )}
         </div>
+        </Tabs>
       </div>
       <div className="max-w-2xl w-full">
         <Terms></Terms>

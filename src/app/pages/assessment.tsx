@@ -1499,9 +1499,9 @@ export const AssessmentPage: React.FC = () => {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex w-full flex-col bg-gray-50 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex w-full flex-col bg-gray-200 overflow-hidden">
       {/* Fixed Header - Always visible */}
-      <div className="flex-shrink-0 flex items-center justify-between bg-white px-4 py-3 shadow-md z-10">
+      <div className="flex-shrink-0 flex items-center justify-between bg-white px-4 py-3 border-b border-gray-300 shadow-md z-10">
         <div className="flex items-center space-x-3">
           <Button
             variant="destructive"

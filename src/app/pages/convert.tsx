@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store/store";
 import { editor } from "monaco-editor";
 import { Clipboard } from "lucide-react";
-import { Tooltip } from "react-tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dropdown } from "../components/dropdown";
 import { Panel } from "../components/panel";
 import { Button } from "@/components/ui/button";
@@ -112,25 +112,24 @@ export const ConvertPage = () => {
       <Panel
         title="QTI 3"
         actionComponents={[
-          <>
-            <Button
-              id="copy-button"
-              size="sm"
-              disabled={!qti3}
-              onClick={() => {
-                navigator.clipboard.writeText(qti3 || "");
-                setOpenTooltip(true);
-                setTimeout(() => setOpenTooltip(false), 200);
-              }}
-            >
-              <Clipboard className="h-4 w-4" aria-hidden="true" />
-            </Button>
-            <Tooltip
-              isOpen={openTooltip}
-              data-tooltip-id={"copy-button"}
-              content={"QTI copied to clipboard!"}
-            />
-          </>,
+          <TooltipProvider>
+            <Tooltip open={openTooltip}>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  disabled={!qti3}
+                  onClick={() => {
+                    navigator.clipboard.writeText(qti3 || "");
+                    setOpenTooltip(true);
+                    setTimeout(() => setOpenTooltip(false), 2000);
+                  }}
+                >
+                  <Clipboard className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>QTI copied to clipboard!</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>,
         ]}
       >
         <Editor

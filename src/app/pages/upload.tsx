@@ -8,6 +8,7 @@ import { ItemPreview } from "../components/item-preview";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
 
 export const UploadPage: React.FC = () => {
   const navigate = useNavigate();
@@ -116,13 +117,8 @@ export const UploadPage: React.FC = () => {
           <div className="text-lg font-semibold text-citolab-700 text-center mb-4">
             {inProgress}
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5">
-            <div
-              className="bg-citolab-600 h-2.5 rounded-full transition-all duration-300"
-              style={{ width: `${uploadProgress}%` }}
-            ></div>
-          </div>
-          <div className="text-sm text-gray-500 text-center mt-2">
+          <Progress value={uploadProgress} className="mt-2" />
+          <div className="text-sm text-muted-foreground text-center mt-2">
             {Math.round(uploadProgress)}% complete
           </div>
         </div>

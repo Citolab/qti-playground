@@ -6,7 +6,6 @@ import {
   Underline,
   Undo2,
 } from "lucide-react";
-import { Tooltip } from "react-tooltip";
 import {
   createEditor,
   defineKeymap,
@@ -883,8 +882,6 @@ export function QtiProsemirrorEditor({
             aria-label="Undo"
             title="Undo"
             disabled={!historyState.canUndo}
-            data-tooltip-id="qti-editor-toolbar-tooltip"
-            data-tooltip-content="Undo"
           >
             <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
@@ -895,8 +892,6 @@ export function QtiProsemirrorEditor({
             aria-label="Redo"
             title="Redo"
             disabled={!historyState.canRedo}
-            data-tooltip-id="qti-editor-toolbar-tooltip"
-            data-tooltip-content="Redo"
           >
             <Redo2 className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
@@ -906,8 +901,6 @@ export function QtiProsemirrorEditor({
             className="qti-beta-toolbar-button"
             aria-label="Bold"
             title="Bold"
-            data-tooltip-id="qti-editor-toolbar-tooltip"
-            data-tooltip-content="Bold"
           >
             <Bold className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
@@ -917,8 +910,6 @@ export function QtiProsemirrorEditor({
             className="qti-beta-toolbar-button"
             aria-label="Italic"
             title="Italic"
-            data-tooltip-id="qti-editor-toolbar-tooltip"
-            data-tooltip-content="Italic"
           >
             <Italic className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
@@ -928,17 +919,12 @@ export function QtiProsemirrorEditor({
             className="qti-beta-toolbar-button"
             aria-label="Underline"
             title="Underline"
-            data-tooltip-id="qti-editor-toolbar-tooltip"
-            data-tooltip-content="Underline"
           >
             <Underline className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
         </div>
       ) : null}
       <div ref={containerRef} className="qti-beta-editor-surface" />
-      {showToolbar ? (
-        <Tooltip id="qti-editor-toolbar-tooltip" place="top" />
-      ) : null}
     </div>
   );
 }

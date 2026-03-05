@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { Bookmark } from "lucide-react";
 import { ItemInfoWithBlobRef } from "../store/store";
 import { ItemPreview } from "../components/item-preview";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 type ResponseState = "missing" | "incomplete" | "complete";
 
@@ -18,13 +20,6 @@ function OverviewGridItem({
   bookmarked: boolean;
   onOpen: () => void;
 }) {
-  const stateLabel =
-    responseState === "complete"
-      ? "Answered"
-      : responseState === "incomplete"
-        ? "In progress"
-        : "Not answered";
-
   const numberBg =
     responseState === "complete"
       ? "bg-citolab-600"
@@ -33,14 +28,36 @@ function OverviewGridItem({
         : "bg-gray-400";
 
   const headerContent = (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2 flex-wrap">
       <div
-        className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-white ${numberBg}`}
+        className={cn(
+          "flex items-center justify-center w-8 h-8 rounded-full font-bold text-white shrink-0",
+          numberBg
+        )}
       >
         {displayNumber}
       </div>
-      <div className="text-xs font-semibold text-gray-600">{stateLabel}</div>
-      {bookmarked && <Bookmark className="h-4 w-4 text-amber-500" />}
+      <Badge
+        variant={
+          responseState === "complete"
+            ? "default"
+            : responseState === "incomplete"
+              ? "secondary"
+              : "outline"
+        }
+        className={cn(
+          responseState === "complete" && "bg-citolab-600 hover:bg-citolab-700",
+          responseState === "incomplete" && "bg-citolab-yellow-500 text-white hover:bg-citolab-yellow-600 border-transparent",
+          responseState === "missing" && "text-gray-500"
+        )}
+      >
+        {responseState === "complete"
+          ? "Answered"
+          : responseState === "incomplete"
+            ? "In progress"
+            : "Not answered"}
+      </Badge>
+      {bookmarked && <Bookmark className="h-4 w-4 text-citolab-yellow-500" />}
     </div>
   );
 
