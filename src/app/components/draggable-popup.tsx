@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { X, Move } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface DraggablePopupProps {
   isOpen: boolean;
@@ -166,12 +167,14 @@ const DraggablePopup = ({
           <Move className="w-4 h-4 mr-2" />
           <h3 className="text-sm font-medium">{title}</h3>
         </div>
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => onClose()}
-          className="p-1 rounded-full hover:bg-citolab-700 transition-colors"
+          className="w-6 h-6 rounded-full hover:bg-citolab-700 text-white hover:text-white"
         >
           <X className="w-4 h-4" />
-        </button>
+        </Button>
       </div>
 
       {/* Content */}

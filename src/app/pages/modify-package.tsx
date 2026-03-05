@@ -17,6 +17,9 @@ import {
   ArrowUp,
 } from "lucide-react";
 import { Terms } from "../components/terms";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Define the tab options
 type TabType = "upgrade" | "media" | "items";
@@ -105,14 +108,6 @@ export const ModifyPackagePage: React.FC = () => {
         analyzeItemsInPackage(file);
       }
     }
-  };
-
-  const handleFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = event.target;
-    setFilters((prev) => ({
-      ...prev,
-      [name]: checked,
-    }));
   };
 
   const clearSelection = () => {
@@ -286,36 +281,29 @@ export const ModifyPackagePage: React.FC = () => {
         {/* Tab navigation */}
         <div className="border-b border-gray-200">
           <nav className="flex -mb-px">
-            <button
-              onClick={() => switchTab("upgrade")}
-              className={`py-3 px-6 font-medium text-sm border-b-2 
-                            ${activeTab === "upgrade" ? "border-citolab-600 text-citolab-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"}`}
-            >
-              <div className="flex items-center space-x-2">
-                <ArrowUp size={18} />
-                <span>Upgrade QTI2 {">"} QTI3</span>
-              </div>
-            </button>
-            <button
-              onClick={() => switchTab("media")}
-              className={`py-3 px-6 font-medium text-sm border-b-2 
-                            ${activeTab === "media" ? "border-citolab-600 text-citolab-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"}`}
-            >
-              <div className="flex items-center space-x-2">
-                <Trash2 size={18} />
-                <span>Remove Media</span>
-              </div>
-            </button>
-            <button
-              onClick={() => switchTab("items")}
-              className={`py-3 px-6 font-medium text-sm border-b-2 
-                            ${activeTab === "items" ? "border-citolab-600 text-citolab-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"}`}
-            >
-              <div className="flex items-center space-x-2">
-                <List size={18} />
-                <span>Manage Items</span>
-              </div>
-            </button>
+            {(
+              [
+                { tab: "upgrade", icon: <ArrowUp size={18} />, label: 'Upgrade QTI2 > QTI3' },
+                { tab: "media", icon: <Trash2 size={18} />, label: 'Remove Media' },
+                { tab: "items", icon: <List size={18} />, label: 'Manage Items' },
+              ] as { tab: TabType; icon: React.ReactNode; label: string }[]
+            ).map(({ tab, icon, label }) => (
+              <Button
+                key={tab}
+                variant="ghost"
+                onClick={() => switchTab(tab)}
+                className={`rounded-none py-3 px-6 font-medium text-sm border-b-2 h-auto hover:bg-transparent ${
+                  activeTab === tab
+                    ? "border-citolab-600 text-citolab-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  {icon}
+                  <span>{label}</span>
+                </div>
+              </Button>
+            ))}
           </nav>
         </div>
 
@@ -366,56 +354,32 @@ export const ModifyPackagePage: React.FC = () => {
                     Select which media types should be removed from the package:
                   </p>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    <label className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-200 hover:bg-gray-50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="video"
-                        checked={filters.video}
-                        onChange={handleFilterChange}
-                        className="form-checkbox h-5 w-5 text-citolab-600"
-                      />
-                      <span className="text-gray-700">Video Files</span>
-                    </label>
-                    <label className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-200 hover:bg-gray-50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="audio"
-                        checked={filters.audio}
-                        onChange={handleFilterChange}
-                        className="form-checkbox h-5 w-5 text-citolab-600"
-                      />
-                      <span className="text-gray-700">Audio Files</span>
-                    </label>
-                    <label className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-200 hover:bg-gray-50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="image"
-                        checked={filters.image}
-                        onChange={handleFilterChange}
-                        className="form-checkbox h-5 w-5 text-citolab-600"
-                      />
-                      <span className="text-gray-700">Image Files</span>
-                    </label>
-                    <label className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-200 hover:bg-gray-50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="css"
-                        checked={filters.css}
-                        onChange={handleFilterChange}
-                        className="form-checkbox h-5 w-5 text-citolab-600"
-                      />
-                      <span className="text-gray-700">CSS Files</span>
-                    </label>
-                    <label className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-200 hover:bg-gray-50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="fs500k"
-                        checked={filters.fs500k}
-                        onChange={handleFilterChange}
-                        className="form-checkbox h-5 w-5 text-citolab-600"
-                      />
-                      <span className="text-gray-700">Files {">"} 500KB</span>
-                    </label>
+                    {(
+                      [
+                        { name: "video", label: "Video Files" },
+                        { name: "audio", label: "Audio Files" },
+                        { name: "image", label: "Image Files" },
+                        { name: "css", label: "CSS Files" },
+                        { name: "fs500k", label: "Files > 500KB" },
+                      ] as { name: keyof typeof filters; label: string }[]
+                    ).map(({ name, label }) => (
+                      <label
+                        key={name}
+                        className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-200 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <Checkbox
+                          id={`filter-${name}`}
+                          checked={filters[name]}
+                          onCheckedChange={(checked) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              [name]: checked === true,
+                            }))
+                          }
+                        />
+                        <span className="text-gray-700">{label}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
               ) : activeTab === "items" ? (
@@ -533,12 +497,12 @@ export const ModifyPackagePage: React.FC = () => {
                         Click "Analyze Package" to count items in the selected
                         file
                       </p>
-                      <button
+                      <Button
+                        className="mt-3"
                         onClick={() => analyzeItemsInPackage(selectedFile)}
-                        className="mt-3 bg-citolab-600 text-white py-2 px-4 rounded hover:bg-citolab-700 transition-colors"
                       >
                         Analyze Package
-                      </button>
+                      </Button>
                     </div>
                   ) : (
                     <div className="text-center p-4 bg-citolab-50 rounded">
@@ -591,12 +555,14 @@ export const ModifyPackagePage: React.FC = () => {
                         Selected File
                       </h2>
                     </div>
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={clearSelection}
-                      className="p-1 rounded-full hover:bg-gray-200 text-gray-500"
+                      className="text-gray-500"
                     >
                       <X size={20} />
-                    </button>
+                    </Button>
                   </div>
 
                   <div className="flex items-center justify-between p-3 bg-white rounded border border-gray-200">
@@ -620,27 +586,24 @@ export const ModifyPackagePage: React.FC = () => {
                         Complete
                       </span>
                     ) : (
-                      <button
+                      <Button
                         onClick={processFile}
                         disabled={
                           !!error || (activeTab === "items" && !itemsLoaded)
                         }
-                        className="bg-citolab-600 text-white py-2 px-4 rounded hover:bg-citolab-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                       >
                         {activeTab === "upgrade"
                           ? "Convert Package"
                           : "Process File"}
-                      </button>
+                      </Button>
                     )}
                   </div>
 
                   {error && (
-                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <div className="flex items-center gap-2 text-red-600">
-                        <AlertCircle size={16} />
-                        <p className="text-sm font-medium">{error}</p>
-                      </div>
-                    </div>
+                    <Alert variant="destructive" className="mt-4">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
                   )}
                 </div>
               ) : (

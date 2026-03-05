@@ -40,6 +40,11 @@ const dirname =
 
 export default defineConfig({
   plugins: [spaHtmlFallbackForPackageRoute(), react(), tailwindcss()],
+  resolve: {
+    alias: {
+      "@": path.resolve(dirname, "./src"),
+    },
+  },
 
   build: {
     outDir: "dist",

@@ -7,6 +7,7 @@ import { Clipboard } from "lucide-react";
 import { Tooltip } from "react-tooltip";
 import { Dropdown } from "../components/dropdown";
 import { Panel } from "../components/panel";
+import { Button } from "@/components/ui/button";
 
 export const ConvertPage = () => {
   const sourceEditor = useRef<editor.IStandaloneCodeEditor>(null);
@@ -112,22 +113,18 @@ export const ConvertPage = () => {
         title="QTI 3"
         actionComponents={[
           <>
-            <button
+            <Button
               id="copy-button"
-              type="button"
+              size="sm"
               disabled={!qti3}
               onClick={() => {
-                // copy qti3 to clipboard
                 navigator.clipboard.writeText(qti3 || "");
                 setOpenTooltip(true);
-                setTimeout(() => {
-                  setOpenTooltip(false);
-                }, 200);
+                setTimeout(() => setOpenTooltip(false), 200);
               }}
-              className="inline-flex items-center gap-x-1.5 rounded-md bg-citolab-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-citolab-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
             >
-              <Clipboard className="-ml-0.5 h-5 w-5" aria-hidden="true" />
-            </button>
+              <Clipboard className="h-4 w-4" aria-hidden="true" />
+            </Button>
             <Tooltip
               isOpen={openTooltip}
               data-tooltip-id={"copy-button"}

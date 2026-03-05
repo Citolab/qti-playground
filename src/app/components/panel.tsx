@@ -1,4 +1,5 @@
 import { JSX } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Props {
   title: string;
@@ -9,23 +10,19 @@ interface Props {
 export function Panel({ title, actionComponents, children }: Props) {
   return (
     <div className="h-full w-full relative p-4">
-      <div className="h-full overflow-hidden rounded-lg bg-white shadow">
-        <div className="p-4 py-5 sm:p-6 w-full flex items-center justify-between h-14">
-          <div className="text-lg font-semibold leading-6 text-gray-900">
-            {title}
-          </div>
+      <Card className="h-full overflow-hidden">
+        <CardHeader className="py-3 px-4 flex-row items-center justify-between space-y-0 h-14">
+          <CardTitle className="text-lg">{title}</CardTitle>
           <div className="flex items-center justify-end gap-2">
-            {actionComponents.map((a, i) => {
-              return (
-                <div key={i} className="">
-                  {a}
-                </div>
-              );
-            })}
+            {actionComponents.map((a, i) => (
+              <div key={i}>{a}</div>
+            ))}
           </div>
-        </div>
-        <div className="relative mt-5 mx-3">{children}</div>
-      </div>
+        </CardHeader>
+        <CardContent className="relative mt-2 px-3 pt-0">
+          {children}
+        </CardContent>
+      </Card>
     </div>
   );
 }

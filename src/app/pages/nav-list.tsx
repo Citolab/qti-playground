@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 
 interface NavigationBarProps {
   stampContext: any;
@@ -214,7 +215,7 @@ export function NavigationBar({
         }
 
         return (
-          <button
+          <Button
             key={item.identifier || item.originalIndex}
             className={itemClasses}
             onClick={() => handleItemClick(item)}
@@ -231,14 +232,14 @@ export function NavigationBar({
             {item.isMarked && (
               <div
                 key={`${item.identifier}-bookmark`}
-                className="absolute -top-0.5 -right-0.5 bg-amber-400 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold border-2 border-white shadow-sm z-10"
+                className="absolute -top-0.5 -right-0.5 bg-citolab-yellow-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold border-2 border-white shadow-sm z-10"
                 title="Bookmarked question"
               >
                 !
               </div>
             )}
             {item.displayNumber}
-          </button>
+          </Button>
         );
       })}
     </div>

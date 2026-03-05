@@ -2,6 +2,7 @@ import { Editor } from "@monaco-editor/react";
 import { useDebouncedCallback } from "use-debounce";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store/store";
+import { Button } from "@/components/ui/button";
 import { editor } from "monaco-editor";
 import { Clipboard, Code, Info, Share2 } from "lucide-react";
 import { Tooltip } from "react-tooltip";
@@ -350,21 +351,18 @@ export const PreviewPage = () => {
           />,
           <div className="flex gap-2">
             <>
-              <button
+              <Button
                 id="copy-button"
-                type="button"
+                size="sm"
                 disabled={qti3 === ""}
                 onClick={() => {
                   navigator.clipboard.writeText(qti3 || "");
                   setOpenTooltip(true);
-                  setTimeout(() => {
-                    setOpenTooltip(false);
-                  }, 200);
+                  setTimeout(() => setOpenTooltip(false), 200);
                 }}
-                className="inline-flex items-center gap-x-1.5 rounded-md bg-citolab-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-citolab-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
               >
-                <Clipboard className="-ml-0.5 h-5 w-5" aria-hidden="true" />
-              </button>
+                <Clipboard className="h-4 w-4" aria-hidden="true" />
+              </Button>
               <Tooltip
                 isOpen={openTooltip}
                 data-tooltip-id={"copy-button"}
@@ -372,15 +370,14 @@ export const PreviewPage = () => {
               />
             </>
             <>
-              <button
+              <Button
                 id="share-button"
-                type="button"
+                size="sm"
                 disabled={!qti3}
                 onClick={copyShareUrl}
-                className="inline-flex items-center gap-x-1.5 rounded-md bg-citolab-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-citolab-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
               >
-                <Share2 className="-ml-0.5 h-5 w-5" aria-hidden="true" />
-              </button>
+                <Share2 className="h-4 w-4" aria-hidden="true" />
+              </Button>
               <Tooltip
                 isOpen={shareTooltipOpen}
                 data-tooltip-id={"share-button"}
@@ -426,67 +423,58 @@ export const PreviewPage = () => {
         title="QTI Preview"
         actionComponents={[
           <div className="flex gap-2">
-            <div>
-              <button
-                id="correct-button"
-                type="button"
-                disabled={!qti3}
-                onClick={() => {
-                  const container =
-                    qtiItemRef.current?.querySelector("item-container");
-                  const assessmentItem = container?.shadowRoot?.querySelector(
-                    "qti-assessment-item",
-                  ) as QtiAssessmentItem;
-                  if (assessmentItem) {
-                    assessmentItem.showCorrectResponse(true);
-                  }
-                }}
-                className="inline-flex items-center gap-x-1.5 rounded-md bg-citolab-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-citolab-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
-              >
-                Set correct response
-              </button>
-            </div>
-            <button
-              type="button"
+            <Button
+              id="correct-button"
+              size="sm"
+              disabled={!qti3}
+              onClick={() => {
+                const container =
+                  qtiItemRef.current?.querySelector("item-container");
+                const assessmentItem = container?.shadowRoot?.querySelector(
+                  "qti-assessment-item",
+                ) as QtiAssessmentItem;
+                if (assessmentItem) {
+                  assessmentItem.showCorrectResponse(true);
+                }
+              }}
+            >
+              Set correct response
+            </Button>
+            <Button
+              size="sm"
               disabled={!qti3}
               onClick={() => {
                 const assessmentItem = getAssessmentItemElement();
                 assessmentItem?.processResponse(true, true);
                 refreshPreviewVariables();
               }}
-              className="inline-flex items-center gap-x-1.5 rounded-md bg-citolab-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-citolab-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
             >
               Simulate end attempt
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
               disabled={!qti3}
+              variant={showVariables ? "secondary" : "default"}
               onClick={() => setShowVariables((current) => !current)}
-              className={`inline-flex items-center gap-x-1.5 rounded-md px-2.5 py-1.5 text-sm font-semibold transition-colors ${
-                showVariables
-                  ? "bg-green-700 text-white"
-                  : "bg-green-600 text-white hover:bg-green-500"
-              }`}
+              className={showVariables ? "bg-green-700 text-white hover:bg-green-800" : "bg-green-600 hover:bg-green-700"}
             >
-              <Code className="h-5 w-5" aria-hidden="true" />
+              <Code className="h-4 w-4" aria-hidden="true" />
               <span>{showVariables ? "Hide Output" : "Show Output"}</span>
-            </button>
-            <div>
-              <button
+            </Button>
+            <>
+              <Button
                 id="info-button"
-                type="button"
+                size="sm"
                 disabled={!qti3}
                 onClick={() => {
-                  // navigate in new tab to: https://github.com/citolab/qti-components
                   window.open(
                     "https://github.com/citolab/qti-components",
                     "_blank",
                   );
                 }}
-                className="inline-flex items-center gap-x-1.5 rounded-md bg-citolab-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-citolab-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
               >
-                <Info className="-ml-0.5 h-5 w-5" aria-hidden="true" />
-              </button>
+                <Info className="h-4 w-4" aria-hidden="true" />
+              </Button>
               <Tooltip
                 isOpen={true}
                 data-tooltip-id={"info-button"}
@@ -494,7 +482,7 @@ export const PreviewPage = () => {
                   "Preview generated by @citolab\\qti-componets: https://github.com/citolab/qti-components"
                 }
               />
-            </div>
+            </>
           </div>,
         ]}
       >

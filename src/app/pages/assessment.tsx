@@ -25,6 +25,7 @@ import { QTI_PKG_URL_PREFIX } from "../store/qti-package-cache";
 
 import DraggablePopup from "../components/draggable-popup";
 import ModeSwitch from "../components/mode-switcher";
+import { Button } from "@/components/ui/button";
 import { ToolBar } from "../components/tool-bar";
 import { NavigationBar } from "./nav-list";
 import { AssessmentOverviewPage } from "./assessment-overview";
@@ -1485,20 +1486,12 @@ export const AssessmentPage: React.FC = () => {
             The requested assessment could not be found.
           </p>
           <div className="flex gap-3">
-            <button
-              onClick={handlePrevious}
-              className="inline-flex items-center rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-200 transition-colors"
-              type="button"
-            >
+            <Button variant="secondary" onClick={handlePrevious}>
               Previous
-            </button>
-            <button
-              onClick={handleBackNavigation}
-              className="inline-flex items-center rounded-md bg-citolab-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-citolab-500 transition-colors"
-              type="button"
-            >
+            </Button>
+            <Button onClick={handleBackNavigation}>
               Select new package
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -1510,51 +1503,41 @@ export const AssessmentPage: React.FC = () => {
       {/* Fixed Header - Always visible */}
       <div className="flex-shrink-0 flex items-center justify-between bg-white px-4 py-3 shadow-md z-10">
         <div className="flex items-center space-x-3">
-          <button
-            className="inline-flex items-center justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow hover:bg-red-700 transition-colors"
+          <Button
+            variant="destructive"
+            size="sm"
             onClick={handleExitOverlay}
             title="Close assessment"
-            type="button"
           >
             <LogOut className="sm:mr-1 h-4 w-4" />
             <span className="hidden sm:inline">Close assessment</span>
-          </button>
+          </Button>
           <h1 className="text-lg font-medium text-gray-800">
             {selectedAssessmentData?.name || "Assessment"}
           </h1>
         </div>
         <div className="flex items-center space-x-2">
-          <button
-            className="inline-flex items-center rounded-md bg-citolab-600 px-3 py-2 text-sm font-medium text-white hover:bg-citolab-500 transition-colors"
-            onClick={onEditItem}
-          >
+          <Button size="sm" onClick={onEditItem}>
             <Edit className="sm:mr-1 h-4 w-4" />
             <span className="hidden sm:inline">Edit QTI</span>
-          </button>
-          <button
-            className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              showVariables
-                ? "bg-gray-200 text-gray-800"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
+          </Button>
+          <Button
+            size="sm"
+            variant={showVariables ? "secondary" : "ghost"}
             onClick={() => setShowVariables((current) => !current)}
           >
             <Code className="sm:mr-1 h-4 w-4" />
             <span className="hidden sm:inline">{showVariables ? "Hide Output" : "Show Output"}</span>
-          </button>
-          <button
-            className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              isOverviewOpen
-                ? "bg-gray-200 text-gray-800"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
+          </Button>
+          <Button
+            size="sm"
+            variant={isOverviewOpen ? "secondary" : "ghost"}
             onClick={() => setOverviewMode(!isOverviewOpen)}
             title="Overview"
-            type="button"
           >
             <LayoutGrid className="sm:mr-1 h-4 w-4" />
             <span className="hidden sm:inline">Overview</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1659,45 +1642,37 @@ export const AssessmentPage: React.FC = () => {
                     <nav className="flex items-center justify-between px-6 py-4 w-full min-w-0">
                       {isOverviewOpen ? (
                         <>
-                          <button
-                            type="button"
+                          <Button
+                            size="sm"
                             onClick={goToPrevFromOverview}
                             disabled={!overviewNavTargets.prevId}
-                            className={`inline-flex items-center rounded-md px-4 py-2 text-sm font-medium transition-colors flex-shrink-0 ${
-                              overviewNavTargets.prevId
-                                ? "bg-citolab-700 text-white hover:bg-citolab-600 shadow-sm"
-                                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                            }`}
+                            className="shrink-0"
                             title="Previous item"
                           >
                             <ChevronLeft className="mr-1 h-4 w-4" />
                             Previous
-                          </button>
+                          </Button>
                           <div className="flex-1 min-w-0 flex justify-center">
-                            <button
-                              type="button"
-                              className="inline-flex items-center rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-200 transition-colors shadow-sm"
+                            <Button
+                              size="sm"
+                              variant="secondary"
                               onClick={closeOverview}
                               title="Close overview"
                             >
                               <LayoutGrid className="mr-2 h-4 w-4" />
                               Close overview
-                            </button>
+                            </Button>
                           </div>
-                          <button
-                            type="button"
+                          <Button
+                            size="sm"
                             onClick={goToNextFromOverview}
                             disabled={!overviewNavTargets.nextId}
-                            className={`inline-flex items-center rounded-md px-4 py-2 text-sm font-medium transition-colors flex-shrink-0 ${
-                              overviewNavTargets.nextId
-                                ? "bg-citolab-700 text-white hover:bg-citolab-600 shadow-sm"
-                                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                            }`}
+                            className="shrink-0"
                             title="Next item"
                           >
                             Next
                             <ChevronRight className="ml-1 h-4 w-4" />
-                          </button>
+                          </Button>
                         </>
                       ) : (
                         <>
@@ -1706,14 +1681,14 @@ export const AssessmentPage: React.FC = () => {
                               <ChevronLeft className="mr-1 h-4 w-4" />
                               Previous
                             </test-prev>
-                            <button
-                              type="button"
-                              className="inline-flex items-center rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-200 transition-colors shadow-sm"
+                            <Button
+                              size="sm"
+                              variant="secondary"
                               onClick={() => setOverviewMode(!isOverviewOpen)}
                               title="Overview"
                             >
                               <LayoutGrid className="h-4 w-4" />
-                            </button>
+                            </Button>
                           </div>
                           <div className="flex-1 min-w-0 flex justify-center">
                             <NavigationBar

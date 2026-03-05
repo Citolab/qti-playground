@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Editor as MonacoEditor } from "@monaco-editor/react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -569,13 +570,10 @@ export const LandingPage: React.FC = () => {
               components and conversion tools
             </p>
             <div className="mt-10">
-              <button
-                onClick={() => navigate("/package")}
-                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-citolab-600 hover:bg-citolab-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-citolab-500"
-              >
+              <Button size="lg" onClick={() => navigate("/package")}>
                 Select your QTI package
                 <ArrowRight className="ml-2 h-5 w-5" />
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -883,12 +881,13 @@ export const LandingPage: React.FC = () => {
             Start using our converter today - it's free and powered by
             open-source technology.
           </p>
-          <button
+          <Button
             onClick={() => navigate("/package")}
-            className="mt-8 w-full inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-citolab-600 bg-white hover:bg-gray-100 sm:w-auto"
+            className="mt-8 w-full sm:w-auto bg-white text-citolab-600 hover:bg-gray-100"
+            size="lg"
           >
             Get Started
-          </button>
+          </Button>
         </div>
       </div>
 

@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+
 export function AssessmentIntroScreen({
   assessmentName,
   itemCount,
@@ -67,20 +69,10 @@ export function AssessmentIntroScreen({
             </div>
 
             <div className="mt-auto flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={onStart}
-                className="inline-flex items-center rounded-md bg-citolab-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-citolab-500 transition-colors"
-              >
-                Start
-              </button>
-              <button
-                type="button"
-                onClick={onOpenOverview}
-                className="inline-flex items-center rounded-md bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-200 transition-colors"
-              >
+              <Button onClick={onStart}>Start</Button>
+              <Button variant="secondary" onClick={onOpenOverview}>
                 Open overview
-              </button>
+              </Button>
             </div>
           </div>
         </div>
