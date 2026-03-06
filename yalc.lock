@@ -1,0 +1,10 @@
+{
+  "version": "v1",
+  "packages": {
+    "@citolab/qti-components": {
+      "signature": "f7e5cdba1a94f628f5ca12caea058cd1",
+      "file": true,
+      "replaced": "^7.26.0"
+    }
+  }
+}

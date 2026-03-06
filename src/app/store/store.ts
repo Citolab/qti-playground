@@ -488,7 +488,13 @@ export const useStore = create<Store>()(
           const entry = zip.files[relativePath];
           const ext = normalizedPath.split(".").pop()?.toLowerCase() || "";
           if (ext === "xml") {
-            const text = await entry.async("string");
+            const rawText = await entry.async("string");
+            // Fix boolean HTML attributes that are invalid XML (e.g., data-content-cycle → data-content-cycle="").
+            // The quote-aware alternation ensures content inside attribute values is never modified.
+            const text = rawText.replace(/<[^>]+>/g, (tag) =>
+              tag.replace(/("[^"]*"|'[^']*')|(\s)([\w:-]+)(?!\s*=)(?=[\s/>])/g,
+                (m, quoted, space, attr) => quoted !== undefined ? m : `${space}${attr}=""`)
+            );
             xmlContentsByPath.set(normalizedPath, text);
             await putTextFileInPackageCache(packageId, normalizedPath, text);
           } else {
