@@ -20,48 +20,52 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="bg-gray-100 flex flex-col h-full">
       {!fullScreen ? (
-        <nav className="bg-white border-b border-citolab-600 shadow-sm">
+        <nav className="bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm sticky top-0 z-50">
           <div className="mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex h-16 items-center justify-between">
-              <div className="flex items-center">
-                <div
-                  className="shrink-0 cursor-pointer"
-                  onClick={() => navigate("/")}
-                >
-                  <img
-                    className="block h-16 w-auto"
-                    src="/citolab.jpeg"
-                    alt="CitoLab"
-                  />
-                </div>
-                <div className="hidden md:block">
-                  <div className="ml-10 flex items-baseline space-x-4">
-                    {navigation.map((item) => (
-                      <NavLink
-                        key={item.name}
-                        to={item.href}
-                        className={({ isActive, isPending }) =>
-                          cn(
-                            "rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                            isPending
-                              ? "text-citolab-600"
-                              : isActive
-                                ? "bg-citolab-50 text-citolab-700 border-b-2 border-citolab-600"
-                                : "text-citolab-600 hover:bg-citolab-50"
-                          )
-                        }
-                      >
-                        {item.name}
-                      </NavLink>
-                    ))}
-                  </div>
-                </div>
+            <div className="flex h-14 items-center gap-6">
+              {/* Logo */}
+              <div
+                className="shrink-0 cursor-pointer"
+                onClick={() => navigate("/")}
+              >
+                <img
+                  className="block h-10 w-auto"
+                  src="/citolab.jpeg"
+                  alt="CitoLab"
+                />
               </div>
-              <div className="-mr-2 flex md:hidden">
+
+              {/* Divider */}
+              <div className="hidden md:block h-6 w-px bg-gray-200" />
+
+              {/* Nav links */}
+              <div className="hidden md:flex items-center gap-1 flex-1">
+                {navigation.map((item) => (
+                  <NavLink
+                    key={item.name}
+                    to={item.href}
+                    className={({ isActive, isPending }) =>
+                      cn(
+                        "rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-150",
+                        isPending
+                          ? "text-citolab-600"
+                          : isActive
+                            ? "bg-citolab-600 text-white shadow-sm"
+                            : "text-gray-600 hover:text-citolab-700 hover:bg-citolab-50"
+                      )
+                    }
+                  >
+                    {item.name}
+                  </NavLink>
+                ))}
+              </div>
+
+              {/* Mobile menu button */}
+              <div className="ml-auto flex md:hidden">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="bg-citolab-50 text-citolab-600 hover:bg-citolab-100 hover:text-citolab-700"
+                  className="text-gray-600 hover:bg-citolab-50 hover:text-citolab-700"
                   onClick={() => setMobileOpen((o) => !o)}
                 >
                   <span className="sr-only">Open main menu</span>
@@ -75,9 +79,12 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
             </div>
           </div>
 
+          {/* Green accent line */}
+          <div className="h-0.5 bg-linear-to-r from-citolab-600 via-citolab-teal-500 to-citolab-teal-700" />
+
           {mobileOpen && (
-            <div className="md:hidden">
-              <div className="space-y-1 px-2 pb-3 pt-2 sm:px-3 bg-white">
+            <div className="md:hidden border-t border-gray-100">
+              <div className="space-y-1 px-3 pb-3 pt-2 bg-white">
                 {navigation.map((item) => (
                   <NavLink
                     key={item.name}
@@ -85,10 +92,10 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
                     onClick={() => setMobileOpen(false)}
                     className={({ isActive }) =>
                       cn(
-                        "block rounded-md px-3 py-2 text-base font-medium transition-colors",
+                        "block rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                         isActive
-                          ? "bg-citolab-50 text-citolab-700 border-l-4 border-citolab-500"
-                          : "text-citolab-600 hover:bg-citolab-50"
+                          ? "bg-citolab-50 text-citolab-700 border-l-2 border-citolab-600"
+                          : "text-gray-600 hover:bg-citolab-50 hover:text-citolab-700"
                       )
                     }
                   >

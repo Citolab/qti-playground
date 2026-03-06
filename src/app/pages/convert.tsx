@@ -93,21 +93,26 @@ export const ConvertPage = () => {
           />,
         ]}
       >
-        <Editor
-          width="100%"
-          height="75vh"
-          options={config}
-          onMount={(editor) => {
-            sourceEditor.current = editor;
-            if (fillSource) {
-              sourceEditor.current?.setValue(qtiInput || "");
-            }
-          }}
-          onChange={(value) => {
-            debouncedConvert(value || "");
-          }}
-          defaultLanguage="xml"
-        />
+        <div className="p-3 pt-0">
+          <div className="rounded-lg overflow-hidden">
+            <Editor
+              width="100%"
+              height="75vh"
+              options={config}
+              onMount={(editor) => {
+                sourceEditor.current = editor;
+                if (fillSource) {
+                  sourceEditor.current?.setValue(qtiInput || "");
+                }
+              }}
+              onChange={(value) => {
+                debouncedConvert(value || "");
+              }}
+              defaultLanguage="xml"
+              theme="vs-dark"
+            />
+          </div>
+        </div>
       </Panel>
       <Panel
         title="QTI 3"
@@ -132,23 +137,28 @@ export const ConvertPage = () => {
           </TooltipProvider>,
         ]}
       >
-        <Editor
-          options={{
-            readOnly: true,
-            minimap: { enabled: false },
-            autoIndent: "full",
-            formatOnPaste: true,
-            formatOnType: true,
-          }}
-          onMount={(editor) => {
-            resultEditor.current = editor;
-          }}
-          width="100%"
-          height="75vh"
-          value={qti3 || ""}
-          defaultLanguage="xml"
-          defaultValue=""
-        />
+        <div className="p-3 pt-0">
+          <div className="rounded-lg overflow-hidden">
+            <Editor
+              options={{
+                readOnly: true,
+                minimap: { enabled: false },
+                autoIndent: "full",
+                formatOnPaste: true,
+                formatOnType: true,
+              }}
+              onMount={(editor) => {
+                resultEditor.current = editor;
+              }}
+              width="100%"
+              height="75vh"
+              value={qti3 || ""}
+              defaultLanguage="xml"
+              defaultValue=""
+              theme="vs-dark"
+            />
+          </div>
+        </div>
       </Panel>
     </div>
   );

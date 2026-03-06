@@ -129,8 +129,9 @@ export const UploadPage: React.FC = () => {
   if (assessments.length > 0) {
     return (
       <div className="h-full w-full overflow-y-auto">
-        <div className="sticky top-0 bg-white z-10 shadow-sm px-4 py-3 flex items-center justify-between gap-3">
+        <div className="sticky top-0 bg-white/95 backdrop-blur-sm z-10 border-b border-gray-100 shadow-sm px-4 py-2.5 flex items-center justify-between gap-3">
           <Button
+            variant="outline"
             onClick={() => {
               void (async () => {
                 try {
@@ -148,35 +149,31 @@ export const UploadPage: React.FC = () => {
               forceMemoryCleanup();
               window.location.reload();
             }}
+            className="border-citolab-200 text-citolab-700 hover:bg-citolab-50 hover:border-citolab-400"
           >
-            <Upload className="w-5 h-5 sm:mr-2" />
+            <Upload className="w-4 h-4 sm:mr-2" />
             <span className="hidden sm:inline">Select New Package</span>
           </Button>
 
-          <div className="flex flex-col gap-1">
-            <div className="text-xs font-semibold text-gray-600 hidden sm:block">
-              Start an assessment
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {assessments?.map((assessment) => (
-                <Button
-                  key={assessment.id}
-                  onClick={() => navigate(`/assessment/${assessment.id}`)}
-                  title={`Start assessment: ${assessment.name}`}
-                  className="gap-3"
-                >
-                  <Play className="w-4 h-4" />
-                  <div className="hidden sm:flex flex-col items-start leading-tight">
-                    <span className="text-[11px] opacity-90">
-                      Start assessment
-                    </span>
-                    <span className="text-sm font-semibold">
-                      {assessment.name}
-                    </span>
-                  </div>
-                </Button>
-              ))}
-            </div>
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {assessments?.map((assessment) => (
+              <Button
+                key={assessment.id}
+                onClick={() => navigate(`/assessment/${assessment.id}`)}
+                title={`Start assessment: ${assessment.name}`}
+                className="gap-2 bg-linear-to-r from-citolab-700 to-citolab-teal-700 hover:from-citolab-600 hover:to-citolab-teal-600 text-white border-0 shadow-sm"
+              >
+                <Play className="w-4 h-4" />
+                <div className="hidden sm:flex flex-col items-start leading-tight">
+                  <span className="text-[10px] opacity-80 font-normal">
+                    Start assessment
+                  </span>
+                  <span className="text-sm font-semibold leading-none">
+                    {assessment.name}
+                  </span>
+                </div>
+              </Button>
+            ))}
           </div>
         </div>
 

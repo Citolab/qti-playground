@@ -395,22 +395,27 @@ export const PreviewPage = () => {
         )}
 
         {sourceEditorMode === "monaco" ? (
-          <Editor
-            options={editorOptions}
-            onMount={(editor) => {
-              sourceEditor.current = editor;
-              setIsEditorReady(true);
-            }}
-            onChange={(value) => {
-              debouncedPreview(value || "");
-            }}
-            width="100%"
-            height="75vh"
-            value={qti3 || ""}
-            defaultLanguage="xml"
-            language="xml"
-            defaultValue=""
-          />
+          <div className="p-3 pt-0">
+            <div className="rounded-lg overflow-hidden">
+              <Editor
+                options={editorOptions}
+                onMount={(editor) => {
+                  sourceEditor.current = editor;
+                  setIsEditorReady(true);
+                }}
+                onChange={(value) => {
+                  debouncedPreview(value || "");
+                }}
+                width="100%"
+                height="75vh"
+                value={qti3 || ""}
+                defaultLanguage="xml"
+                language="xml"
+                defaultValue=""
+                theme="vs-dark"
+              />
+            </div>
+          </div>
         ) : (
           <QtiProsemirrorEditor
             sourceXml={qti3 || ""}
