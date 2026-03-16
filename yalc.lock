@@ -2,9 +2,23 @@
   "version": "v1",
   "packages": {
     "@citolab/qti-components": {
-      "signature": "f7e5cdba1a94f628f5ca12caea058cd1",
+      "signature": "c270961ad3fdb06c353aab70d82594ca",
       "file": true,
       "replaced": "^7.26.0"
+    },
+    "@citolab/qti-convert": {
+      "signature": "69771b4bb18b066e02b855ea82294f89",
+      "file": true,
+      "replaced": "link:.yalc/@citolab/qti-convert"
+    },
+    "@citolab/qti-convert-tao-pci": {
+      "signature": "ac90f51984129bbb63a1ae74557d9070",
+      "file": true,
+      "replaced": "link:.yalc/@citolab/qti-convert-tao-pci"
+    },
+    "@citolab/qti-browser-import": {
+      "signature": "a197e91a2fdaa12b2ffb0a4b0fce2658",
+      "file": true
     }
   }
 }

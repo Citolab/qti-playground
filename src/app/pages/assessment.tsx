@@ -21,7 +21,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { itemCss } from "../itemCss";
-import { QTI_PKG_URL_PREFIX } from "../store/qti-package-cache";
+import { QTI_PKG_URL_PREFIX } from "@citolab/qti-browser-import";
 
 import DraggablePopup from "../components/draggable-popup";
 import ModeSwitch from "../components/mode-switcher";
@@ -90,8 +90,9 @@ const mergeRestoredTestContext = (
         );
         return !storedVariables.some(
           (storedVariable) =>
-            String((storedVariable as { identifier?: string }).identifier || "") ===
-            id,
+            String(
+              (storedVariable as { identifier?: string }).identifier || "",
+            ) === id,
         );
       }),
       ...storedVariables,
@@ -293,48 +294,129 @@ export const AssessmentPage: React.FC = () => {
         return await p;
       };
 
-      const detectPciBaseUrl = async (): Promise<string> => {
-        if (!itemDirUrl && !itemStemDirUrl) return packageRootUrl;
-
-        const doc = transformer?.xmlDoc?.();
-        if (!doc) return packageRootUrl;
-
-        const moduleNames = Array.from(
-          doc.querySelectorAll("qti-portable-custom-interaction[module]"),
-        )
-          .map((el) => (el.getAttribute("module") || "").trim())
-          .filter(Boolean);
-
-        if (moduleNames.length === 0) return packageRootUrl;
-
-        for (const moduleName of moduleNames) {
-          const encoded = encodePathSegments(moduleName);
-          if (
-            itemDirUrl &&
-            (await urlExistsPath(`${itemDirUrl}/modules/${encoded}.js`))
-          ) {
-            return itemDirUrl;
-          }
-          if (
-            itemStemDirUrl &&
-            (await urlExistsPath(`${itemStemDirUrl}/modules/${encoded}.js`))
-          ) {
-            return itemStemDirUrl;
-          }
-        }
-
-        for (const moduleName of moduleNames) {
-          const encoded = encodePathSegments(moduleName);
-          if (await urlExistsPath(`${packageRootUrl}/modules/${encoded}.js`)) {
-            return packageRootUrl;
-          }
-        }
-
-        return packageRootUrl;
+      const transformerXml = (): string => {
+        const maybeXml = (transformer as unknown as { xml?: () => string })
+          ?.xml;
+        return typeof maybeXml === "function" ? maybeXml() : "";
       };
 
-      // Prefer an item-local baseUrl when modules live under `/items/<item>/modules`.
-      const pciBaseUrl = await detectPciBaseUrl();
+      const detectPciBaseUrl = async (): Promise<string> => {
+        const xmlText = transformerXml();
+        if (!xmlText) return packageRootUrl;
+
+        // Prefer explicit conversion-provided baseUrl when present.
+        const explicitBaseMatch = xmlText.match(
+          /<qti-portable-custom-interaction\b[^>]*\bdata-base-url="([^"]+)"/i,
+        );
+        const explicitBase = explicitBaseMatch?.[1]?.trim();
+        if (explicitBase) return explicitBase.replace(/\/+$/, "");
+
+        const baseCandidates = [
+          itemDirUrl,
+          itemStemDirUrl,
+          packageRootUrl,
+        ].filter(Boolean) as string[];
+        if (baseCandidates.length === 0) return packageRootUrl;
+
+        const scriptPaths = new Set<string>();
+        const moduleIdRegex =
+          /<qti-portable-custom-interaction\b[^>]*\bmodule="([^"]+)"/gi;
+        let moduleMatch: RegExpExecArray | null = null;
+        while ((moduleMatch = moduleIdRegex.exec(xmlText))) {
+          const normalizedId = (moduleMatch[1] || "")
+            .trim()
+            .replace(/\.js$/i, "");
+          if (!normalizedId) continue;
+          scriptPaths.add(`modules/${encodePathSegments(normalizedId)}.js`);
+        }
+
+        const modulePathRegex = /<qti-interaction-module\b[^>]*>/gi;
+        let moduleElMatch: RegExpExecArray | null = null;
+        while ((moduleElMatch = modulePathRegex.exec(xmlText))) {
+          const moduleTag = moduleElMatch[0] || "";
+          const primary = (
+            moduleTag.match(/\bprimary-path="([^"]+)"/i)?.[1] || ""
+          ).trim();
+          const fallback = (
+            moduleTag.match(/\bfallback-path="([^"]+)"/i)?.[1] || ""
+          ).trim();
+          if (primary) scriptPaths.add(primary.replace(/^\/+/, ""));
+          if (fallback) scriptPaths.add(fallback.replace(/^\/+/, ""));
+        }
+
+        if (scriptPaths.size === 0) return packageRootUrl;
+
+        const score = new Map<string, number>();
+        for (const base of baseCandidates) score.set(base, 0);
+
+        for (const base of baseCandidates) {
+          for (const path of scriptPaths) {
+            const direct = `${base.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
+            if (await urlExistsPath(direct)) {
+              score.set(base, (score.get(base) || 0) + 2);
+              continue;
+            }
+
+            const inModules = `${base.replace(/\/+$/, "")}/modules/${path.replace(/^\/+/, "")}`;
+            if (await urlExistsPath(inModules)) {
+              score.set(base, (score.get(base) || 0) + 1);
+            }
+          }
+        }
+
+        let best = packageRootUrl;
+        let bestScore = -1;
+        for (const base of baseCandidates) {
+          const s = score.get(base) || 0;
+          if (s > bestScore) {
+            best = base;
+            bestScore = s;
+          }
+        }
+
+        if (bestScore <= 0)
+          return itemDirUrl || itemStemDirUrl || packageRootUrl;
+        return best;
+      };
+
+      // Prefer an item-local baseUrl when module files exist alongside the item.
+      let pciBaseUrl = await detectPciBaseUrl();
+      if (itemDirUrl) {
+        const xmlText = transformerXml();
+        const declaredPaths = new Set<string>();
+        const modulePathRegex = /<qti-interaction-module\b[^>]*>/gi;
+        let moduleElMatch: RegExpExecArray | null = null;
+        while ((moduleElMatch = modulePathRegex.exec(xmlText))) {
+          const moduleTag = moduleElMatch[0] || "";
+          const primary = (
+            moduleTag.match(/\bprimary-path="([^"]+)"/i)?.[1] || ""
+          ).trim();
+          const fallback = (
+            moduleTag.match(/\bfallback-path="([^"]+)"/i)?.[1] || ""
+          ).trim();
+          if (primary) declaredPaths.add(primary.replace(/^\/+/, ""));
+          if (fallback) declaredPaths.add(fallback.replace(/^\/+/, ""));
+        }
+
+        let itemHits = 0;
+        let rootHits = 0;
+        const pathsToProbe = Array.from(declaredPaths).slice(0, 20);
+        for (const path of pathsToProbe) {
+          if (
+            await urlExistsPath(`${itemDirUrl.replace(/\/+$/, "")}/${path}`)
+          ) {
+            itemHits += 1;
+          }
+          if (
+            await urlExistsPath(`${packageRootUrl.replace(/\/+$/, "")}/${path}`)
+          ) {
+            rootHits += 1;
+          }
+        }
+        if (itemHits > 0 && itemHits >= rootHits) {
+          pciBaseUrl = itemDirUrl;
+        }
+      }
 
       const parseModuleResolutionConfig = (
         text: string,
@@ -442,6 +524,18 @@ export const AssessmentPage: React.FC = () => {
       };
 
       try {
+        const rawXml = transformerXml();
+        const hasPreconfiguredPortablePci =
+          /<qti-portable-custom-interaction\b/i.test(rawXml) &&
+          /\bdata-base-url="/i.test(rawXml) &&
+          /<qti-interaction-module\b/i.test(rawXml);
+
+        if (hasPreconfiguredPortablePci) {
+          // Package conversion already provided explicit PCI baseUrl + module mappings.
+          // Avoid re-running runtime remapping heuristics that can rewrite valid paths.
+          return transformer;
+        }
+
         const configured = await transformer.configurePci(
           pciBaseUrl,
           getModuleResolutionConfig,
@@ -452,19 +546,7 @@ export const AssessmentPage: React.FC = () => {
         // Normalize to relative paths if they start with our base URLs.
         const doc = configured.xmlDoc?.();
         if (doc) {
-          // Force iframe mode for PCIs. Many TAO-exported PCIs assume an iframe-based engine/runtime.
-          // Without this, qti-components hides `qti-interaction-markup` and expects the PCI to render
-          // its own UI, which some packages don't do correctly in non-iframe mode.
-          doc.querySelectorAll("qti-portable-custom-interaction");
-          // Add default paths/shims attributes to PCIs in TAO items
-          if (doc.querySelector('qti-assessment-item[tool-name="TAO"]')) {
-            doc
-              .querySelectorAll("qti-portable-custom-interaction")
-              .forEach((el) => {
-                el.setAttribute("data-use-default-paths", "true");
-                el.setAttribute("data-use-default-shims", "true");
-              });
-          }
+          // Keep iframe mode/styling handling generic here; TAO-specific metadata is injected during conversion.
 
           // In iframe mode (`data-use-iframe`), qti-components renders the PCI markup inside a data-URL iframe.
           // `qti-stylesheet` loads CSS into the *parent* document, so those styles won't apply inside the iframe.
@@ -926,58 +1008,6 @@ export const AssessmentPage: React.FC = () => {
 
           await ensurePciModuleMappings();
 
-          const ensureRuntimeRequirePaths = async () => {
-            const pcis = Array.from(
-              doc.querySelectorAll("qti-portable-custom-interaction"),
-            );
-            for (const pci of pcis) {
-              const moduleName = (pci.getAttribute("module") || "").trim();
-              if (!moduleName) continue;
-
-              const encoded = encodePathSegments(moduleName);
-              const runtimeCandidates = [
-                `${packageRootUrl}/runtime/${encoded}.js`,
-                `${packageRootUrl}/runtime/${encoded}.min.js`,
-              ];
-              let hasRuntime = false;
-              for (const path of runtimeCandidates) {
-                if (await urlExistsPath(path)) {
-                  hasRuntime = true;
-                  break;
-                }
-              }
-              if (!hasRuntime) continue;
-
-              let existing: Record<string, string> = {};
-              const existingRaw = pci.getAttribute("data-require-paths");
-              if (existingRaw) {
-                try {
-                  const parsed = JSON.parse(existingRaw);
-                  if (parsed && typeof parsed === "object") {
-                    existing = parsed as Record<string, string>;
-                  }
-                } catch {
-                  // ignore
-                }
-              }
-
-              const key = `${moduleName}/runtime`;
-              const value = `${packageRootUrl}/runtime`;
-              if (existing[key] !== value) {
-                existing[key] = value;
-                pci.setAttribute(
-                  "data-require-paths",
-                  JSON.stringify(existing),
-                );
-              }
-              if (!pci.hasAttribute("data-use-default-paths")) {
-                pci.setAttribute("data-use-default-paths", "true");
-              }
-            }
-          };
-
-          await ensureRuntimeRequirePaths();
-
           const stripLeadingPrefix = (value: string, prefix: string) => {
             const withSlash = prefix.endsWith("/") ? prefix : `${prefix}/`;
             if (value.startsWith(withSlash))
@@ -1039,6 +1069,15 @@ export const AssessmentPage: React.FC = () => {
             const fallback = maybeNormalize(el.getAttribute("fallback-path"));
             if (fallback !== null) el.setAttribute("fallback-path", fallback);
           });
+
+          const effectiveBaseForPci = itemDirUrl || pciBaseUrl;
+          doc
+            .querySelectorAll("qti-portable-custom-interaction")
+            .forEach((el) => {
+              if (effectiveBaseForPci) {
+                el.setAttribute("data-base-url", effectiveBaseForPci);
+              }
+            });
 
           // Normalize PCI entry module values that were turned into absolute package paths.
           doc
@@ -1489,9 +1528,7 @@ export const AssessmentPage: React.FC = () => {
             <Button variant="secondary" onClick={handlePrevious}>
               Previous
             </Button>
-            <Button onClick={handleBackNavigation}>
-              Select new package
-            </Button>
+            <Button onClick={handleBackNavigation}>Select new package</Button>
           </div>
         </div>
       </div>
@@ -1527,7 +1564,9 @@ export const AssessmentPage: React.FC = () => {
             onClick={() => setShowVariables((current) => !current)}
           >
             <Code className="sm:mr-1 h-4 w-4" />
-            <span className="hidden sm:inline">{showVariables ? "Hide Output" : "Show Output"}</span>
+            <span className="hidden sm:inline">
+              {showVariables ? "Hide Output" : "Show Output"}
+            </span>
           </Button>
           <Button
             size="sm"

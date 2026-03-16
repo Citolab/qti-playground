@@ -2,7 +2,6 @@ import { Editor } from "@monaco-editor/react";
 import { useDebouncedCallback } from "use-debounce";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store/store";
-import { editor } from "monaco-editor";
 import { Clipboard } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dropdown } from "../components/dropdown";
@@ -10,8 +9,8 @@ import { Panel } from "../components/panel";
 import { Button } from "@/components/ui/button";
 
 export const ConvertPage = () => {
-  const sourceEditor = useRef<editor.IStandaloneCodeEditor>(null);
-  const resultEditor = useRef<editor.IStandaloneCodeEditor>(null);
+  const sourceEditor = useRef<{ setValue: (value: string) => void } | null>(null);
+  const resultEditor = useRef<object | null>(null);
 
   const [openTooltip, setOpenTooltip] = useState(false);
 
@@ -70,10 +69,10 @@ export const ConvertPage = () => {
     (qti: string) => convertQti(qti),
     1000
   );
-  const config: editor.IStandaloneEditorConstructionOptions = {
+  const config = {
     minimap: { enabled: false },
     readOnly: false,
-    autoIndent: "full",
+    autoIndent: "full" as const,
     formatOnPaste: true,
     formatOnType: true,
   };

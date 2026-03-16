@@ -173,6 +173,64 @@ const QTIItemLoader = ({ itemIndex, debug }: { itemIndex: number; debug?: boolea
   );
 };
 
+const QTIPackageItemLoader = ({
+  packageName,
+  itemIndex = 1,
+  debug,
+}: {
+  packageName: string;
+  itemIndex?: number;
+  debug?: boolean;
+}) => {
+  const [qtiItem, setQtiItem] = useState<QTIItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadItem = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const package_ = await loadQTIPackage(packageName);
+        const item = package_.items[itemIndex - 1];
+        if (item) {
+          setQtiItem(item);
+        } else {
+          setError(`Item ${itemIndex} not found in ${packageName}`);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load item');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadItem();
+  }, [itemIndex, packageName]);
+
+  if (loading) {
+    return <div style={{ padding: '20px' }}>Loading {packageName} item {itemIndex}...</div>;
+  }
+
+  if (error) {
+    return <div style={{ padding: '20px', color: 'red' }}>Error: {error}</div>;
+  }
+
+  if (!qtiItem) {
+    return <div style={{ padding: '20px' }}>No item found</div>;
+  }
+
+  return (
+    <QTIItemComponent
+      xml={qtiItem.xml}
+      itemPath={qtiItem.path}
+      identifier={qtiItem.identifier}
+      title={qtiItem.title}
+      debug={debug}
+    />
+  );
+};
+
 export const GraphingInteraction1: Story = {
   render: (args) => <QTIItemLoader itemIndex={1} debug={args.debug} />,
   args: {
@@ -258,6 +316,28 @@ export const GraphingInteraction6: Story = {
     docs: {
       description: {
         story: 'PCI Graphing Interaction - Item 6. Sixth variation of the graphing interaction.',
+      },
+    },
+  },
+};
+
+export const ColorProportions101: Story = {
+  render: args => (
+    <QTIPackageItemLoader
+      packageName="qti3-pci-colorProportions_1.0.1"
+      itemIndex={1}
+      debug={args.debug}
+    />
+  ),
+  args: {
+    debug: false,
+  },
+  play: pciRenderPlay,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Portable custom interaction from qti3-pci-colorProportions_1.0.1. This reproduces the verhoudingen package through the qti-playground Storybook package loader.',
       },
     },
   },

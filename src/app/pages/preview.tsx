@@ -3,7 +3,6 @@ import { useDebouncedCallback } from "use-debounce";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store/store";
 import { Button } from "@/components/ui/button";
-import { editor } from "monaco-editor";
 import { Clipboard, Code, Info, Share2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -50,7 +49,7 @@ declare module "react" {
   }
 }
 export const PreviewPage = () => {
-  const sourceEditor = useRef<editor.IStandaloneCodeEditor>(null);
+  const sourceEditor = useRef<{ setValue: (value: string) => void; getValue: () => string } | null>(null);
   const qtiItemRef = useRef<QtiItem>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [sourceEditorMode] = useState<
@@ -110,10 +109,10 @@ export const PreviewPage = () => {
   ]);
   const allItems = items.current.flatMap((i) => i.items);
 
-  const editorOptions: editor.IStandaloneEditorConstructionOptions = {
+  const editorOptions = {
     minimap: { enabled: false },
     readOnly: false,
-    autoIndent: "full",
+    autoIndent: "full" as const,
     formatOnPaste: true,
     formatOnType: true,
   };

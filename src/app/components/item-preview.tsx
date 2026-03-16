@@ -7,7 +7,7 @@ import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ItemInfoWithBlobRef } from "../store/store";
 import { itemCss } from "../itemCss";
-import { QTI_PKG_URL_PREFIX } from "../store/qti-package-cache";
+import { QTI_PKG_URL_PREFIX } from "@citolab/qti-browser-import";
 
 const moduleResolutionConfigCache = new Map<
   string,
@@ -457,13 +457,6 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
                 }
               });
 
-              // Add default paths/shims attributes to PCIs in TAO items
-              if ($('qti-assessment-item[tool-name="TAO"]').length > 0) {
-                $("qti-portable-custom-interaction")
-                  .attr("data-use-default-paths", "true")
-                  .attr("data-use-default-shims", "true");
-              }
-
               // Normalize module paths to package-relative so qti-components can prefix baseUrl once.
               const stripLeadingPrefix = (value: string, prefix: string) => {
                 const withSlash = prefix.endsWith("/") ? prefix : `${prefix}/`;
@@ -594,51 +587,6 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
               }
             });
 
-            await transformer.fnChAsync(async ($) => {
-              const pcis = $("qti-portable-custom-interaction");
-              for (const pci of pcis) {
-                const $pci = $(pci);
-                const moduleName = ($pci.attr("module") || "").trim();
-                if (!moduleName) continue;
-
-                const encoded = encodePathSegments(moduleName);
-                const runtimeCandidates = [
-                  `${packageRootUrl}/runtime/${encoded}.js`,
-                  `${packageRootUrl}/runtime/${encoded}.min.js`,
-                ];
-                let hasRuntime = false;
-                for (const url of runtimeCandidates) {
-                  if (await urlExists(url)) {
-                    hasRuntime = true;
-                    break;
-                  }
-                }
-                if (!hasRuntime) continue;
-
-                let existing: Record<string, string> = {};
-                const raw = $pci.attr("data-require-paths") || "";
-                if (raw) {
-                  try {
-                    const parsed = JSON.parse(raw);
-                    if (parsed && typeof parsed === "object") {
-                      existing = parsed as Record<string, string>;
-                    }
-                  } catch {
-                    // ignore
-                  }
-                }
-
-                const key = `${moduleName}/runtime`;
-                const value = `${packageRootUrl}/runtime`;
-                if (existing[key] !== value) {
-                  existing[key] = value;
-                  $pci.attr("data-require-paths", JSON.stringify(existing));
-                }
-                if (!$pci.attr("data-use-default-paths")) {
-                  $pci.attr("data-use-default-paths", "true");
-                }
-              }
-            });
           }
 
           const nextDoc = transformer.browser.htmldoc();

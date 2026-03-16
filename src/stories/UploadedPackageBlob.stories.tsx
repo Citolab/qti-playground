@@ -7,7 +7,7 @@ import {
   makePackageUrl,
   putBlobFileInPackageCache,
   putTextFileInPackageCache,
-} from '../app/store/qti-package-cache';
+} from '@citolab/qti-browser-import';
 import { QTIItemComponent } from './QTIItemComponent';
 
 const meta: Meta = {

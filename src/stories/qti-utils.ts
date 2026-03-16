@@ -2,7 +2,7 @@
  * Utility functions for loading QTI data in Storybook stories
  */
 import JSZip from 'jszip';
-import { putBlobFileInPackageCache, QTI_PKG_URL_PREFIX } from '../app/store/qti-package-cache';
+import { putBlobFileInPackageCache, QTI_PKG_URL_PREFIX } from '@citolab/qti-browser-import';
 
 export interface QTIManifest {
   identifier: string;
@@ -201,6 +201,28 @@ async function loadItemsFromPackage(
     } catch (error) {
       console.warn('Failed to load ITM-PCI from qti3-pci-QtiPci_1.0.0:', error);
     }
+  } else if (packageName === 'qti3-pci-colorProportions_1.0.1') {
+    // Load items from qti3-pci-colorProportions_1.0.1 structure
+    try {
+      const itemPath = `${basePath}/items/ITM-PCI.xml`;
+      const response = await fetch(itemPath);
+      if (response.ok) {
+        const xml = await response.text();
+        const identifier = extractIdentifierFromXml(xml) || 'ITM-PCI';
+        const title = extractTitleFromXml(xml) || 'verhoudingen';
+
+        items.push({
+          identifier,
+          title,
+          xml,
+          path: itemPath,
+          resources: manifest?.resources
+            .find(r => r.identifier === 'RES-ITEM')?.files || [],
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to load ITM-PCI from qti3-pci-colorProportions_1.0.1:', error);
+    }
   }
   
   return items;
@@ -232,6 +254,7 @@ function extractTitleFromXml(xml: string): string | null {
 export const AVAILABLE_PACKAGES = [
   'PCI-Conformance',
   'qti3-pci-QtiPci_1.0.0',
+  'qti3-pci-colorProportions_1.0.1',
 ] as const;
 
 export type PackageName = typeof AVAILABLE_PACKAGES[number];
