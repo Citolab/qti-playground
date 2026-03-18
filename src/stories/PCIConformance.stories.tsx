@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { QTIItemComponent } from './QTIItemComponent';
 import { useEffect, useState } from 'react';
 import { expect, waitFor } from 'storybook/test';
+import { prepareQtiPackageFromUrl, type PreparedQtiPackage } from '@citolab/qti-browser-import';
 import { loadQTIPackage, type QTIItem } from './qti-utils';
 
 const meta: Meta<typeof QTIItemComponent> = {
@@ -122,6 +123,69 @@ const pciRenderPlay: Story['play'] = async ({ canvasElement, step }) => {
   });
 };
 
+async function waitForPackageUrl(url: string, timeoutMs = 12000): Promise<void> {
+  const absolute = new URL(url, window.location.origin).toString();
+  const deadline = Date.now() + timeoutMs;
+  let lastStatus: number | null = null;
+  let lastError: string | null = null;
+
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(absolute, { cache: 'no-store' });
+      if (response.ok) return;
+      lastStatus = response.status;
+      lastError = null;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+
+  if (lastStatus !== null) {
+    throw new Error(`Package resource not ready (${lastStatus}): ${url}`);
+  }
+  throw new Error(`Package resource not ready (${lastError || 'network error'}): ${url}`);
+}
+
+function mountPreparedPackagePreview(
+  root: HTMLElement,
+  status: HTMLElement,
+  prepared: PreparedQtiPackage,
+): void {
+  const first = prepared.itemRefs?.[0]?.identifier;
+  const readyMarker = document.createElement('span');
+  readyMarker.setAttribute('data-qti-ready', '0');
+  readyMarker.style.display = 'none';
+  root.appendChild(readyMarker);
+
+  const test = document.createElement('qti-test');
+  test.setAttribute('cache-transform', '');
+
+  const nav = document.createElement('test-navigation');
+  nav.setAttribute('auto-score-items', '');
+
+  const container = document.createElement('test-container');
+  container.setAttribute('test-url', prepared.testUrl);
+
+  nav.appendChild(container);
+  test.appendChild(nav);
+  root.appendChild(test);
+
+  const navigateToFirstItem = () => {
+    const instance = test as unknown as { navigateTo?: (type: 'item' | 'section', id?: string) => void };
+    instance.navigateTo?.('item', first);
+  };
+
+  test.addEventListener('qti-assessment-test-connected', () => {
+    navigateToFirstItem();
+  });
+
+  test.addEventListener('qti-assessment-item-connected', () => {
+    readyMarker.setAttribute('data-qti-ready', '1');
+    status.textContent = `Rendered item ${first || ''}`.trim();
+  });
+}
+
 // Wrapper component to load QTI data
 const QTIItemLoader = ({ itemIndex, debug }: { itemIndex: number; debug?: boolean }) => {
   const [qtiItem, setQtiItem] = useState<QTIItem | null>(null);
@@ -173,61 +237,63 @@ const QTIItemLoader = ({ itemIndex, debug }: { itemIndex: number; debug?: boolea
   );
 };
 
-const QTIPackageItemLoader = ({
-  packageName,
-  itemIndex = 1,
-  debug,
-}: {
-  packageName: string;
-  itemIndex?: number;
-  debug?: boolean;
-}) => {
-  const [qtiItem, setQtiItem] = useState<QTIItem | null>(null);
-  const [loading, setLoading] = useState(true);
+const PreparedPackagePreview = ({ zipUrl }: { zipUrl: string }) => {
+  const [prepared, setPrepared] = useState<PreparedQtiPackage | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadItem = async () => {
+    let cancelled = false;
+
+    const load = async () => {
       try {
-        setLoading(true);
         setError(null);
-        const package_ = await loadQTIPackage(packageName);
-        const item = package_.items[itemIndex - 1];
-        if (item) {
-          setQtiItem(item);
-        } else {
-          setError(`Item ${itemIndex} not found in ${packageName}`);
-        }
+        const nextPrepared = await prepareQtiPackageFromUrl(zipUrl);
+        await waitForPackageUrl(nextPrepared.testUrl);
+        if (!cancelled) setPrepared(nextPrepared);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load item');
-      } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to prepare package');
+        }
       }
     };
 
-    loadItem();
-  }, [itemIndex, packageName]);
+    void load();
 
-  if (loading) {
-    return <div style={{ padding: '20px' }}>Loading {packageName} item {itemIndex}...</div>;
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, [zipUrl]);
 
-  if (error) {
-    return <div style={{ padding: '20px', color: 'red' }}>Error: {error}</div>;
-  }
+  useEffect(() => {
+    if (!prepared) return;
 
-  if (!qtiItem) {
-    return <div style={{ padding: '20px' }}>No item found</div>;
-  }
+    const host = document.getElementById('prepared-package-preview-root');
+    const status = document.getElementById('prepared-package-preview-status');
+    if (!host || !status) return;
+
+    host.innerHTML = '';
+    mountPreparedPackagePreview(host, status, prepared);
+  }, [prepared]);
 
   return (
-    <QTIItemComponent
-      xml={qtiItem.xml}
-      itemPath={qtiItem.path}
-      identifier={qtiItem.identifier}
-      title={qtiItem.title}
-      debug={debug}
-    />
+    <div style={{ height: '100vh', width: '100%', display: 'grid', gridTemplateRows: 'auto 1fr' }}>
+      <div
+        id="prepared-package-preview-status"
+        style={{
+          padding: '10px 14px',
+          fontFamily: 'system-ui, sans-serif',
+          fontSize: '12px',
+          borderBottom: '1px solid #e2e8f0',
+        }}
+      >
+        {error
+          ? `Conversion/render failed: ${error}`
+          : prepared
+            ? `Prepared ${prepared.convertedItemCount} item(s). Package: ${prepared.packageId}`
+            : 'Preparing package...'}
+      </div>
+      <div id="prepared-package-preview-root" style={{ height: '100%', width: '100%' }} />
+    </div>
   );
 };
 
@@ -322,13 +388,7 @@ export const GraphingInteraction6: Story = {
 };
 
 export const ColorProportions101: Story = {
-  render: args => (
-    <QTIPackageItemLoader
-      packageName="qti3-pci-colorProportions_1.0.1"
-      itemIndex={1}
-      debug={args.debug}
-    />
-  ),
+  render: () => <PreparedPackagePreview zipUrl="/storybook-assets-zips/qti3-pci-colorProportions_1.0.1.zip" />,
   args: {
     debug: false,
   },
@@ -337,7 +397,7 @@ export const ColorProportions101: Story = {
     docs: {
       description: {
         story:
-          'Portable custom interaction from qti3-pci-colorProportions_1.0.1. This reproduces the verhoudingen package through the qti-playground Storybook package loader.',
+          'Portable custom interaction from qti3-pci-colorProportions_1.0.1 rendered through `@citolab/qti-browser-import` using the same browser-side package preparation flow as the assessment path.',
       },
     },
   },

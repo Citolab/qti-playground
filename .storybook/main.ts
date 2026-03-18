@@ -24,8 +24,15 @@ const config: StorybookConfig = {
       },
       optimizeDeps: {
         ...config.optimizeDeps,
-        include: ['@citolab/qti-components', '@citolab/qti-api'],
-        exclude: ['lucide-react'],
+        exclude: [
+          ...(config.optimizeDeps?.exclude ?? []),
+          'lucide-react',
+          '@citolab/qti-components',
+          '@citolab/qti-components/qti-transformers',
+          '@citolab/qti-browser-import',
+          '@citolab/qti-convert',
+          '@citolab/qti-api',
+        ],
       },
     };
   },

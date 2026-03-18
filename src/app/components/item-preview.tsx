@@ -1,21 +1,14 @@
 import React, { useState, useEffect, memo, useRef } from "react";
-import {
-  qtiTransform,
-  type ModuleResolutionConfig,
-} from "@citolab/qti-convert/qti-transformer";
+import { qtiTransform } from "@citolab/qti-convert/qti-transformer";
 import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ItemInfoWithBlobRef } from "../store/store";
 import { itemCss } from "../itemCss";
-import { QTI_PKG_URL_PREFIX } from "@citolab/qti-browser-import";
-
-const moduleResolutionConfigCache = new Map<
-  string,
-  Promise<ModuleResolutionConfig | null>
->();
-
-const moduleScriptUrlCache = new Map<string, Promise<string | null>>();
-const urlExistsCache = new Map<string, Promise<boolean>>();
+import {
+  QTI_PKG_URL_PREFIX,
+  detectPciBaseUrl,
+  createModuleResolutionFetcher,
+} from "@citolab/qti-browser-import";
 
 interface ItemPreviewProps {
   item: ItemInfoWithBlobRef & { assessmentId?: string };
@@ -310,283 +303,24 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
             });
           }
 
-          // Best-effort PCI support for the /package grid:
-          // - ensure iframe mode (isolation)
-          // - set correct baseUrl (/__qti_pkg__/<id>) so RequireJS resolves modules
-          // - load module_resolution.* and apply it (configurePciAsync)
-          const hasPci = itemContent.includes(
-            "qti-portable-custom-interaction",
-          );
+          const hasPci = itemContent.includes("qti-portable-custom-interaction");
           if (hasPci && packageRootUrl) {
-            const encodePathSegments = (value: string) =>
-              value
-                .split("/")
-                .map((seg) => encodeURIComponent(seg))
-                .join("/");
-
-            const urlExists = async (url: string): Promise<boolean> => {
-              if (urlExistsCache.has(url))
-                return await urlExistsCache.get(url)!;
-              const p = (async () => {
-                try {
-                  const res = await fetch(url, { method: "GET" });
-                  return res.ok;
-                } catch {
-                  return false;
-                }
-              })();
-              urlExistsCache.set(url, p);
-              return await p;
-            };
-
-            const tryFetchJson = async (url: string) => {
-              try {
-                if (moduleResolutionConfigCache.has(url))
-                  return await moduleResolutionConfigCache.get(url)!;
-
-                const p = (async () => {
-                  const res = await fetch(url, { method: "GET" });
-                  if (!res.ok) return null;
-                  const txt = await res.text();
-                  const parsed = JSON.parse(
-                    txt,
-                  ) as Partial<ModuleResolutionConfig>;
-                  if (!parsed || typeof parsed !== "object") return null;
-                  if (!parsed.paths || typeof parsed.paths !== "object")
-                    return null;
-                  return {
-                    ...parsed,
-                    paths: parsed.paths,
-                  } as ModuleResolutionConfig;
-                })();
-
-                moduleResolutionConfigCache.set(url, p);
-                return await p;
-              } catch {
-                return null;
-              }
-            };
-
-            const pciModuleNames: string[] = [];
-            transformer.fnCh(($) => {
-              $("qti-portable-custom-interaction[module]").each((_, el) => {
-                const name = ($(el).attr("module") || "").trim();
-                if (name && !pciModuleNames.includes(name))
-                  pciModuleNames.push(name);
-              });
+            const pciBaseUrl = await detectPciBaseUrl({
+              packageRootUrl,
+              itemDirUrl,
+              itemStemDirUrl,
+              xmlText: itemContent,
             });
-
-            const detectPciBaseUrl = async (): Promise<string> => {
-              // Prefer an item-local baseUrl when modules live at:
-              //   /items/<itemname>/modules/<Module>.js
-              if ((itemDirUrl || itemStemDirUrl) && pciModuleNames.length > 0) {
-                for (const moduleName of pciModuleNames) {
-                  const encoded = encodePathSegments(moduleName);
-                  if (
-                    itemDirUrl &&
-                    (await urlExists(`${itemDirUrl}/modules/${encoded}.js`))
-                  ) {
-                    return itemDirUrl;
-                  }
-                  if (
-                    itemStemDirUrl &&
-                    (await urlExists(`${itemStemDirUrl}/modules/${encoded}.js`))
-                  ) {
-                    return itemStemDirUrl;
-                  }
-                }
-                for (const moduleName of pciModuleNames) {
-                  const encoded = encodePathSegments(moduleName);
-                  if (
-                    await urlExists(`${packageRootUrl}/modules/${encoded}.js`)
-                  ) {
-                    return packageRootUrl;
-                  }
-                }
-              }
-
-              // Otherwise fall back to the package root. Most packages have `modules/` at the root.
-              return packageRootUrl;
-            };
-
-            const pciBaseUrl = await detectPciBaseUrl();
-
-            const getModuleResolutionConfig = async (
-              fileUrl: string,
-            ): Promise<ModuleResolutionConfig> => {
-              const emptyConfig: ModuleResolutionConfig = { paths: {} };
-
-              const candidates: string[] = [];
-              const seen = new Set<string>();
-              const push = (url: string) => {
-                if (seen.has(url)) return;
-                seen.add(url);
-                candidates.push(url);
-              };
-
-              push(`${packageRootUrl}${fileUrl}`);
-              push(`${pciBaseUrl}${fileUrl}`);
-              if (itemDirUrl) push(`${itemDirUrl}${fileUrl}`);
-              if (itemStemDirUrl) push(`${itemStemDirUrl}${fileUrl}`);
-
-              if (fileUrl.endsWith(".js")) {
-                const alt = `${fileUrl.slice(0, -3)}.json`;
-                push(`${packageRootUrl}${alt}`);
-                push(`${pciBaseUrl}${alt}`);
-                if (itemDirUrl) push(`${itemDirUrl}${alt}`);
-                if (itemStemDirUrl) push(`${itemStemDirUrl}${alt}`);
-              }
-
-              for (const url of candidates) {
-                const parsed = await tryFetchJson(url);
-                if (parsed) return parsed;
-              }
-              return emptyConfig;
-            };
-
+            const getModuleResolutionConfig = createModuleResolutionFetcher({
+              packageRootUrl,
+              itemDirUrl,
+              itemStemDirUrl,
+            });
             await transformer.configurePciAsync(
               pciBaseUrl,
               getModuleResolutionConfig,
+              { packageRootUrl, itemDirUrl, itemStemDirUrl },
             );
-
-            transformer.fnCh(($) => {
-              $("qti-portable-custom-interaction").each((_, el) => {
-                // Ensure iframe mode for isolation (multiple PCIs on one screen).
-                if (!$(el).attr("data-use-iframe")) {
-                  $(el).attr("data-use-iframe", "");
-                }
-              });
-
-              // Normalize module paths to package-relative so qti-components can prefix baseUrl once.
-              const stripLeadingPrefix = (value: string, prefix: string) => {
-                const withSlash = prefix.endsWith("/") ? prefix : `${prefix}/`;
-                if (value.startsWith(withSlash))
-                  return value.slice(withSlash.length);
-                if (value === prefix) return "";
-                return value;
-              };
-
-              const normalize = (value: string | undefined) => {
-                if (!value) return value;
-                if (/^(data:|blob:|https?:)/.test(value)) return value;
-                if (value.startsWith("/assets/")) return value;
-
-                const packageRootPath = packageRootUrl.replace(/^\/+/, "");
-                const pciBasePath = pciBaseUrl.replace(/^\/+/, "");
-                const itemDirPath = (itemDirUrl || "").replace(/^\/+/, "");
-                const itemStemDirPath = (itemStemDirUrl || "").replace(
-                  /^\/+/,
-                  "",
-                );
-
-                let next = value.replace(/^\/+/, "");
-                for (let i = 0; i < 4; i++) {
-                  const prev = next;
-                  if (itemStemDirPath)
-                    next = stripLeadingPrefix(next, itemStemDirPath);
-                  if (itemDirPath) next = stripLeadingPrefix(next, itemDirPath);
-                  next = stripLeadingPrefix(next, pciBasePath);
-                  next = stripLeadingPrefix(next, packageRootPath);
-                  next = next.replace(/^\/+/, "");
-                  if (next === prev) break;
-                }
-                return next;
-              };
-
-              $("qti-interaction-module").each((_, el) => {
-                const primary = normalize($(el).attr("primary-path"));
-                if (primary !== undefined) $(el).attr("primary-path", primary);
-                const fallback = normalize($(el).attr("fallback-path"));
-                if (fallback !== undefined)
-                  $(el).attr("fallback-path", fallback);
-              });
-            });
-
-            // Some packages don't ship a JSON-parsable module_resolution.* at a discoverable path.
-            // In that case, qti-components will try to `require([moduleName])` without a `paths` map,
-            // which typically resolves to `${baseUrl}/${moduleName}.js` and 404s.
-            // Try to detect the actual module script location and inject a minimal mapping.
-            await transformer.fnChAsync(async ($) => {
-              const origin =
-                typeof window !== "undefined" ? window.location.origin : "";
-
-              const resolveModuleUrl = async (
-                moduleName: string,
-              ): Promise<string | null> => {
-                const cacheKey = `${packageRootUrl}|${pciBaseUrl}|${itemStemDirUrl || ""}|${moduleName}`;
-                if (moduleScriptUrlCache.has(cacheKey))
-                  return await moduleScriptUrlCache.get(cacheKey)!;
-
-                const p = (async () => {
-                  const encodedModule = moduleName
-                    .split("/")
-                    .map((seg) => encodeURIComponent(seg))
-                    .join("/");
-                  const candidates = [
-                    itemDirUrl
-                      ? `${itemDirUrl}/modules/${encodedModule}.js`
-                      : null,
-                    itemStemDirUrl
-                      ? `${itemStemDirUrl}/modules/${encodedModule}.js`
-                      : null,
-                    `${packageRootUrl}/modules/${encodedModule}.js`,
-                    `${packageRootUrl}/runtime/${encodedModule}.js`,
-                    `${packageRootUrl}/runtime/${encodedModule}.min.js`,
-                    `${pciBaseUrl}/modules/${encodedModule}.js`,
-                    `${pciBaseUrl}/${encodedModule}.js`,
-                  ].filter(Boolean) as string[];
-
-                  for (const url of candidates) {
-                    try {
-                      const res = await fetch(url, { method: "GET" });
-                      if (!res.ok) continue;
-                      const noJs = url.endsWith(".js") ? url.slice(0, -3) : url;
-                      return origin ? `${origin}${noJs}` : noJs;
-                    } catch {
-                      // ignore
-                    }
-                  }
-                  return null;
-                })();
-
-                const cached = p.then((value) => {
-                  if (value === null) moduleScriptUrlCache.delete(cacheKey);
-                  return value;
-                });
-                moduleScriptUrlCache.set(cacheKey, cached);
-                return await cached;
-              };
-
-              const pcis = $("qti-portable-custom-interaction");
-              for (const pci of pcis) {
-                const $pci = $(pci);
-                const moduleName = ($pci.attr("module") || "").trim();
-                if (!moduleName) continue;
-
-                const resolved = await resolveModuleUrl(moduleName);
-                if (!resolved) continue;
-
-                let modulesEl = $pci.find("qti-interaction-modules").first();
-                if (modulesEl.length === 0) {
-                  $pci.append(
-                    "<qti-interaction-modules></qti-interaction-modules>",
-                  );
-                  modulesEl = $pci.find("qti-interaction-modules").first();
-                }
-
-                const existing = modulesEl
-                  .find(`qti-interaction-module[id="${moduleName}"]`)
-                  .first();
-                if (existing.length > 0) {
-                  existing.attr("primary-path", resolved);
-                } else {
-                  modulesEl.append(
-                    `<qti-interaction-module id="${moduleName}" primary-path="${resolved}"/>`,
-                  );
-                }
-              }
-            });
-
           }
 
           const nextDoc = transformer.browser.htmldoc();

@@ -21,7 +21,12 @@ import {
   LogOut,
 } from "lucide-react";
 import { itemCss } from "../itemCss";
-import { QTI_PKG_URL_PREFIX } from "@citolab/qti-browser-import";
+import {
+  QTI_PKG_URL_PREFIX,
+  detectPciBaseUrl,
+  createModuleResolutionFetcher,
+  normalizePciPaths,
+} from "@citolab/qti-browser-import";
 
 import DraggablePopup from "../components/draggable-popup";
 import ModeSwitch from "../components/mode-switcher";
@@ -207,20 +212,13 @@ export const AssessmentPage: React.FC = () => {
   const lastAppliedContextRef = useRef<ExtendedTestContext | null>(null);
   const hasReceivedLiveContextRef = useRef(false);
 
-  type ModuleResolutionConfig = {
-    paths?: Record<string, string | string[]>;
-    shim?: Record<string, unknown>;
-    urlArgs?: string;
-    [key: string]: unknown;
-  };
-
   type TransformItemApi = {
     configurePci: (
       baseUrl: string,
       getModuleResolutionConfig: (
         baseUrl: string,
         fileUrl: string,
-      ) => Promise<ModuleResolutionConfig | null>,
+      ) => Promise<{ paths: Record<string, string | string[]> } | null>,
     ) => Promise<TransformItemApi>;
     xmlDoc?: () => XMLDocument;
   };
@@ -272,255 +270,9 @@ export const AssessmentPage: React.FC = () => {
         }
       })();
 
-      const encodePathSegments = (value: string) =>
-        value
-          .split("/")
-          .map((seg) => encodeURIComponent(seg))
-          .join("/");
-
-      const existsCache = new Map<string, Promise<boolean>>();
-      const urlExistsPath = async (path: string): Promise<boolean> => {
-        const absolute = `${window.location.origin}${path}`;
-        if (existsCache.has(absolute)) return await existsCache.get(absolute)!;
-        const p = (async () => {
-          try {
-            const res = await fetch(absolute, { method: "GET" });
-            return res.ok;
-          } catch {
-            return false;
-          }
-        })();
-        existsCache.set(absolute, p);
-        return await p;
-      };
-
       const transformerXml = (): string => {
-        const maybeXml = (transformer as unknown as { xml?: () => string })
-          ?.xml;
+        const maybeXml = (transformer as unknown as { xml?: () => string })?.xml;
         return typeof maybeXml === "function" ? maybeXml() : "";
-      };
-
-      const detectPciBaseUrl = async (): Promise<string> => {
-        const xmlText = transformerXml();
-        if (!xmlText) return packageRootUrl;
-
-        // Prefer explicit conversion-provided baseUrl when present.
-        const explicitBaseMatch = xmlText.match(
-          /<qti-portable-custom-interaction\b[^>]*\bdata-base-url="([^"]+)"/i,
-        );
-        const explicitBase = explicitBaseMatch?.[1]?.trim();
-        if (explicitBase) return explicitBase.replace(/\/+$/, "");
-
-        const baseCandidates = [
-          itemDirUrl,
-          itemStemDirUrl,
-          packageRootUrl,
-        ].filter(Boolean) as string[];
-        if (baseCandidates.length === 0) return packageRootUrl;
-
-        const scriptPaths = new Set<string>();
-        const moduleIdRegex =
-          /<qti-portable-custom-interaction\b[^>]*\bmodule="([^"]+)"/gi;
-        let moduleMatch: RegExpExecArray | null = null;
-        while ((moduleMatch = moduleIdRegex.exec(xmlText))) {
-          const normalizedId = (moduleMatch[1] || "")
-            .trim()
-            .replace(/\.js$/i, "");
-          if (!normalizedId) continue;
-          scriptPaths.add(`modules/${encodePathSegments(normalizedId)}.js`);
-        }
-
-        const modulePathRegex = /<qti-interaction-module\b[^>]*>/gi;
-        let moduleElMatch: RegExpExecArray | null = null;
-        while ((moduleElMatch = modulePathRegex.exec(xmlText))) {
-          const moduleTag = moduleElMatch[0] || "";
-          const primary = (
-            moduleTag.match(/\bprimary-path="([^"]+)"/i)?.[1] || ""
-          ).trim();
-          const fallback = (
-            moduleTag.match(/\bfallback-path="([^"]+)"/i)?.[1] || ""
-          ).trim();
-          if (primary) scriptPaths.add(primary.replace(/^\/+/, ""));
-          if (fallback) scriptPaths.add(fallback.replace(/^\/+/, ""));
-        }
-
-        if (scriptPaths.size === 0) return packageRootUrl;
-
-        const score = new Map<string, number>();
-        for (const base of baseCandidates) score.set(base, 0);
-
-        for (const base of baseCandidates) {
-          for (const path of scriptPaths) {
-            const direct = `${base.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
-            if (await urlExistsPath(direct)) {
-              score.set(base, (score.get(base) || 0) + 2);
-              continue;
-            }
-
-            const inModules = `${base.replace(/\/+$/, "")}/modules/${path.replace(/^\/+/, "")}`;
-            if (await urlExistsPath(inModules)) {
-              score.set(base, (score.get(base) || 0) + 1);
-            }
-          }
-        }
-
-        let best = packageRootUrl;
-        let bestScore = -1;
-        for (const base of baseCandidates) {
-          const s = score.get(base) || 0;
-          if (s > bestScore) {
-            best = base;
-            bestScore = s;
-          }
-        }
-
-        if (bestScore <= 0)
-          return itemDirUrl || itemStemDirUrl || packageRootUrl;
-        return best;
-      };
-
-      // Prefer an item-local baseUrl when module files exist alongside the item.
-      let pciBaseUrl = await detectPciBaseUrl();
-      if (itemDirUrl) {
-        const xmlText = transformerXml();
-        const declaredPaths = new Set<string>();
-        const modulePathRegex = /<qti-interaction-module\b[^>]*>/gi;
-        let moduleElMatch: RegExpExecArray | null = null;
-        while ((moduleElMatch = modulePathRegex.exec(xmlText))) {
-          const moduleTag = moduleElMatch[0] || "";
-          const primary = (
-            moduleTag.match(/\bprimary-path="([^"]+)"/i)?.[1] || ""
-          ).trim();
-          const fallback = (
-            moduleTag.match(/\bfallback-path="([^"]+)"/i)?.[1] || ""
-          ).trim();
-          if (primary) declaredPaths.add(primary.replace(/^\/+/, ""));
-          if (fallback) declaredPaths.add(fallback.replace(/^\/+/, ""));
-        }
-
-        let itemHits = 0;
-        let rootHits = 0;
-        const pathsToProbe = Array.from(declaredPaths).slice(0, 20);
-        for (const path of pathsToProbe) {
-          if (
-            await urlExistsPath(`${itemDirUrl.replace(/\/+$/, "")}/${path}`)
-          ) {
-            itemHits += 1;
-          }
-          if (
-            await urlExistsPath(`${packageRootUrl.replace(/\/+$/, "")}/${path}`)
-          ) {
-            rootHits += 1;
-          }
-        }
-        if (itemHits > 0 && itemHits >= rootHits) {
-          pciBaseUrl = itemDirUrl;
-        }
-      }
-
-      const parseModuleResolutionConfig = (
-        text: string,
-      ): ModuleResolutionConfig | null => {
-        const tryJson = (t: string) => {
-          try {
-            return JSON.parse(t) as ModuleResolutionConfig;
-          } catch {
-            return null;
-          }
-        };
-
-        const normalize = (cfg: ModuleResolutionConfig | null) => {
-          if (!cfg) return null;
-          if (!cfg.paths || typeof cfg.paths !== "object") return null;
-          return cfg;
-        };
-
-        const trimmed = text.trim();
-
-        // 1) Plain JSON
-        const direct = normalize(tryJson(trimmed));
-        if (direct) return direct;
-
-        // 2) Common wrappers: define(...), require.config(...), requirejs.config(...)
-        const cleaned = trimmed
-          .replace(/^define\(/, "")
-          .replace(/^requirejs\.config\(/, "")
-          .replace(/^require\.config\(/, "")
-          .replace(/\);?\s*$/, "")
-          .replace(/^\(/, "")
-          .replace(/\)\s*$/, "")
-          .trim();
-        const wrapped = normalize(tryJson(cleaned));
-        if (wrapped) return wrapped;
-
-        // 3) Last-resort: extract the first JSON object from inside the file (handles
-        // `define({...})`, `var x = {...};`, etc as long as it's JSON-compatible).
-        const firstBrace = trimmed.indexOf("{");
-        const lastBrace = trimmed.lastIndexOf("}");
-        if (firstBrace >= 0 && lastBrace > firstBrace) {
-          const inner = trimmed.slice(firstBrace, lastBrace + 1);
-          const extracted = normalize(tryJson(inner));
-          if (extracted) return extracted;
-        }
-
-        return null;
-      };
-
-      const getModuleResolutionConfig = async (
-        baseUrl: string,
-        fileUrl: string,
-      ): Promise<ModuleResolutionConfig | null> => {
-        const tryFetchJson = async (url: string) => {
-          const res = await fetch(url, { method: "GET" });
-          if (!res.ok) return null;
-          const txt = await res.text();
-          return parseModuleResolutionConfig(txt);
-        };
-
-        const candidates: string[] = [];
-        const seen = new Set<string>();
-        const push = (url: string) => {
-          if (seen.has(url)) return;
-          seen.add(url);
-          candidates.push(url);
-        };
-
-        const maybePushConfigAtBase = (base: string, url: string) => {
-          // If `baseUrl` already points at `/modules`, also try without the `/modules/` prefix
-          // (so `/modules/module_resolution.js` becomes `/module_resolution.js`).
-          if (base.endsWith("/modules") && url.startsWith("/modules/")) {
-            push(`${base}${url.slice("/modules".length)}`);
-          }
-          push(`${base}${url}`);
-        };
-
-        // Prefer item-specific configs over package-root aliases. Some packages contain multiple
-        // `module_resolution.*` files and only the item-local one matches the current PCI.
-        maybePushConfigAtBase(itemDirUrl, fileUrl);
-        if (itemStemDirUrl) maybePushConfigAtBase(itemStemDirUrl, fileUrl);
-        maybePushConfigAtBase(baseUrl, fileUrl);
-        maybePushConfigAtBase(packageRootUrl, fileUrl);
-
-        if (fileUrl.endsWith(".js")) {
-          const alt = `${fileUrl.slice(0, -3)}.json`;
-          maybePushConfigAtBase(itemDirUrl, alt);
-          if (itemStemDirUrl) maybePushConfigAtBase(itemStemDirUrl, alt);
-          maybePushConfigAtBase(baseUrl, alt);
-          maybePushConfigAtBase(packageRootUrl, alt);
-        } else if (fileUrl.endsWith(".json")) {
-          const alt = `${fileUrl.slice(0, -5)}.js`;
-          maybePushConfigAtBase(itemDirUrl, alt);
-          if (itemStemDirUrl) maybePushConfigAtBase(itemStemDirUrl, alt);
-          maybePushConfigAtBase(baseUrl, alt);
-          maybePushConfigAtBase(packageRootUrl, alt);
-        }
-
-        for (const url of candidates) {
-          const parsed = await tryFetchJson(url);
-          if (parsed) return parsed;
-        }
-
-        return null;
       };
 
       try {
@@ -536,90 +288,26 @@ export const AssessmentPage: React.FC = () => {
           return transformer;
         }
 
+        const pciBaseUrl = await detectPciBaseUrl({
+          packageRootUrl,
+          itemDirUrl,
+          itemStemDirUrl,
+          xmlText: rawXml,
+        });
+
+        const fetcher = createModuleResolutionFetcher({
+          packageRootUrl,
+          itemDirUrl,
+          itemStemDirUrl,
+        });
+
         const configured = await transformer.configurePci(
           pciBaseUrl,
-          getModuleResolutionConfig,
+          (_baseUrl, fileUrl) => fetcher(fileUrl),
         );
 
-        // qtiTransformItem().path(...) can turn module paths into absolute `/__qti_pkg__/...` paths.
-        // qti-components' requirejs loader treats those as relative (not http) and prefixes baseUrl again.
-        // Normalize to relative paths if they start with our base URLs.
         const doc = configured.xmlDoc?.();
         if (doc) {
-          // Keep iframe mode/styling handling generic here; TAO-specific metadata is injected during conversion.
-
-          // In iframe mode (`data-use-iframe`), qti-components renders the PCI markup inside a data-URL iframe.
-          // `qti-stylesheet` loads CSS into the *parent* document, so those styles won't apply inside the iframe.
-          // Fix that by inlining referenced stylesheet CSS into `qti-interaction-markup`, which is sent to the iframe.
-          const stylesheetCache = new Map<string, Promise<string | null>>();
-          const fetchCssText = (href: string): Promise<string | null> => {
-            if (stylesheetCache.has(href)) return stylesheetCache.get(href)!;
-            const p = (async () => {
-              const isAbsolute = /^(data:|blob:|https?:)/.test(href);
-              const isRooted = href.startsWith("/");
-              const resolved = isAbsolute
-                ? href
-                : isRooted
-                  ? `${window.location.origin}${href}`
-                  : `${window.location.origin}${
-                      new URL(href, `${window.location.origin}${itemDirUrl}/`)
-                        .pathname
-                    }`;
-              try {
-                const res = await fetch(resolved, { method: "GET" });
-                if (!res.ok) return null;
-                return await res.text();
-              } catch {
-                return null;
-              }
-            })();
-            stylesheetCache.set(href, p);
-            return p;
-          };
-
-          const inlineIframedPciStyles = async () => {
-            const pcis = Array.from(
-              doc.querySelectorAll(
-                "qti-portable-custom-interaction[data-use-iframe]",
-              ),
-            );
-            for (const pci of pcis) {
-              const markup =
-                pci.querySelector("qti-interaction-markup") ||
-                (() => {
-                  const el = doc.createElement("qti-interaction-markup");
-                  pci.appendChild(el);
-                  return el;
-                })();
-
-              if (markup.getAttribute("data-qti-playground-inline-css") === "1")
-                continue;
-
-              const stylesheets = Array.from(
-                pci.querySelectorAll("qti-stylesheet[href]"),
-              );
-              if (stylesheets.length === 0) continue;
-
-              const cssParts: string[] = [];
-              for (const ss of stylesheets) {
-                const href = ss.getAttribute("href")?.trim();
-                if (!href) continue;
-                const css = await fetchCssText(href);
-                if (css) cssParts.push(css);
-              }
-
-              if (cssParts.length === 0) continue;
-
-              const styleEl = doc.createElement("style");
-              styleEl.setAttribute("data-qti-playground-inline", "1");
-              styleEl.textContent = cssParts.join("\n\n");
-              markup.insertBefore(styleEl, markup.firstChild);
-              markup.setAttribute("data-qti-playground-inline-css", "1");
-            }
-          };
-
-          await inlineIframedPciStyles();
-
           // Legacy CES / "qti-custom-interaction" support.
           // qti-components expects `data`, `data-base-item`, and `data-base-ref` on the host element.
           // Some packages ship these only inside a nested `<object data="...manifest.json" />`.
@@ -763,334 +451,12 @@ export const AssessmentPage: React.FC = () => {
 
           await configureLegacyCustomInteractions();
 
-          const debugEnabled =
-            typeof window !== "undefined" &&
-            typeof window.localStorage !== "undefined" &&
-            window.localStorage.getItem("__qti_debug_pci__") === "1";
-          const debug = (...args: unknown[]) => {
-            if (debugEnabled) console.debug("[pci]", ...args);
-          };
-
-          const toScriptUrl = (baseUrl: string, maybePath: string) => {
-            const base = `${window.location.origin}${baseUrl.replace(/\/+$/, "")}/`;
-            const abs = /^(data:|blob:|https?:)/.test(maybePath)
-              ? maybePath
-              : maybePath.startsWith("/")
-                ? `${window.location.origin}${maybePath}`
-                : new URL(maybePath, base).toString();
-            const u = new URL(abs, window.location.origin);
-            const pathname = u.pathname;
-            if (pathname.endsWith(".js")) return u.toString();
-            u.pathname = `${pathname}.js`;
-            return u.toString();
-          };
-
-          const extractAmdDeps = (source: string): string[] => {
-            const match = source.match(
-              /define\s*\(\s*(?:["'][^"']+["']\s*,\s*)?\[([\s\S]*?)\]/,
-            );
-            if (!match) return [];
-            const deps: string[] = [];
-            const body = match[1] || "";
-            const re = /["']([^"']+)["']/g;
-            let m: RegExpExecArray | null = null;
-            while ((m = re.exec(body))) {
-              if (m[1]) deps.push(m[1]);
-            }
-            return deps;
-          };
-
-          const isSkippableDep = (dep: string) => {
-            const d = dep.trim();
-            if (!d) return true;
-            if (d === "require" || d === "exports" || d === "module")
-              return true;
-            if (d.includes("!")) return true;
-            if (d.startsWith(".")) return true;
-            return false;
-          };
-
-          const escapeCss = (value: string) => {
-            if (
-              typeof CSS !== "undefined" &&
-              typeof CSS.escape === "function"
-            ) {
-              return CSS.escape(value);
-            }
-            return value.replace(/["\\]/g, "\\$&");
-          };
-
-          const findModuleScript = async (
-            moduleId: string,
-          ): Promise<string | null> => {
-            const id = moduleId.replace(/\.js$/i, "");
-            const encoded = encodePathSegments(id);
-            const candidates: string[] = [];
-            const push = (p: string | null) => {
-              if (!p) return;
-              if (!p.startsWith("/")) return;
-              if (!candidates.includes(p)) candidates.push(p);
-            };
-
-            push(`${itemDirUrl}/modules/${encoded}.js`);
-            if (itemStemDirUrl) push(`${itemStemDirUrl}/modules/${encoded}.js`);
-            push(`${packageRootUrl}/modules/${encoded}.js`);
-            push(`${itemDirUrl}/${encoded}.js`);
-            if (itemStemDirUrl) push(`${itemStemDirUrl}/${encoded}.js`);
-            push(`${packageRootUrl}/${encoded}.js`);
-            push(`${packageRootUrl}/runtime/${encoded}.js`);
-            push(`${packageRootUrl}/runtime/${encoded}.min.js`);
-
-            for (const path of candidates) {
-              if (await urlExistsPath(path)) {
-                // RequireJS expects paths without the .js extension.
-                return `${window.location.origin}${path.slice(0, -3)}`;
-              }
-            }
-            return null;
-          };
-
-          const ensurePciModuleMappings = async () => {
-            const pcis = Array.from(
-              doc.querySelectorAll("qti-portable-custom-interaction"),
-            );
-            if (pcis.length === 0) return;
-
-            debug("assessment pciBaseUrl", pciBaseUrl);
-
-            for (const pci of pcis) {
-              const entryRaw = (pci.getAttribute("module") || "").trim();
-              if (!entryRaw) continue;
-              const entryModule = entryRaw.replace(/\.js$/i, "");
-
-              let interactionModules = pci.querySelector(
-                "qti-interaction-modules",
-              );
-              if (!interactionModules) {
-                interactionModules = doc.createElement(
-                  "qti-interaction-modules",
-                );
-                pci.appendChild(interactionModules);
-              }
-
-              const moduleEls = Array.from(
-                interactionModules.querySelectorAll("qti-interaction-module"),
-              );
-              const moduleMap = new Map<
-                string,
-                { el: Element; primary: string | null; fallback: string | null }
-              >();
-              for (const el of moduleEls) {
-                const id = el.getAttribute("id")?.trim() || "";
-                if (!id) continue;
-                moduleMap.set(id, {
-                  el,
-                  primary: el.getAttribute("primary-path"),
-                  fallback: el.getAttribute("fallback-path"),
-                });
-              }
-
-              const upsertModule = (id: string, primary: string) => {
-                const escaped = escapeCss(id);
-                let el =
-                  interactionModules!.querySelector(
-                    `qti-interaction-module[id="${escaped}"]`,
-                  ) || null;
-                if (!el) {
-                  el = doc.createElement("qti-interaction-module");
-                  el.setAttribute("id", id);
-                  interactionModules!.appendChild(el);
-                }
-                el.setAttribute("primary-path", primary);
-                moduleMap.set(id, {
-                  el,
-                  primary,
-                  fallback: el.getAttribute("fallback-path"),
-                });
-              };
-
-              const ensureMapped = async (id: string) => {
-                if (moduleMap.has(id)) return true;
-
-                const encoded = encodePathSegments(id);
-                if (await urlExistsPath(`${pciBaseUrl}/${encoded}.js`)) {
-                  // It's directly resolvable by RequireJS baseUrl; no mapping needed.
-                  return true;
-                }
-
-                const found = await findModuleScript(id);
-                if (found) {
-                  upsertModule(id, found);
-                  return true;
-                }
-                return false;
-              };
-
-              // Ensure the PCI entry module itself is mapped if it isn't directly resolvable.
-              await ensureMapped(entryModule);
-
-              const maxDepth = 3;
-              const maxScan = 20;
-              const visited = new Set<string>();
-              const queue: Array<{ id: string; depth: number }> = [
-                { id: entryModule, depth: 0 },
-              ];
-
-              let scanned = 0;
-              while (queue.length > 0 && scanned < maxScan) {
-                const { id, depth } = queue.shift()!;
-                if (visited.has(id)) continue;
-                visited.add(id);
-                scanned++;
-
-                const record = moduleMap.get(id);
-                const primary = record?.primary?.trim() || "";
-                const fallback = record?.fallback?.trim() || "";
-
-                const scriptCandidates: string[] = [];
-                if (primary) scriptCandidates.push(primary);
-                if (fallback && fallback !== primary)
-                  scriptCandidates.push(fallback);
-
-                // If we still have no mapping, try to locate it on disk.
-                if (scriptCandidates.length === 0) {
-                  const located = await findModuleScript(id);
-                  if (located) {
-                    upsertModule(id, located);
-                    scriptCandidates.push(located);
-                  }
-                }
-                if (scriptCandidates.length === 0) continue;
-
-                let source: string | null = null;
-                for (const candidate of scriptCandidates) {
-                  try {
-                    const url = toScriptUrl(pciBaseUrl, candidate);
-                    const res = await fetch(url, { method: "GET" });
-                    if (!res.ok) continue;
-                    source = await res.text();
-                    break;
-                  } catch {
-                    // try next
-                  }
-                }
-                if (!source) {
-                  const located = await findModuleScript(id);
-                  if (located) {
-                    upsertModule(id, located);
-                    try {
-                      const url = toScriptUrl(pciBaseUrl, located);
-                      const res = await fetch(url, { method: "GET" });
-                      if (res.ok) source = await res.text();
-                    } catch {
-                      // ignore
-                    }
-                  }
-                }
-                if (!source) continue;
-
-                const deps = extractAmdDeps(source).filter(
-                  (d) => !isSkippableDep(d),
-                );
-                if (deps.length === 0) continue;
-
-                for (const dep of deps) {
-                  const depId = dep.replace(/\.js$/i, "");
-                  const ok = await ensureMapped(depId);
-                  if (!ok) continue;
-                  if (depth + 1 <= maxDepth) {
-                    queue.push({ id: depId, depth: depth + 1 });
-                  }
-                }
-              }
-            }
-          };
-
-          await ensurePciModuleMappings();
-
-          const stripLeadingPrefix = (value: string, prefix: string) => {
-            const withSlash = prefix.endsWith("/") ? prefix : `${prefix}/`;
-            if (value.startsWith(withSlash))
-              return value.slice(withSlash.length);
-            if (value === prefix) return "";
-            return value;
-          };
-
-          const maybeNormalize = (value: string | null) => {
-            if (!value) return value;
-            // Avoid rewriting real URLs.
-            if (/^(data:|blob:|https?:)/.test(value)) return value;
-            // Keep app/shared static assets rooted at the app origin.
-            if (value.startsWith("/assets/")) return value;
-
-            const shouldNormalize =
-              value.startsWith("/") ||
-              value.startsWith("__qti_pkg__/") ||
-              value.startsWith("/__qti_pkg__/") ||
-              value.startsWith("/items/") ||
-              value.startsWith("modules/") ||
-              value.startsWith("/modules/") ||
-              value.startsWith(packageRootUrl) ||
-              value.startsWith(itemDirUrl) ||
-              (itemStemDirUrl ? value.startsWith(itemStemDirUrl) : false) ||
-              value.startsWith(pciBaseUrl);
-            if (!shouldNormalize) return value;
-
-            const packageRootPath = packageRootUrl.replace(/^\/+/, "");
-            const pciBasePath = pciBaseUrl.replace(/^\/+/, "");
-            const itemDirPath = itemDirUrl.replace(/^\/+/, "");
-            const itemStemDirPath = (itemStemDirUrl || "").replace(/^\/+/, "");
-
-            // Normalize to a package-relative path so qti-components can safely prefix `baseUrl`.
-            let next = value.replace(/^\/+/, "");
-            for (let i = 0; i < 4; i++) {
-              const prev = next;
-              if (itemStemDirPath)
-                next = stripLeadingPrefix(next, itemStemDirPath);
-              next = stripLeadingPrefix(next, itemDirPath);
-              next = stripLeadingPrefix(next, pciBasePath);
-              next = stripLeadingPrefix(next, packageRootPath);
-              next = next.replace(/^\/+/, "");
-              if (next === prev) break;
-            }
-            // If baseUrl is already the modules folder, strip a leading `modules/` to avoid `/modules/modules/...`.
-            if (pciBaseUrl.endsWith("/modules")) {
-              if (next.startsWith("modules/"))
-                next = next.slice("modules/".length);
-              if (next.startsWith("/modules/"))
-                next = next.slice("/modules/".length);
-            }
-            return next;
-          };
-
-          doc.querySelectorAll("qti-interaction-module").forEach((el) => {
-            const primary = maybeNormalize(el.getAttribute("primary-path"));
-            if (primary !== null) el.setAttribute("primary-path", primary);
-            const fallback = maybeNormalize(el.getAttribute("fallback-path"));
-            if (fallback !== null) el.setAttribute("fallback-path", fallback);
+          normalizePciPaths(doc, {
+            pciBaseUrl,
+            packageRootUrl,
+            itemDirUrl,
+            itemStemDirUrl,
           });
-
-          const effectiveBaseForPci = itemDirUrl || pciBaseUrl;
-          doc
-            .querySelectorAll("qti-portable-custom-interaction")
-            .forEach((el) => {
-              if (effectiveBaseForPci) {
-                el.setAttribute("data-base-url", effectiveBaseForPci);
-              }
-            });
-
-          // Normalize PCI entry module values that were turned into absolute package paths.
-          doc
-            .querySelectorAll("qti-portable-custom-interaction[module]")
-            .forEach((el) => {
-              const moduleValue = el.getAttribute("module")?.trim() || "";
-              if (!moduleValue) return;
-              if (/^(data:|blob:|https?:)/.test(moduleValue)) return;
-              const normalized = maybeNormalize(moduleValue);
-              if (normalized !== null && normalized !== moduleValue) {
-                el.setAttribute("module", normalized);
-              }
-            });
         }
 
         return configured;

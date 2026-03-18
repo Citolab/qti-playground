@@ -10,7 +10,7 @@ import { itemBlobManager } from "./item-blob-manager";
 import { getUpgraderStylesheetBlobUrl } from "./qti-upgrader";
 import {
   deletePackageCache,
-  importQtiPackage,
+  prepareQtiPackage,
   QTI_PKG_URL_PREFIX,
 } from "@citolab/qti-browser-import";
 
@@ -408,17 +408,19 @@ export const useStore = create<Store>()(
         itemBlobManager.cleanup();
 
         const prevPackageId = get().activePackageId;
-        const imported = await importQtiPackage(file, {
+        const prepared = await prepareQtiPackage(file, {
           removeStylesheets: options.removeStylesheets,
           skipValidation: options.skipValidation,
           previousPackageId: prevPackageId,
+          componentsCdnUrl: __QTI_COMPONENTS_CDN_URL__,
+          componentsCssUrl: __QTI_COMPONENTS_CSS_URL__,
         });
 
         const newState = {
-          activePackageId: imported.packageId,
-          assessments: imported.assessments as AssessmentInfoWithContent[],
-          importErrors: imported.importErrors,
-          itemsPerAssessment: imported.itemsPerAssessment as {
+          activePackageId: prepared.packageId,
+          assessments: prepared.assessments as AssessmentInfoWithContent[],
+          importErrors: prepared.importErrors,
+          itemsPerAssessment: prepared.itemsPerAssessment as {
             assessmentId: string;
             items: ItemInfoWithBlobRef[];
           }[],

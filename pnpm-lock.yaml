@@ -11,15 +11,18 @@ importers:
       '@citolab/qti-api':
         specifier: ^8.0.35
         version: 8.0.39(@citolab/qti-components@file:.yalc/@citolab/qti-components)(axios@1.13.6)
+      '@citolab/qti-browser-import':
+        specifier: ^0.4.0
+        version: 0.4.0(@citolab/qti-convert-tao-pci@0.4.0)(@citolab/qti-convert@0.4.0)
       '@citolab/qti-components':
         specifier: file:.yalc/@citolab/qti-components
         version: file:.yalc/@citolab/qti-components
       '@citolab/qti-convert':
-        specifier: link:.yalc/@citolab/qti-convert
-        version: link:.yalc/@citolab/qti-convert
+        specifier: ^0.4.0
+        version: 0.4.0
       '@citolab/qti-convert-tao-pci':
-        specifier: file:.yalc/@citolab/qti-convert-tao-pci
-        version: file:.yalc/@citolab/qti-convert-tao-pci
+        specifier: ^0.4.0
+        version: 0.4.0
       '@lit-labs/react':
         specifier: ^2.1.3
         version: 2.1.3(@types/react@19.2.14)
@@ -354,16 +357,21 @@ packages:
       '@citolab/qti-components': '>=7.0.0-0 || >=7.0.0-beta.0 || >=7.0.0-next.0'
       axios: '>=1.7.0'
 
+  '@citolab/qti-browser-import@0.4.0':
+    resolution: {integrity: sha512-WeET0/KfqdnVJDr1G5/cbcOr6hu2dfxR9NF7KJ1NyL/7WjDsPOfgkb0tPbFhwXciujoEZv1UGVNaGadUsmjCBg==}
+    peerDependencies:
+      '@citolab/qti-convert': ^0.4.0
+      '@citolab/qti-convert-tao-pci': ^0.4.0
+
   '@citolab/qti-components@file:.yalc/@citolab/qti-components':
     resolution: {directory: .yalc/@citolab/qti-components, type: directory}
 
-  '@citolab/qti-convert-tao-pci@file:.yalc/@citolab/qti-convert-tao-pci':
-    resolution: {directory: .yalc/@citolab/qti-convert-tao-pci, type: directory}
+  '@citolab/qti-convert-tao-pci@0.4.0':
+    resolution: {integrity: sha512-7+fnCBD8He08BF2fLtawEqrJU4yieggabYE6tGW6Y+w+wzFe+0sOFK3lyYmO12/B7ny/mAglGdmEBuK4/3CyHg==}
 
-  '@citolab/qti-convert@0.3.52':
-    resolution: {integrity: sha512-D7vqk9Huy8wCoTp/rwZ890NoZdPcg6GYtZEPb4YEZJJD2a1wPM8rBVKKUywcrwuqc+JBEqSamvBPGdbxqc2JXA==}
+  '@citolab/qti-convert@0.4.0':
+    resolution: {integrity: sha512-5UrUa2MIVC10c0lULir7YlQmM0vzergKHAmSojGVFh4uqRWbKRPhSCdwI2Vkc/PHETY6kTDxUuctj4NJfEkPog==}
     engines: {node: '>=16.0.0'}
-    hasBin: true
 
   '@esbuild/aix-ppc64@0.25.12':
     resolution: {integrity: sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==}
@@ -4300,15 +4308,23 @@ snapshots:
       '@citolab/qti-components': file:.yalc/@citolab/qti-components
       axios: 1.13.6
 
+  '@citolab/qti-browser-import@0.4.0(@citolab/qti-convert-tao-pci@0.4.0)(@citolab/qti-convert@0.4.0)':
+    dependencies:
+      '@citolab/qti-convert': 0.4.0
+      '@citolab/qti-convert-tao-pci': 0.4.0
+      cheerio: 1.2.0
+      jszip: 3.10.1
+
   '@citolab/qti-components@file:.yalc/@citolab/qti-components':
     dependencies:
       '@heximal/templates': 0.1.5
       '@lit/context': 1.1.6
       lit: 3.3.2
 
-  '@citolab/qti-convert-tao-pci@file:.yalc/@citolab/qti-convert-tao-pci':
+  '@citolab/qti-convert-tao-pci@0.4.0':
     dependencies:
-      '@citolab/qti-convert': 0.3.52
+      '@citolab/qti-browser-import': 0.4.0(@citolab/qti-convert-tao-pci@0.4.0)(@citolab/qti-convert@0.4.0)
+      '@citolab/qti-convert': 0.4.0
       cheerio: 1.2.0
     transitivePeerDependencies:
       - bare-abort-controller
@@ -4316,7 +4332,7 @@ snapshots:
       - debug
       - react-native-b4a
 
-  '@citolab/qti-convert@0.3.52':
+  '@citolab/qti-convert@0.4.0':
     dependencies:
       archiver: 7.0.1
       cheerio: 1.2.0
