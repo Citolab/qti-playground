@@ -2,7 +2,6 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import fs from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
@@ -10,17 +9,34 @@ import { playwright } from "@vitest/browser-playwright";
 
 // https://vite.dev/config/
 const dirname = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
+const appPackageJson = JSON.parse(
+  fs.readFileSync(path.join(dirname, "package.json"), "utf-8"),
+) as {
+  dependencies?: Record<string, string>;
+};
 
-function resolvePackageRoot(packageName: string): string {
-  const packageJsonPath = require.resolve(`${packageName}/package.json`);
-  return path.dirname(packageJsonPath);
+function normalizeDependencyVersion(spec: string | undefined): string {
+  if (!spec) {
+    return "latest";
+  }
+
+  const match = spec.match(/\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?/);
+  return match?.[0] ?? "latest";
 }
 
-const qtiComponentsRoot = resolvePackageRoot("@citolab/qti-components");
-const qtiComponentsVersion = JSON.parse(
-  fs.readFileSync(path.join(qtiComponentsRoot, "package.json"), "utf-8"),
-).version as string;
+function resolveInstalledPackageRoot(packageName: string): string | null {
+  const packageRoot = path.join(dirname, "node_modules", ...packageName.split("/"));
+  if (!fs.existsSync(packageRoot)) {
+    return null;
+  }
+
+  return fs.realpathSync(packageRoot);
+}
+
+const qtiComponentsVersion = normalizeDependencyVersion(
+  appPackageJson.dependencies?.["@citolab/qti-components"],
+);
+const qtiComponentsRoot = resolveInstalledPackageRoot("@citolab/qti-components");
 
 function spaHtmlFallbackForPackageRoute(): Plugin {
   // In dev, `GET /package` can sometimes be served as `package.json` (Vite JSON-as-ESM),
@@ -49,20 +65,27 @@ function spaHtmlFallbackForPackageRoute(): Plugin {
 }
 
 function localQtiComponentsAssets(): Plugin {
-  const cdnPath = path.join(qtiComponentsRoot, "cdn/index.js");
-  const cssPath = path.join(qtiComponentsRoot, "dist/item.css");
+  const cdnPath = qtiComponentsRoot
+    ? path.join(qtiComponentsRoot, "cdn/index.js")
+    : null;
+  const cssPath = qtiComponentsRoot
+    ? path.join(qtiComponentsRoot, "dist/item.css")
+    : null;
 
   return {
     name: "qti-playground-local-qti-components-assets",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const url = req.url?.split("?", 1)[0] || "";
-        if (url === "/local-qti-components-cdn/index.js" || url === "/cdn/index.js") {
+        if (
+          cdnPath &&
+          (url === "/local-qti-components-cdn/index.js" || url === "/cdn/index.js")
+        ) {
           res.setHeader("Content-Type", "application/javascript; charset=utf-8");
           fs.createReadStream(cdnPath).pipe(res);
           return;
         }
-        if (url === "/local-qti-components-dist/item.css") {
+        if (cssPath && url === "/local-qti-components-dist/item.css") {
           res.setHeader("Content-Type", "text/css; charset=utf-8");
           fs.createReadStream(cssPath).pipe(res);
           return;
@@ -74,11 +97,15 @@ function localQtiComponentsAssets(): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-  const isProd = mode === "production";
-  const qtiComponentsCdnUrl = isProd
+  const hasLocalQtiComponentsAssets =
+    !!qtiComponentsRoot &&
+    fs.existsSync(path.join(qtiComponentsRoot, "cdn/index.js")) &&
+    fs.existsSync(path.join(qtiComponentsRoot, "dist/item.css"));
+  const useRemoteQtiComponentsAssets = mode === "production" || !hasLocalQtiComponentsAssets;
+  const qtiComponentsCdnUrl = useRemoteQtiComponentsAssets
     ? `https://unpkg.com/@citolab/qti-components@${qtiComponentsVersion}/cdn/index.js`
     : "/cdn/index.js";
-  const qtiComponentsCssUrl = isProd
+  const qtiComponentsCssUrl = useRemoteQtiComponentsAssets
     ? `https://unpkg.com/@citolab/qti-components@${qtiComponentsVersion}/dist/item.css`
     : "/local-qti-components-dist/item.css";
 
