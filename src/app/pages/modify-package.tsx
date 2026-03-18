@@ -652,8 +652,7 @@ export const ModifyPackagePage: React.FC = () => {
                             : "QTI 2.x and 3 ZIP files are supported"}
                         </p>
                         <p className="text-xs text-gray-400">
-                          * When previewing you agree to our Terms and
-                          Conditions at the end of the page.
+                          * By uploading you agree to our Terms and Conditions.
                         </p>
                       </div>
                     </label>
@@ -662,10 +661,10 @@ export const ModifyPackagePage: React.FC = () => {
               </div>
             )}
           </div>
+          <div className="px-6 pb-2">
+            <Terms />
+          </div>
         </Tabs>
-      </div>
-      <div className="max-w-2xl w-full">
-        <Terms></Terms>
       </div>
     </div>
   );
