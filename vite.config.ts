@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
@@ -9,12 +10,16 @@ import { playwright } from "@vitest/browser-playwright";
 
 // https://vite.dev/config/
 const dirname = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
 
+function resolvePackageRoot(packageName: string): string {
+  const packageJsonPath = require.resolve(`${packageName}/package.json`);
+  return path.dirname(packageJsonPath);
+}
+
+const qtiComponentsRoot = resolvePackageRoot("@citolab/qti-components");
 const qtiComponentsVersion = JSON.parse(
-  fs.readFileSync(
-    path.resolve(dirname, "node_modules/@citolab/qti-components/package.json"),
-    "utf-8",
-  ),
+  fs.readFileSync(path.join(qtiComponentsRoot, "package.json"), "utf-8"),
 ).version as string;
 
 function spaHtmlFallbackForPackageRoute(): Plugin {
@@ -44,14 +49,8 @@ function spaHtmlFallbackForPackageRoute(): Plugin {
 }
 
 function localQtiComponentsAssets(): Plugin {
-  const cdnPath = path.resolve(
-    dirname,
-    "node_modules/@citolab/qti-components/cdn/index.js",
-  );
-  const cssPath = path.resolve(
-    dirname,
-    "node_modules/@citolab/qti-components/dist/item.css",
-  );
+  const cdnPath = path.join(qtiComponentsRoot, "cdn/index.js");
+  const cssPath = path.join(qtiComponentsRoot, "dist/item.css");
 
   return {
     name: "qti-playground-local-qti-components-assets",
