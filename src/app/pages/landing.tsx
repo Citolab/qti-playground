@@ -13,7 +13,6 @@ import { useNavigate } from "react-router-dom";
 import {
   GitCommit,
   Book,
-  ArrowRight,
   Mail,
   Code2,
   Repeat,
@@ -27,6 +26,7 @@ import {
   Zap,
   Lock,
 } from "lucide-react";
+import { PackageUploadZone } from "../components/package-upload-zone";
 
 import { itemCss } from "../itemCss";
 import { QtiProsemirrorEditor } from "../components/editor/qti-prosemirror-editor";
@@ -621,14 +621,7 @@ export const LandingPage: React.FC = () => {
               className="mt-8 animate-fade-in-up"
               style={{ animationDelay: "400ms" }}
             >
-              <Button
-                size="lg"
-                onClick={() => navigate("/package")}
-                className="shadow-lg hover:shadow-xl transition-shadow"
-              >
-                Select your QTI package
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
+              <PackageUploadZone />
             </div>
           </div>
 

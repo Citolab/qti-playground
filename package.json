@@ -16,7 +16,7 @@
   "dependencies": {
     "@citolab/qti-api": "^8.0.35",
     "@citolab/qti-browser-import": "^0.4.0",
-    "@citolab/qti-components": "^7.26.0",
+    "@citolab/qti-components": "7.27.0",
     "@citolab/qti-convert": "^0.4.0",
     "@citolab/qti-convert-tao-pci": "^0.4.0",
     "@lit-labs/react": "^2.1.3",

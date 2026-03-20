@@ -101,7 +101,7 @@
 }
 
 main {
-  @apply min-h-screen min-w-screen bg-gray-100;
+  @apply min-w-screen bg-gray-100;
 }
 
 .item-preview {
