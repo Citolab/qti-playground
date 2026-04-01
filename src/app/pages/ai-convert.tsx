@@ -99,6 +99,21 @@ const deriveGoogleFormIdentifier = (value: string) => {
   }
 };
 
+const ensureGeneratedPackage = (
+  result: {
+    packageBlob?: Blob;
+    reason?: string;
+    processable?: boolean;
+  },
+  fallbackMessage: string,
+) => {
+  if (result.processable === false || !result.packageBlob) {
+    throw new Error(result.reason || fallbackMessage);
+  }
+
+  return result.packageBlob;
+};
+
 export const AiConvertPage: React.FC = () => {
   const navigate = useNavigate();
   const processPackage = useStore((state) => state.processPackage);
@@ -280,11 +295,15 @@ export const AiConvertPage: React.FC = () => {
             });
 
       const packageName = `${newName}-qti3.zip`;
+      const packageBlob = ensureGeneratedPackage(
+        result,
+        "This uploaded file cannot be converted to a QTI package.",
+      );
       setSummary(result.summary);
-      setDownloadBlobState(result.packageBlob);
+      setDownloadBlobState(packageBlob);
       setDownloadFileName(packageName);
       setConvertedPackageFile(
-        new File([result.packageBlob], packageName, {
+        new File([packageBlob], packageName, {
           type: "application/zip",
         }),
       );
@@ -340,11 +359,18 @@ export const AiConvertPage: React.FC = () => {
 
       setStatusMessage("QTI package is ready to download.");
       setUploadProgress(90);
+      const packageBlob = ensureGeneratedPackage(
+        result,
+        "The Google Form could not be converted to a QTI package.",
+      );
+      if (!result.packageName) {
+        throw new Error("The Google Form conversion did not return a package name.");
+      }
       setSummary(result.summary);
-      setDownloadBlobState(result.packageBlob);
+      setDownloadBlobState(packageBlob);
       setDownloadFileName(result.packageName);
       setConvertedPackageFile(
-        new File([result.packageBlob], result.packageName, {
+        new File([packageBlob], result.packageName, {
           type: "application/zip",
         }),
       );

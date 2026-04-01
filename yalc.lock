@@ -5,6 +5,11 @@
       "signature": "3cb310a4b2fd1a2e9b0df8d1fccfc229",
       "file": true,
       "replaced": "^7.26.0"
+    },
+    "@citolab/qti-convert-local-ai": {
+      "signature": "7f54edcfa14fab6789fd25521e529dca",
+      "file": true,
+      "replaced": "^0.4.5"
     }
   }
 }

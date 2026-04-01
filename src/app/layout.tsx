@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 const navigation = [
   { name: "Preview Package", href: "/upload" },
-  { name: "AI convert", href: "/ai-convert", icon: Sparkles },
+  { name: "Convert", href: "/ai-convert", icon: Sparkles },
   { name: "Upgrade / modify packages", href: "/modify" },
 
   { name: "Preview item", href: "/preview" },

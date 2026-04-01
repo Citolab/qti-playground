@@ -13,6 +13,23 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Terms } from "./terms";
 
+const getGeneratedPackageFile = (
+  converted: {
+    packageBlob?: Blob;
+    packageName?: string;
+    reason?: string;
+    processable?: boolean;
+  },
+) => {
+  if (converted.processable === false || !converted.packageBlob || !converted.packageName) {
+    throw new Error(converted.reason || "This uploaded file cannot be converted to a QTI package.");
+  }
+
+  return new File([converted.packageBlob], converted.packageName, {
+    type: "application/zip",
+  });
+};
+
 export const PackageUploadZone: React.FC = () => {
   const navigate = useNavigate();
   const [error, setError] = useState("");
@@ -145,9 +162,7 @@ export const PackageUploadZone: React.FC = () => {
 
         setInProgress("Trying AI conversion for non-QTI source...");
         const converted = await convertSourceFileToPackage(file);
-        packageFile = new File([converted.packageBlob], converted.packageName, {
-          type: "application/zip",
-        });
+        packageFile = getGeneratedPackageFile(converted);
         setInProgress("Opening converted QTI package...");
         setUploadProgress(95);
       } else {
@@ -184,9 +199,7 @@ export const PackageUploadZone: React.FC = () => {
 
           setInProgress("Trying AI conversion from source file inside ZIP...");
           const converted = await convertSourceFileToPackage(extractedSource);
-          packageFile = new File([converted.packageBlob], converted.packageName, {
-            type: "application/zip",
-          });
+          packageFile = getGeneratedPackageFile(converted);
         }
       }
 
