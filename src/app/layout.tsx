@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, Sparkles, X } from "lucide-react";
 import { NavLink, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const navigation = [
   { name: "Preview Package", href: "/upload" },
+  { name: "AI convert", href: "/ai-convert", icon: Sparkles },
   { name: "Upgrade / modify packages", href: "/modify" },
+
   { name: "Preview item", href: "/preview" },
   { name: "Convert item", href: "/convert" },
 ];
@@ -51,11 +53,14 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
                           ? "text-citolab-600"
                           : isActive
                             ? "bg-citolab-600 text-white shadow-sm"
-                            : "text-gray-600 hover:text-citolab-700 hover:bg-citolab-50"
+                            : "text-gray-600 hover:text-citolab-700 hover:bg-citolab-50",
                       )
                     }
                   >
-                    {item.name}
+                    <span className="inline-flex items-center gap-2">
+                      {item.icon ? <item.icon className="h-4 w-4" /> : null}
+                      {item.name}
+                    </span>
                   </NavLink>
                 ))}
               </div>
@@ -95,11 +100,14 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
                         "block rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                         isActive
                           ? "bg-citolab-50 text-citolab-700 border-l-2 border-citolab-600"
-                          : "text-gray-600 hover:bg-citolab-50 hover:text-citolab-700"
+                          : "text-gray-600 hover:bg-citolab-50 hover:text-citolab-700",
                       )
                     }
                   >
-                    {item.name}
+                    <span className="inline-flex items-center gap-2">
+                      {item.icon ? <item.icon className="h-4 w-4" /> : null}
+                      {item.name}
+                    </span>
                   </NavLink>
                 ))}
               </div>

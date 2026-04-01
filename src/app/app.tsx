@@ -5,6 +5,7 @@ import { PreviewPage } from "./pages/preview";
 import { UploadPage } from "./pages/upload";
 import { AssessmentPage } from "./pages/assessment";
 import { ModifyPackagePage } from "./pages/modify-package";
+import { AiConvertPage } from "./pages/ai-convert";
 import LandingPage from "./pages/landing";
 
 export function App() {
@@ -18,6 +19,7 @@ export function App() {
         <Route path="/convert" element={<ConvertPage />} />
         <Route path="/preview" element={<PreviewPage />} />
         <Route path="/modify" element={<ModifyPackagePage />} />
+        <Route path="/ai-convert" element={<AiConvertPage />} />
         <Route path="/assessment" element={<AssessmentPage />} />
         <Route path="/assessment/:assessmentId" element={<AssessmentPage />} />
         <Route path="/" element={<Navigate to="/landing" />} />

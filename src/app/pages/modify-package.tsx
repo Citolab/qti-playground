@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   removeMediaFromPackage,
   removeItemsFromPackage,
 } from "@citolab/qti-convert/qti-helper";
 import { convertPackage } from "@citolab/qti-convert/qti-convert";
 import {
-  Upload,
-  CheckCircle,
   AlertCircle,
+  ArrowUp,
+  BookOpen,
+  CheckCircle,
   FileText,
+  List,
   Settings,
   Trash2,
+  Upload,
   X,
-  List,
-  BookOpen,
-  ArrowUp,
 } from "lucide-react";
 import { Terms } from "../components/terms";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// Define the tab options
 type TabType = "upgrade" | "media" | "items";
 
 const downloadBlob = (blob: Blob, filename: string) => {
@@ -55,8 +54,6 @@ export const ModifyPackagePage: React.FC = () => {
     css: false,
     fs500k: false,
   });
-
-  // Item removal state
   const [itemCount, setItemCount] = useState<number>(0);
   const [startIndex, setStartIndex] = useState<number>(0);
   const [endIndex, setEndIndex] = useState<number>(0);
@@ -64,39 +61,11 @@ export const ModifyPackagePage: React.FC = () => {
   const [removedItems, setRemovedItems] = useState<string[]>([]);
   const [removedWebcontent, setRemovedWebcontent] = useState<number>(0);
 
-  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setIsDragging(false);
-    const file = event.dataTransfer?.files[0] || null;
-    setSelectedFile(file);
-    if (validateFile(file)) {
-      if (activeTab === "items") {
-        analyzeItemsInPackage(file);
-      }
-    }
-  };
-
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setIsDragging(false);
-  };
-
   const validateFile = (file: File | null) => {
     if (!file) return false;
 
     setError(null);
-
-    // if (file.size > 10485760 * 3) {
-    //     setError('File size should not exceed 30MB');
-    //     return false;
-    // }
-
-    if (!file.name.endsWith(".zip")) {
+    if (!file.name.toLowerCase().endsWith(".zip")) {
       setError("Only .zip files are allowed");
       return false;
     }
@@ -104,13 +73,53 @@ export const ModifyPackagePage: React.FC = () => {
     return true;
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files ? event.target.files[0] : null;
-    setSelectedFile(file);
-    if (validateFile(file)) {
-      if (activeTab === "items" && file) {
-        analyzeItemsInPackage(file);
+  const analyzeItemsInPackage = async (file: File) => {
+    try {
+      setInProgress(true);
+      setUploadProgress(0);
+
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => Math.min(prev + 10, 90));
+      }, 100);
+
+      const JSZip = (await import("jszip")).default;
+      const zip = await JSZip.loadAsync(file);
+
+      let assessmentItemCount = 0;
+      for (const relativePath of Object.keys(zip.files)) {
+        const zipEntry = zip.files[relativePath];
+        const fileType = relativePath.split(".").pop();
+        if (fileType !== "xml") continue;
+
+        const content = await zipEntry.async("string");
+        if (
+          content.includes("qti-assessment-item-ref") ||
+          content.includes("assessmentItemRef")
+        ) {
+          const itemRefMatches = content.match(
+            /<(qti-assessment-item-ref|assessmentItemRef)/g,
+          );
+          if (itemRefMatches) {
+            assessmentItemCount = itemRefMatches.length;
+            break;
+          }
+        }
       }
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+      setItemCount(assessmentItemCount);
+      setStartIndex(0);
+      setEndIndex(assessmentItemCount > 0 ? assessmentItemCount - 1 : 0);
+      setItemsLoaded(true);
+
+      setTimeout(() => {
+        setInProgress(false);
+      }, 300);
+    } catch (caughtError) {
+      console.error(caughtError);
+      setError("An error occurred analyzing the package");
+      setInProgress(false);
     }
   };
 
@@ -123,66 +132,14 @@ export const ModifyPackagePage: React.FC = () => {
     setEndIndex(0);
     setItemsLoaded(false);
     setRemovedItems([]);
+    setRemovedWebcontent(0);
   };
 
-  // This function analyzes a QTI package to count the number of assessment items
-  const analyzeItemsInPackage = async (file: File) => {
-    try {
-      setInProgress(true);
-      setUploadProgress(0);
-
-      // Simulate progress updates
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => Math.min(prev + 10, 90));
-      }, 100);
-
-      // Use JSZip to read the file to count items
-      const JSZip = (await import("jszip")).default;
-      const zip = await JSZip.loadAsync(file);
-
-      let assessmentItemCount = 0;
-
-      // Scan files to find QTI assessment test with item refs
-      for (const relativePath of Object.keys(zip.files)) {
-        const zipEntry = zip.files[relativePath];
-        const fileType = relativePath.split(".").pop();
-
-        if (fileType === "xml") {
-          const content = await zipEntry.async("string");
-
-          // Check if this contains assessment item refs
-          if (
-            content.includes("qti-assessment-item-ref") ||
-            content.includes("assessmentItemRef")
-          ) {
-            // Count the occurrences of item references
-            const itemRefMatches = content.match(
-              /<(qti-assessment-item-ref|assessmentItemRef)/g,
-            );
-            if (itemRefMatches) {
-              assessmentItemCount = itemRefMatches.length;
-              break;
-            }
-          }
-        }
-      }
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      // Set the item count and default range
-      setItemCount(assessmentItemCount);
-      setStartIndex(0);
-      setEndIndex(assessmentItemCount > 0 ? assessmentItemCount - 1 : 0);
-      setItemsLoaded(true);
-
-      setTimeout(() => {
-        setInProgress(false);
-      }, 300);
-    } catch (e) {
-      console.error(e);
-      setError("An error occurred analyzing the package");
-      setInProgress(false);
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    setSelectedFile(file);
+    if (validateFile(file) && activeTab === "items" && file) {
+      analyzeItemsInPackage(file);
     }
   };
 
@@ -194,26 +151,22 @@ export const ModifyPackagePage: React.FC = () => {
       setUploadProgress(0);
       setProcessComplete(false);
 
-      // Simulate progress updates
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => Math.min(prev + 5, 90));
       }, 200);
 
-      let blob;
+      let blob: Blob;
       const fileName = selectedFile.name;
       const newName = fileName.substring(0, fileName.lastIndexOf(".")) || "";
       let newZipName = "";
 
       if (activeTab === "media") {
-        // Handle media removal
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const selectedFilters = Object.keys(filters).filter(
-          (key) => (filters as any)[key],
+          (key) => filters[key as keyof typeof filters],
         );
         blob = await removeMediaFromPackage(selectedFile, selectedFilters);
         newZipName = `${newName}-stripped.zip`;
       } else if (activeTab === "items") {
-        // Handle item removal
         const result = await removeItemsFromPackage(
           selectedFile,
           startIndex,
@@ -223,8 +176,7 @@ export const ModifyPackagePage: React.FC = () => {
         setRemovedItems(result.removedItems);
         setRemovedWebcontent(result.removedResources || 0);
         newZipName = `${newName}-items-${startIndex}-${endIndex}.zip`;
-      } else if (activeTab === "upgrade") {
-        // Handle QTI2 to QTI3 conversion
+      } else {
         blob = await convertPackage(
           selectedFile,
           "https://raw.githubusercontent.com/citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json",
@@ -234,35 +186,20 @@ export const ModifyPackagePage: React.FC = () => {
 
       clearInterval(progressInterval);
       setUploadProgress(100);
-
-      if (blob) {
-        downloadBlob(blob, newZipName);
-        setProcessComplete(true);
-      }
+      downloadBlob(blob, newZipName);
+      setProcessComplete(true);
 
       setTimeout(() => {
         setInProgress(false);
       }, 500);
-    } catch (e) {
-      console.error(e);
+    } catch (caughtError) {
+      console.error(caughtError);
       setError("An error occurred during processing");
       setInProgress(false);
     }
   };
 
-  const switchTab = (tab: TabType) => {
-    setActiveTab(tab);
-    setError(null);
-    setProcessComplete(false);
-
-    // If switching to items tab and a file is already selected, analyze it
-    if (tab === "items" && selectedFile && !itemsLoaded) {
-      analyzeItemsInPackage(selectedFile);
-    }
-  };
-
   useEffect(() => {
-    // Reset end index whenever item count changes
     if (itemCount > 0) {
       setEndIndex(itemCount - 1);
     }
@@ -278,13 +215,21 @@ export const ModifyPackagePage: React.FC = () => {
           <h1 className="text-2xl font-bold">QTI Package Modifier</h1>
           <p className="text-citolab-100 mt-1">
             Upgrade or modify your QTI packages. QTI2x to QTI3, reduce file
-            size, select specific items, or upgrade formats
+            size, or select specific items to keep.
           </p>
         </div>
 
         <Tabs
           value={activeTab}
-          onValueChange={(v) => switchTab(v as TabType)}
+          onValueChange={(value) => {
+            const tab = value as TabType;
+            setActiveTab(tab);
+            setError(null);
+            setProcessComplete(false);
+            if (tab === "items" && selectedFile && !itemsLoaded) {
+              void analyzeItemsInPackage(selectedFile);
+            }
+          }}
           className="flex flex-col flex-1"
         >
           <div className="border-b border-gray-200 px-2 pt-2">
@@ -346,7 +291,6 @@ export const ModifyPackagePage: React.FC = () => {
             ) : (
               <div className="space-y-6">
                 {activeTab === "media" ? (
-                  /* Media Removal Options */
                   <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <div className="flex items-center gap-2 mb-4">
                       <Settings className="text-citolab-600" size={20} />
@@ -388,7 +332,6 @@ export const ModifyPackagePage: React.FC = () => {
                     </div>
                   </div>
                 ) : activeTab === "items" ? (
-                  /* Item Selection Options */
                   <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <div className="flex items-center gap-2 mb-4">
                       <BookOpen className="text-citolab-600" size={20} />
@@ -409,7 +352,6 @@ export const ModifyPackagePage: React.FC = () => {
                             <span className="font-semibold">{itemCount}</span>{" "}
                             items (indexed from 0 to {itemCount - 1})
                           </p>
-
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
                               <Label htmlFor="start-index">Start Index</Label>
@@ -417,14 +359,17 @@ export const ModifyPackagePage: React.FC = () => {
                                 id="start-index"
                                 type="number"
                                 value={startIndex}
-                                onChange={(e) => {
-                                  const val = parseInt(e.target.value);
+                                onChange={(event) => {
+                                  const value = Number.parseInt(
+                                    event.target.value,
+                                    10,
+                                  );
                                   if (
-                                    !isNaN(val) &&
-                                    val >= 0 &&
-                                    val <= endIndex
+                                    !Number.isNaN(value) &&
+                                    value >= 0 &&
+                                    value <= endIndex
                                   ) {
-                                    setStartIndex(val);
+                                    setStartIndex(value);
                                   }
                                 }}
                                 min={0}
@@ -437,14 +382,17 @@ export const ModifyPackagePage: React.FC = () => {
                                 id="end-index"
                                 type="number"
                                 value={endIndex}
-                                onChange={(e) => {
-                                  const val = parseInt(e.target.value);
+                                onChange={(event) => {
+                                  const value = Number.parseInt(
+                                    event.target.value,
+                                    10,
+                                  );
                                   if (
-                                    !isNaN(val) &&
-                                    val >= startIndex &&
-                                    val < itemCount
+                                    !Number.isNaN(value) &&
+                                    value >= startIndex &&
+                                    value < itemCount
                                   ) {
-                                    setEndIndex(val);
+                                    setEndIndex(value);
                                   }
                                 }}
                                 min={startIndex}
@@ -452,18 +400,6 @@ export const ModifyPackagePage: React.FC = () => {
                               />
                             </div>
                           </div>
-
-                          <p className="mt-3 text-sm text-gray-600">
-                            You will keep{" "}
-                            <span className="font-semibold">
-                              {endIndex - startIndex + 1}
-                            </span>{" "}
-                            items and remove{" "}
-                            <span className="font-semibold">
-                              {itemCount - (endIndex - startIndex + 1)}
-                            </span>{" "}
-                            items.
-                          </p>
                         </div>
 
                         {processComplete &&
@@ -478,12 +414,12 @@ export const ModifyPackagePage: React.FC = () => {
                                 <p>
                                   Removed {removedItems.length} assessment items
                                 </p>
-                                {removedWebcontent > 0 && (
+                                {removedWebcontent > 0 ? (
                                   <p>
                                     Removed {removedWebcontent} unused
                                     media/webcontent resources
                                   </p>
-                                )}
+                                ) : null}
                                 <p className="font-medium">
                                   New package has been downloaded
                                 </p>
@@ -499,7 +435,7 @@ export const ModifyPackagePage: React.FC = () => {
                         </p>
                         <Button
                           className="mt-3"
-                          onClick={() => analyzeItemsInPackage(selectedFile)}
+                          onClick={() => void analyzeItemsInPackage(selectedFile)}
                         >
                           Analyze Package
                         </Button>
@@ -513,7 +449,6 @@ export const ModifyPackagePage: React.FC = () => {
                     )}
                   </div>
                 ) : (
-                  /* QTI2 to QTI3 Upgrade Options */
                   <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <div className="flex items-center gap-2 mb-4">
                       <ArrowUp className="text-citolab-600" size={20} />
@@ -524,8 +459,7 @@ export const ModifyPackagePage: React.FC = () => {
                     <p className="text-sm text-gray-600 mb-4">
                       Select a QTI2x package to convert it to the QTI3 format.
                     </p>
-
-                    {processComplete && (
+                    {processComplete ? (
                       <Alert variant="success">
                         <CheckCircle className="h-4 w-4" />
                         <AlertTitle>Successfully converted package</AlertTitle>
@@ -538,7 +472,7 @@ export const ModifyPackagePage: React.FC = () => {
                           </p>
                         </AlertDescription>
                       </Alert>
-                    )}
+                    ) : null}
                   </div>
                 )}
 
@@ -583,10 +517,8 @@ export const ModifyPackagePage: React.FC = () => {
                         </span>
                       ) : (
                         <Button
-                          onClick={processFile}
-                          disabled={
-                            !!error || (activeTab === "items" && !itemsLoaded)
-                          }
+                          onClick={() => void processFile()}
+                          disabled={!!error || (activeTab === "items" && !itemsLoaded)}
                         >
                           {activeTab === "upgrade"
                             ? "Convert Package"
@@ -595,23 +527,37 @@ export const ModifyPackagePage: React.FC = () => {
                       )}
                     </div>
 
-                    {error && (
+                    {error ? (
                       <Alert variant="destructive" className="mt-4">
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription>{error}</AlertDescription>
                       </Alert>
-                    )}
+                    ) : null}
                   </div>
                 ) : (
                   <div
-                    className={`
-                    relative rounded-xl transition-all duration-200 
-                    ${isDragging ? "border-2 border-citolab-500 bg-citolab-50" : "border-2 border-dashed border-gray-300 bg-gray-50"} 
-                    ${"hover:border-citolab-400 hover:bg-gray-100"}
-                  `}
-                    onDrop={handleDrop}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
+                    className={`relative rounded-xl transition-all duration-200 ${
+                      isDragging
+                        ? "border-2 border-citolab-500 bg-citolab-50"
+                        : "border-2 border-dashed border-gray-300 bg-gray-50"
+                    } hover:border-citolab-400 hover:bg-gray-100`}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      setIsDragging(false);
+                      const file = event.dataTransfer?.files[0] || null;
+                      setSelectedFile(file);
+                      if (validateFile(file) && activeTab === "items" && file) {
+                        void analyzeItemsInPackage(file);
+                      }
+                    }}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setIsDragging(true);
+                    }}
+                    onDragLeave={(event) => {
+                      event.preventDefault();
+                      setIsDragging(false);
+                    }}
                   >
                     <input
                       id="dropzone-file"
@@ -623,19 +569,16 @@ export const ModifyPackagePage: React.FC = () => {
 
                     <label
                       htmlFor="dropzone-file"
-                      className={`
-                      flex flex-col w-full p-10 cursor-pointer`}
+                      className="flex flex-col w-full p-10 cursor-pointer"
                     >
                       <div className="flex flex-col items-center justify-center text-center">
                         <div
-                          className={`
-                        p-6 mb-4 rounded-full bg-citolab-50 text-citolab-500
-                        ${isDragging ? "animate-pulse" : ""}
-                      `}
+                          className={`p-6 mb-4 rounded-full bg-citolab-50 text-citolab-500 ${
+                            isDragging ? "animate-pulse" : ""
+                          }`}
                         >
                           <Upload className="w-12 h-12" />
                         </div>
-
                         <h3 className="mb-2 text-xl font-semibold text-gray-700">
                           {isDragging
                             ? "Drop to preview"
@@ -645,7 +588,6 @@ export const ModifyPackagePage: React.FC = () => {
                           <span className="font-medium">Click to browse</span>{" "}
                           or drag and drop your QTI ZIP file
                         </p>
-
                         <p className="text-xs text-gray-400">
                           {activeTab === "upgrade"
                             ? "QTI 2.x ZIP files are supported"

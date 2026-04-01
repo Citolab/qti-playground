@@ -2,6 +2,12 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../store/store";
 import { Upload, AlertCircle, X, AlertTriangle, RefreshCw, Lock } from "lucide-react";
+import {
+  convertDocxToQtiPackage,
+  convertPdfToQtiPackage,
+  convertSpreadsheetToQtiPackage,
+  type ProgressEvent,
+} from "@citolab/qti-convert-local-ai";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
@@ -18,12 +24,106 @@ export const PackageUploadZone: React.FC = () => {
 
   const processPackage = useStore((state) => state.processPackage);
 
+  const isAiConvertibleFile = (file: File) => {
+    const lowerName = file.name.toLowerCase();
+    return (
+      lowerName.endsWith(".csv") ||
+      lowerName.endsWith(".xlsx") ||
+      lowerName.endsWith(".xls") ||
+      lowerName.endsWith(".docx") ||
+      lowerName.endsWith(".pdf")
+    );
+  };
+
+  const updateProgressFromEvent = (event: ProgressEvent) => {
+    setInProgress(event.message || "Converting source file...");
+    if (event.stage === "parse_started") {
+      setUploadProgress(5);
+    } else if (event.stage === "parse_completed") {
+      setUploadProgress(15);
+    } else if (event.stage === "llm_loading_started") {
+      setUploadProgress(20);
+    } else if (event.stage === "llm_loading_completed") {
+      setUploadProgress(30);
+    } else if (event.stage === "chunk_started") {
+      setUploadProgress((prev) => Math.max(prev, 35));
+    } else if (event.stage === "chunk_completed") {
+      const data = event.data as
+        | { chunkIndex?: number; chunkCount?: number }
+        | undefined;
+      if (data?.chunkIndex && data?.chunkCount && data.chunkCount > 0) {
+        setUploadProgress(30 + (data.chunkIndex / data.chunkCount) * 45);
+      }
+    } else if (event.stage === "mapping_started") {
+      setUploadProgress((prev) => Math.max(prev, 35));
+    } else if (event.stage === "mapping_completed") {
+      setUploadProgress(75);
+    } else if (event.stage === "generation_started") {
+      setUploadProgress(85);
+    } else if (event.stage === "item_generated") {
+      setUploadProgress(85 + (event.current / event.total) * 10);
+    } else if (event.stage === "package_completed") {
+      setUploadProgress(100);
+    }
+  };
+
+  const convertSourceFileToPackage = async (file: File) => {
+    const lowerName = file.name.toLowerCase();
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "import";
+
+    if (lowerName.endsWith(".docx")) {
+      return await convertDocxToQtiPackage(file, {
+        packageIdentifier: `${baseName}-qti3`,
+        testTitle: baseName || "Document Import",
+        onProgress: updateProgressFromEvent,
+      });
+    }
+
+    if (lowerName.endsWith(".pdf")) {
+      return await convertPdfToQtiPackage(file, {
+        packageIdentifier: `${baseName}-qti3`,
+        testTitle: baseName || "PDF Import",
+        onProgress: updateProgressFromEvent,
+      });
+    }
+
+    return await convertSpreadsheetToQtiPackage(file, {
+      packageIdentifier: `${baseName}-qti3`,
+      testTitle: baseName || "Spreadsheet Import",
+      onProgress: updateProgressFromEvent,
+    });
+  };
+
+  const extractAiConvertibleFileFromZip = async (file: File): Promise<File | null> => {
+    const JSZip = (await import("jszip")).default;
+    const zip = await JSZip.loadAsync(file);
+    const candidates = Object.values(zip.files).filter((entry) => {
+      if (entry.dir) {
+        return false;
+      }
+      const lowerName = entry.name.toLowerCase();
+      return (
+        lowerName.endsWith(".csv") ||
+        lowerName.endsWith(".xlsx") ||
+        lowerName.endsWith(".xls") ||
+        lowerName.endsWith(".docx") ||
+        lowerName.endsWith(".pdf")
+      );
+    });
+
+    if (candidates.length !== 1) {
+      return null;
+    }
+
+    const entry = candidates[0];
+    const blob = await entry.async("blob");
+    const fileName = entry.name.split("/").pop() || entry.name;
+    return new File([blob], fileName, { type: blob.type || undefined });
+  };
+
   const handleFileSelected = async (file: File | null, skipValidation = false) => {
     if (!file) return;
-    if (!file.name.endsWith(".zip")) {
-      setError("Only .zip files are allowed.");
-      return;
-    }
+
     setError("");
     setInProgress("Processing...");
     setUploadProgress(0);
@@ -31,14 +131,69 @@ export const PackageUploadZone: React.FC = () => {
     setShowValidationDetails(false);
 
     try {
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          const next = prev + Math.random() * 10;
-          return next > 90 ? 90 : next;
+      let packageFile = file;
+
+      if (!file.name.toLowerCase().endsWith(".zip")) {
+        if (!isAiConvertibleFile(file)) {
+          setError(
+            "This file is not a QTI ZIP package. Supported fallback formats are CSV, XLSX, XLS, DOCX and PDF.",
+          );
+          setInProgress("");
+          setUploadProgress(0);
+          return;
+        }
+
+        setInProgress("Trying AI conversion for non-QTI source...");
+        const converted = await convertSourceFileToPackage(file);
+        packageFile = new File([converted.packageBlob], converted.packageName, {
+          type: "application/zip",
         });
-      }, 300);
-      const result = await processPackage(file, { removeStylesheets: false, skipValidation });
-      clearInterval(progressInterval);
+        setInProgress("Opening converted QTI package...");
+        setUploadProgress(95);
+      } else {
+        const progressInterval = setInterval(() => {
+          setUploadProgress((prev) => {
+            const next = prev + Math.random() * 10;
+            return next > 90 ? 90 : next;
+          });
+        }, 300);
+
+        try {
+          const result = await processPackage(packageFile, {
+            removeStylesheets: false,
+            skipValidation,
+          });
+          clearInterval(progressInterval);
+          setUploadProgress(100);
+          setInProgress("");
+
+          if (result?.importErrors?.length > 0) {
+            setValidationErrors(result.importErrors);
+          }
+          navigate("/package");
+          return;
+        } catch (caughtError) {
+          clearInterval(progressInterval);
+          setInProgress("Package did not look like QTI. Inspecting ZIP for AI-importable source...");
+          setUploadProgress(92);
+
+          const extractedSource = await extractAiConvertibleFileFromZip(file);
+          if (!extractedSource) {
+            throw caughtError;
+          }
+
+          setInProgress("Trying AI conversion from source file inside ZIP...");
+          const converted = await convertSourceFileToPackage(extractedSource);
+          packageFile = new File([converted.packageBlob], converted.packageName, {
+            type: "application/zip",
+          });
+        }
+      }
+
+      const result = await processPackage(packageFile, {
+        removeStylesheets: false,
+        skipValidation,
+      });
       setUploadProgress(100);
       setInProgress("");
 
@@ -95,7 +250,7 @@ export const PackageUploadZone: React.FC = () => {
           type="file"
           className="hidden"
           onChange={(e) => handleFileSelected(e.target.files?.[0] ?? null)}
-          accept=".zip"
+          accept=".zip,.csv,.xlsx,.xls,.docx,.pdf"
         />
         <label
           htmlFor="dropzone-file"
@@ -110,14 +265,17 @@ export const PackageUploadZone: React.FC = () => {
               <Upload className="w-12 h-12" />
             </div>
             <h3 className="mb-2 text-xl font-semibold text-gray-700">
-              {isDragging ? "Drop to upload" : "Select QTI Package"}
+              {isDragging ? "Drop to upload" : "Select file"}
             </h3>
             <p className="mb-4 text-sm text-gray-500">
-              <span className="font-medium">Click to browse</span> or drag and drop your QTI ZIP file
+              <span className="font-medium">Click to browse</span> or drag and drop your QTI ZIP, CSV, Excel, DOCX or PDF file
             </p>
             <div className="flex flex-wrap justify-center gap-2 text-xs text-gray-400">
               <span className="inline-flex items-center gap-1">
                 <RefreshCw className="w-3 h-3" /> QTI 2.x auto-converted to QTI 3
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <RefreshCw className="w-3 h-3" /> Non-QTI source files try AI conversion first
               </span>
               <span className="inline-flex items-center gap-1">
                 <Lock className="w-3 h-3" /> 100% local — files never leave your browser
