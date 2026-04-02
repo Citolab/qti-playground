@@ -22,10 +22,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Lightning CSS Linux binary
+      - name: Install Linux native dependencies omitted by npm optional dependency resolution
         run: |
           LIGHTNINGCSS_VERSION=$(node -p "require('./node_modules/lightningcss/package.json').optionalDependencies['lightningcss-linux-x64-gnu']")
-          npm install --no-save "lightningcss-linux-x64-gnu@${LIGHTNINGCSS_VERSION}"
+          TAILWIND_OXIDE_VERSION=$(node -p "require('./node_modules/@tailwindcss/oxide/package.json').optionalDependencies['@tailwindcss/oxide-linux-x64-gnu']")
+          npm install --no-save "lightningcss-linux-x64-gnu@${LIGHTNINGCSS_VERSION}" "@tailwindcss/oxide-linux-x64-gnu@${TAILWIND_OXIDE_VERSION}"
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
