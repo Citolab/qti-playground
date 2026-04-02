@@ -23,7 +23,9 @@ jobs:
         run: npm ci
 
       - name: Install Lightning CSS Linux binary
-        run: npm install --no-save "lightningcss-linux-x64-gnu@$(node -p \"require('./node_modules/lightningcss/package.json').optionalDependencies['lightningcss-linux-x64-gnu']\")"
+        run: |
+          LIGHTNINGCSS_VERSION=$(node -p "require('./node_modules/lightningcss/package.json').optionalDependencies['lightningcss-linux-x64-gnu']")
+          npm install --no-save "lightningcss-linux-x64-gnu@${LIGHTNINGCSS_VERSION}"
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
