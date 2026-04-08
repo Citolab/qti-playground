@@ -2,9 +2,12 @@ import { StrictMode } from "react";
 import { BrowserRouter } from "react-router-dom";
 import * as ReactDOM from "react-dom/client";
 import "@citolab/qti-components";
+import { GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 import "./app/dep-tools-register";
 
 import App from "./app/app";
+
+GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL}pdf.worker.mjs`;
 
 // qti-components test navigation initializes QTI_CONTEXT.environmentIdentifier with "default".
 // In assessment mode this can override item-level qti-context-declaration defaults (e.g. CONFORMANCE),

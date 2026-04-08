@@ -37,6 +37,32 @@ const qtiComponentsVersion = normalizeDependencyVersion(
   appPackageJson.dependencies?.["@citolab/qti-components"],
 );
 const qtiComponentsRoot = resolveInstalledPackageRoot("@citolab/qti-components");
+const pdfWorkerSourcePath = path.join(
+  dirname,
+  "node_modules",
+  "pdfjs-dist",
+  "legacy",
+  "build",
+  "pdf.worker.mjs",
+);
+const pdfWorkerTargetPath = path.join(dirname, "public", "pdf.worker.mjs");
+
+function ensurePdfWorkerAsset(): void {
+  if (!fs.existsSync(pdfWorkerSourcePath)) {
+    return;
+  }
+
+  fs.mkdirSync(path.dirname(pdfWorkerTargetPath), { recursive: true });
+
+  const source = fs.readFileSync(pdfWorkerSourcePath);
+  const target = fs.existsSync(pdfWorkerTargetPath)
+    ? fs.readFileSync(pdfWorkerTargetPath)
+    : null;
+
+  if (!target || !source.equals(target)) {
+    fs.writeFileSync(pdfWorkerTargetPath, source);
+  }
+}
 
 function spaHtmlFallbackForPackageRoute(): Plugin {
   // In dev, `GET /package` can sometimes be served as `package.json` (Vite JSON-as-ESM),
@@ -111,6 +137,15 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [
+      {
+        name: "qti-playground-pdf-worker-asset",
+        buildStart() {
+          ensurePdfWorkerAsset();
+        },
+        configureServer() {
+          ensurePdfWorkerAsset();
+        },
+      },
       spaHtmlFallbackForPackageRoute(),
       localQtiComponentsAssets(),
       react(),
