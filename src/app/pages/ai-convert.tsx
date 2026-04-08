@@ -494,7 +494,7 @@ export const AiConvertPage: React.FC = () => {
                         setExtraInstructions(event.target.value)
                       }
                       className="min-h-32 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                      placeholder="Optional notes for the local model, for example expected question style or formatting hints."
+                      placeholder="Help the model detect questions by describing the format. For example:&#10;• 'This document contains N questions numbered 1 to N'&#10;• 'Questions start with a number followed by a period'&#10;• 'Each question is preceded by point values like 2p or 3p'"
                     />
                   </div>
                   <p className="text-xs text-gray-500">
@@ -506,6 +506,19 @@ export const AiConvertPage: React.FC = () => {
                     Imported source content stays in the browser during
                     conversion and is not sent to our server.
                   </p>
+                  <Alert className="border-amber-200 bg-amber-50">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <AlertTitle className="text-amber-900">
+                      Local AI model performance
+                    </AlertTitle>
+                    <AlertDescription className="text-amber-800 text-xs">
+                      Running AI models locally in your browser is
+                      resource-intensive and may significantly impact your
+                      computer's performance. Processing files like PDFs or DOCX
+                      documents can take several minutes and will utilize
+                      substantial CPU and memory resources.
+                    </AlertDescription>
+                  </Alert>
                   <div className="border-t border-gray-200 pt-4 space-y-3">
                     <div className="flex items-start gap-3">
                       <Checkbox
@@ -610,6 +623,23 @@ export const AiConvertPage: React.FC = () => {
                     browser and the uploaded content is not sent to a server.
                     This remains experimental and there is no guarantee that the
                     source will be converted correctly.
+                  </p>
+                  <Alert className="mt-4 border-amber-200 bg-amber-50">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <AlertTitle className="text-amber-900 text-sm">
+                      Performance notice
+                    </AlertTitle>
+                    <AlertDescription className="text-amber-800 text-xs">
+                      Local AI processing may take several minutes for PDF or
+                      DOCX files and will use significant CPU and memory
+                      resources on your computer.
+                    </AlertDescription>
+                  </Alert>
+                  <p className="mt-3 text-xs text-gray-500">
+                    <strong>Tip:</strong> If not all questions are detected, use
+                    the Settings button to add extra instructions describing the
+                    question format (e.g., how questions are numbered or
+                    structured).
                   </p>
                 </div>
               ) : (
