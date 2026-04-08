@@ -364,7 +364,9 @@ export const AiConvertPage: React.FC = () => {
         "The Google Form could not be converted to a QTI package.",
       );
       if (!result.packageName) {
-        throw new Error("The Google Form conversion did not return a package name.");
+        throw new Error(
+          "The Google Form conversion did not return a package name.",
+        );
       }
       setSummary(result.summary);
       setDownloadBlobState(packageBlob);
