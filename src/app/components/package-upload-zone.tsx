@@ -2,33 +2,10 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../store/store";
 import { Upload, AlertCircle, X, AlertTriangle, RefreshCw, Lock } from "lucide-react";
-import {
-  convertDocxToQtiPackage,
-  convertPdfToQtiPackage,
-  convertSpreadsheetToQtiPackage,
-  type ProgressEvent,
-} from "@citolab/qti-convert-local-ai";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Terms } from "./terms";
-
-const getGeneratedPackageFile = (
-  converted: {
-    packageBlob?: Blob;
-    packageName?: string;
-    reason?: string;
-    processable?: boolean;
-  },
-) => {
-  if (converted.processable === false || !converted.packageBlob || !converted.packageName) {
-    throw new Error(converted.reason || "This uploaded file cannot be converted to a QTI package.");
-  }
-
-  return new File([converted.packageBlob], converted.packageName, {
-    type: "application/zip",
-  });
-};
 
 export const PackageUploadZone: React.FC = () => {
   const navigate = useNavigate();
@@ -52,66 +29,9 @@ export const PackageUploadZone: React.FC = () => {
     );
   };
 
-  const updateProgressFromEvent = (event: ProgressEvent) => {
-    setInProgress(event.message || "Converting source file...");
-    if (event.stage === "parse_started") {
-      setUploadProgress(5);
-    } else if (event.stage === "parse_completed") {
-      setUploadProgress(15);
-    } else if (event.stage === "llm_loading_started") {
-      setUploadProgress(20);
-    } else if (event.stage === "llm_loading_completed") {
-      setUploadProgress(30);
-    } else if (event.stage === "chunk_started") {
-      setUploadProgress((prev) => Math.max(prev, 35));
-    } else if (event.stage === "chunk_completed") {
-      const data = event.data as
-        | { chunkIndex?: number; chunkCount?: number }
-        | undefined;
-      if (data?.chunkIndex && data?.chunkCount && data.chunkCount > 0) {
-        setUploadProgress(30 + (data.chunkIndex / data.chunkCount) * 45);
-      }
-    } else if (event.stage === "mapping_started") {
-      setUploadProgress((prev) => Math.max(prev, 35));
-    } else if (event.stage === "mapping_completed") {
-      setUploadProgress(75);
-    } else if (event.stage === "generation_started") {
-      setUploadProgress(85);
-    } else if (event.stage === "item_generated") {
-      setUploadProgress(85 + (event.current / event.total) * 10);
-    } else if (event.stage === "package_completed") {
-      setUploadProgress(100);
-    }
-  };
-
-  const convertSourceFileToPackage = async (file: File) => {
-    const lowerName = file.name.toLowerCase();
-    const baseName = file.name.replace(/\.[^.]+$/, "") || "import";
-
-    if (lowerName.endsWith(".docx")) {
-      return await convertDocxToQtiPackage(file, {
-        packageIdentifier: `${baseName}-qti3`,
-        testTitle: baseName || "Document Import",
-        onProgress: updateProgressFromEvent,
-      });
-    }
-
-    if (lowerName.endsWith(".pdf")) {
-      return await convertPdfToQtiPackage(file, {
-        packageIdentifier: `${baseName}-qti3`,
-        testTitle: baseName || "PDF Import",
-        onProgress: updateProgressFromEvent,
-      });
-    }
-
-    return await convertSpreadsheetToQtiPackage(file, {
-      packageIdentifier: `${baseName}-qti3`,
-      testTitle: baseName || "Spreadsheet Import",
-      onProgress: updateProgressFromEvent,
-    });
-  };
-
-  const extractAiConvertibleFileFromZip = async (file: File): Promise<File | null> => {
+  const extractAiConvertibleFileFromZip = async (
+    file: File,
+  ): Promise<File | null> => {
     const JSZip = (await import("jszip")).default;
     const zip = await JSZip.loadAsync(file);
     const candidates = Object.values(zip.files).filter((entry) => {
@@ -138,34 +58,38 @@ export const PackageUploadZone: React.FC = () => {
     return new File([blob], fileName, { type: blob.type || undefined });
   };
 
-  const handleFileSelected = async (file: File | null, skipValidation = false) => {
+  const handleFileSelected = async (
+    file: File | null,
+    skipValidation = false,
+  ) => {
     if (!file) return;
 
     setError("");
-    setInProgress("Processing...");
-    setUploadProgress(0);
     setValidationErrors([]);
     setShowValidationDetails(false);
 
     try {
-      let packageFile = file;
+      const packageFile = file;
 
       if (!file.name.toLowerCase().endsWith(".zip")) {
         if (!isAiConvertibleFile(file)) {
           setError(
             "This file is not a QTI ZIP package. Supported fallback formats are CSV, XLSX, XLS, DOCX and PDF.",
           );
-          setInProgress("");
-          setUploadProgress(0);
           return;
         }
 
-        setInProgress("Trying AI conversion for non-QTI source...");
-        const converted = await convertSourceFileToPackage(file);
-        packageFile = getGeneratedPackageFile(converted);
-        setInProgress("Opening converted QTI package...");
-        setUploadProgress(95);
+        navigate("/ai-convert", {
+          state: {
+            redirectedFile: file,
+            autoStart: true,
+            redirectReason: "non-qti-source",
+          },
+        });
+        return;
       } else {
+        setInProgress("Processing...");
+        setUploadProgress(0);
         const progressInterval = setInterval(() => {
           setUploadProgress((prev) => {
             const next = prev + Math.random() * 10;
@@ -189,7 +113,9 @@ export const PackageUploadZone: React.FC = () => {
           return;
         } catch (caughtError) {
           clearInterval(progressInterval);
-          setInProgress("Package did not look like QTI. Inspecting ZIP for AI-importable source...");
+          setInProgress(
+            "Package did not look like QTI. Inspecting ZIP for AI-importable source...",
+          );
           setUploadProgress(92);
 
           const extractedSource = await extractAiConvertibleFileFromZip(file);
@@ -197,23 +123,17 @@ export const PackageUploadZone: React.FC = () => {
             throw caughtError;
           }
 
-          setInProgress("Trying AI conversion from source file inside ZIP...");
-          const converted = await convertSourceFileToPackage(extractedSource);
-          packageFile = getGeneratedPackageFile(converted);
+          navigate("/ai-convert", {
+            state: {
+              redirectedFile: extractedSource,
+              autoStart: true,
+              redirectReason: "zip-contained-source",
+              originalFileName: file.name,
+            },
+          });
+          return;
         }
       }
-
-      const result = await processPackage(packageFile, {
-        removeStylesheets: false,
-        skipValidation,
-      });
-      setUploadProgress(100);
-      setInProgress("");
-
-      if (result?.importErrors?.length > 0) {
-        setValidationErrors(result.importErrors);
-      }
-      navigate("/package");
     } catch (e) {
       setError(e instanceof Error ? e.message : "An error occurred during processing.");
       setInProgress("");

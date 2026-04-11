@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   DEFAULT_WEB_LLM_MODEL,
   type ConversionIssue,
@@ -21,6 +21,9 @@ import {
   Upload,
   WandSparkles,
   X,
+  Cpu,
+  FileArchive,
+  ScanText,
 } from "lucide-react";
 import { Terms } from "../components/terms";
 import { useStore } from "../store/store";
@@ -40,6 +43,40 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type SourceMode = "file" | "google-form";
+
+type AiConvertNavigationState = {
+  redirectedFile?: File;
+  autoStart?: boolean;
+  redirectReason?: "non-qti-source" | "zip-contained-source";
+  originalFileName?: string;
+};
+
+const FILE_EXPLANATION_STEPS = [
+  {
+    icon: FileText,
+    title: "We read the source locally",
+    description:
+      "Your file stays in the browser while we extract text, structure, and likely question boundaries.",
+  },
+  {
+    icon: ScanText,
+    title: "We normalize it into page-like chunks",
+    description:
+      "PDFs are parsed directly, while DOCX and spreadsheet content is reshaped into chunked sections the converter can inspect consistently.",
+  },
+  {
+    icon: Cpu,
+    title: "The local LLM maps content to QTI",
+    description:
+      "When deterministic rules are not enough, a browser-hosted model infers prompts, options, and item structure from each chunk.",
+  },
+  {
+    icon: FileArchive,
+    title: "We build a downloadable QTI package",
+    description:
+      "Generated items are assembled into a QTI3 ZIP so you can download it or open it immediately in the player.",
+  },
+];
 
 const downloadBlob = (blob: Blob, filename: string) => {
   const url = URL.createObjectURL(blob);
@@ -116,6 +153,8 @@ const ensureGeneratedPackage = (
 
 export const AiConvertPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const navigationState = (location.state ?? {}) as AiConvertNavigationState;
   const processPackage = useStore((state) => state.processPackage);
   const [sourceMode, setSourceMode] = useState<SourceMode>("file");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -138,7 +177,12 @@ export const AiConvertPage: React.FC = () => {
   const [extraInstructions, setExtraInstructions] = useState("");
   const [usePublicProxy, setUsePublicProxy] = useState(true);
   const [proxyBaseUrl, setProxyBaseUrl] = useState(
-    "https://corsproxy.io/?url=",
+    "https://spring-bread-090e.getinspiredbycitolab.workers.dev/?url=",
+  );
+  const [visibleExplanationCount, setVisibleExplanationCount] = useState(1);
+  const redirectedFileHandledRef = useRef(false);
+  const processFileRef = useRef<(fileOverride?: File) => Promise<void>>(
+    async () => undefined,
   );
 
   const renderSummaryIssues = (
@@ -182,6 +226,22 @@ export const AiConvertPage: React.FC = () => {
     setStatusMessage("");
     setUploadProgress(0);
   };
+
+  useEffect(() => {
+    if (!inProgress) {
+      setVisibleExplanationCount(1);
+      return;
+    }
+
+    setVisibleExplanationCount(1);
+    const interval = window.setInterval(() => {
+      setVisibleExplanationCount((count) =>
+        count < FILE_EXPLANATION_STEPS.length ? count + 1 : count,
+      );
+    }, 1300);
+
+    return () => window.clearInterval(interval);
+  }, [inProgress]);
 
   const validateFile = (file: File | null) => {
     if (!file) {
@@ -260,8 +320,9 @@ export const AiConvertPage: React.FC = () => {
     initProgressCallback: updateInitProgress,
   };
 
-  const processFile = async () => {
-    if (!selectedFile || !validateFile(selectedFile)) {
+  const processFile = async (fileOverride?: File) => {
+    const fileToProcess = fileOverride ?? selectedFile;
+    if (!fileToProcess || !validateFile(fileToProcess)) {
       return;
     }
 
@@ -269,25 +330,25 @@ export const AiConvertPage: React.FC = () => {
       resetResultState();
       setInProgress(true);
 
-      const lowerName = selectedFile.name.toLowerCase();
+      const lowerName = fileToProcess.name.toLowerCase();
       const newName =
-        selectedFile.name.substring(0, selectedFile.name.lastIndexOf(".")) ||
+        fileToProcess.name.substring(0, fileToProcess.name.lastIndexOf(".")) ||
         "import";
       const result = lowerName.endsWith(".docx")
-        ? await convertDocxToQtiPackage(selectedFile, {
+        ? await convertDocxToQtiPackage(fileToProcess, {
             packageIdentifier: newName || "document-qti3",
             testTitle: newName || "Document Import",
             llmSettings,
             onProgress: updateProgressFromEvent,
           })
         : lowerName.endsWith(".pdf")
-          ? await convertPdfToQtiPackage(selectedFile, {
+          ? await convertPdfToQtiPackage(fileToProcess, {
               packageIdentifier: newName || "document-qti3",
               testTitle: newName || "PDF Import",
               llmSettings,
               onProgress: updateProgressFromEvent,
             })
-          : await convertSpreadsheetToQtiPackage(selectedFile, {
+          : await convertSpreadsheetToQtiPackage(fileToProcess, {
               packageIdentifier: newName || "spreadsheet-qti3",
               testTitle: newName || "Spreadsheet Import",
               llmSettings,
@@ -320,6 +381,29 @@ export const AiConvertPage: React.FC = () => {
       setInProgress(false);
     }
   };
+
+  processFileRef.current = processFile;
+
+  useEffect(() => {
+    const redirectedFile = navigationState.redirectedFile;
+    if (!redirectedFile || redirectedFileHandledRef.current) {
+      return;
+    }
+
+    redirectedFileHandledRef.current = true;
+    setSourceMode("file");
+    setSelectedFile(redirectedFile);
+    resetResultState();
+    setError(null);
+
+    if (navigationState.autoStart) {
+      window.setTimeout(() => {
+        void processFileRef.current(redirectedFile);
+      }, 0);
+    }
+
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, navigate, navigationState]);
 
   const processGoogleForm = async () => {
     const trimmedUrl = normalizeGoogleFormUrl(googleFormUrl);
@@ -442,28 +526,38 @@ export const AiConvertPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center min-h-screen bg-linear-to-br from-slate-50 via-citolab-50/20 to-citolab-teal-50/20 p-4">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-citolab-50/20 to-citolab-teal-50/20 px-4 py-6 lg:px-8 lg:py-10">
       <div
-        className="max-w-3xl w-full bg-white rounded-xl shadow-md overflow-hidden"
+        className="mx-auto w-full max-w-6xl overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.14)]"
         style={{ minHeight: "80vh" }}
       >
-        <div className="bg-linear-to-r from-citolab-700 to-citolab-teal-700 text-white p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
+        <div className="bg-linear-to-r from-citolab-700 via-citolab-700 to-citolab-teal-700 px-6 py-7 text-white lg:px-10 lg:py-9">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-2 inline-flex items-center rounded-full bg-white/12 px-3 py-1 text-xs font-medium tracking-wide text-citolab-50">
+                Experimental Local Conversion
+              </div>
+              <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
                 <Sparkles className="h-6 w-6" />
                 Convert
               </h1>
-              <p className="text-citolab-100 mt-1">
+              <p className="mt-3 text-base leading-7 text-citolab-100 lg:text-xl">
                 Best-effort experimental conversion from files or links into
                 downloadable QTI3 packages, processed locally in your browser.
               </p>
+              {navigationState.redirectReason ? (
+                <p className="mt-4 inline-flex rounded-full bg-white/12 px-3 py-1 text-xs text-citolab-50">
+                  {navigationState.redirectReason === "zip-contained-source"
+                    ? `A source file was detected inside ${navigationState.originalFileName || "the uploaded ZIP"} and sent here for AI conversion.`
+                    : "A non-QTI source file was detected and sent here for AI conversion."}
+                </p>
+              ) : null}
             </div>
             <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
               <DialogTrigger asChild>
                 <Button
                   variant="secondary"
-                  className="bg-white/10 text-white hover:bg-white/20 border-white/20"
+                  className="self-start border-white/20 bg-white/10 text-white hover:bg-white/20"
                 >
                   <Settings className="h-4 w-4 mr-2" />
                   Settings
@@ -560,7 +654,7 @@ export const AiConvertPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="space-y-8 px-6 py-6 lg:px-10 lg:py-8">
           <Tabs
             value={sourceMode}
             onValueChange={(value) => {
@@ -569,7 +663,7 @@ export const AiConvertPage: React.FC = () => {
             }}
             className="space-y-4"
           >
-            <TabsList className="grid grid-cols-2 w-full max-w-md">
+            <TabsList className="grid w-full max-w-2xl grid-cols-2 rounded-2xl border border-gray-200 bg-gray-100/80 p-1.5">
               <TabsTrigger value="file" className="gap-2">
                 <Upload className="h-4 w-4" />
                 File import
@@ -582,67 +676,419 @@ export const AiConvertPage: React.FC = () => {
           </Tabs>
 
           {inProgress ? (
-            <div className="flex flex-col py-10">
-              <div className="w-16 h-16 mb-4 rounded-full bg-citolab-50 flex items-center justify-center">
+            <div className="flex flex-col rounded-3xl border border-gray-200 bg-white/80 p-6 shadow-sm lg:p-8">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-citolab-50">
                 <WandSparkles className="h-8 w-8 text-citolab-600" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              <h3 className="mb-2 text-2xl font-semibold text-gray-700">
                 {sourceMode === "file"
                   ? "Converting source file"
                   : "Importing from link"}
               </h3>
-              <p className="text-sm text-gray-500 mb-6">
+              <p className="mb-6 max-w-3xl text-sm text-gray-500">
                 {statusMessage ||
                   (sourceMode === "file"
                     ? "Please wait while the source file is analyzed and converted into QTI3."
                     : "Please wait while the Google Form is fetched and converted into QTI3.")}
               </p>
-              <Progress
-                value={uploadProgress}
-                className="w-full max-w-md mb-2"
-              />
+              <Progress value={uploadProgress} className="mb-2 w-full" />
               <p className="text-sm text-muted-foreground">
                 {Math.round(uploadProgress)}% complete
               </p>
+              {sourceMode === "file" ? (
+                <Alert className="mt-6 rounded-2xl border-amber-200 bg-amber-50 shadow-sm">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <AlertTitle className="text-amber-900 text-sm">
+                    Performance notice
+                  </AlertTitle>
+                  <AlertDescription className="text-amber-800 text-xs">
+                    Local AI processing may take several minutes for PDF or
+                    DOCX files and will use significant CPU and memory
+                    resources on your computer.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+              {sourceMode === "file" ? (
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  {FILE_EXPLANATION_STEPS.map((step, index) => {
+                    const Icon = step.icon;
+                    const visible = index < visibleExplanationCount;
+                    return (
+                      <div
+                        key={step.title}
+                        className={`rounded-lg border p-4 transition-all duration-500 ${
+                          visible
+                            ? "translate-y-0 opacity-100 border-citolab-200 bg-citolab-50/60"
+                            : "translate-y-2 opacity-0 border-gray-200 bg-white"
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="rounded-full bg-white p-2 shadow-xs">
+                            <Icon className="h-4 w-4 text-citolab-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {step.title}
+                            </p>
+                            <p className="mt-1 text-xs text-gray-600">
+                              {step.description}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-6">
               {sourceMode === "file" ? (
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Sparkles className="text-citolab-600" size={20} />
-                    <h2 className="text-lg font-semibold text-gray-800">
-                      File import
-                    </h2>
+                <div className="grid gap-8 xl:grid-cols-[minmax(0,1.5fr)_minmax(360px,0.95fr)] xl:items-start">
+                  <div className="space-y-4">
+                    {selectedFile ? (
+                      <div className="rounded-3xl border border-gray-200 bg-gray-50/80 p-5 shadow-sm lg:p-6">
+                        <div className="mb-5 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <FileText className="text-citolab-600" size={20} />
+                            <h2 className="text-lg font-semibold text-gray-800">
+                              Selected file
+                            </h2>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={clearSelection}
+                            className="text-gray-500"
+                          >
+                            <X size={20} />
+                          </Button>
+                        </div>
+
+                        <div className="grid gap-5 rounded-2xl border border-gray-200 bg-white p-5">
+                          <div className="flex items-start gap-4">
+                            <div className="rounded-2xl bg-citolab-50 p-3">
+                              <FileText
+                                className="text-citolab-600"
+                                size={24}
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-lg font-semibold text-gray-800 break-words">
+                                {selectedFile.name}
+                              </p>
+                              <p className="mt-1 text-sm text-gray-500">
+                                {(selectedFile.size / (1024 * 1024)).toFixed(2)}{" "}
+                                MB
+                              </p>
+                              {processComplete && convertedPackageFile ? (
+                                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                                  <Button
+                                    className="sm:min-w-52"
+                                    onClick={() => {
+                                      if (
+                                        downloadBlobState &&
+                                        downloadFileName
+                                      ) {
+                                        downloadBlob(
+                                          downloadBlobState,
+                                          downloadFileName,
+                                        );
+                                      }
+                                    }}
+                                  >
+                                    <Upload className="w-4 h-4 mr-2" />
+                                    Download QTI package
+                                  </Button>
+                                  <Button
+                                    className="sm:min-w-52"
+                                    onClick={() =>
+                                      void startConvertedAssessment()
+                                    }
+                                  >
+                                    <Play className="w-4 h-4 mr-2" />
+                                    Start Assessment
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  className="mt-4 w-full sm:w-auto sm:min-w-44"
+                                  onClick={() => void processFile()}
+                                >
+                                  Convert file
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className={`relative overflow-hidden rounded-3xl border-2 transition-all duration-200 ${
+                          isDragging
+                            ? "border-citolab-500 bg-citolab-50"
+                            : "border-dashed border-gray-300 bg-linear-to-br from-gray-50 to-white"
+                        } hover:border-citolab-400 hover:bg-gray-100`}
+                        onDrop={onDrop}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          setIsDragging(true);
+                        }}
+                        onDragLeave={(event) => {
+                          event.preventDefault();
+                          setIsDragging(false);
+                        }}
+                      >
+                        <input
+                          id="ai-convert-file"
+                          type="file"
+                          className="hidden"
+                          onChange={onFileChange}
+                          accept=".csv,.xlsx,.xls,.docx,.pdf"
+                        />
+                        <label
+                          htmlFor="ai-convert-file"
+                          className="flex w-full cursor-pointer flex-col p-8 sm:p-10 lg:p-12"
+                        >
+                          <div className="flex flex-col items-center justify-center text-center">
+                            <div
+                              className={`mb-5 rounded-full bg-citolab-50 p-5 text-citolab-500 ${
+                                isDragging ? "animate-pulse" : ""
+                              }`}
+                            >
+                              <Upload className="w-10 h-10" />
+                            </div>
+                            <h3 className="mb-2 text-2xl font-semibold text-gray-700">
+                              {isDragging
+                                ? "Drop to convert"
+                                : "Select CSV, Excel, DOCX, or PDF file"}
+                            </h3>
+                            <p className="mb-4 max-w-2xl text-sm text-gray-500">
+                              <span className="font-medium">
+                                Click to browse
+                              </span>{" "}
+                              or drag and drop your source file
+                            </p>
+                            <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-gray-500">
+                              <span className="rounded-full bg-white px-3 py-1 ring-1 ring-gray-200">
+                                CSV
+                              </span>
+                              <span className="rounded-full bg-white px-3 py-1 ring-1 ring-gray-200">
+                                XLSX
+                              </span>
+                              <span className="rounded-full bg-white px-3 py-1 ring-1 ring-gray-200">
+                                XLS
+                              </span>
+                              <span className="rounded-full bg-white px-3 py-1 ring-1 ring-gray-200">
+                                DOCX
+                              </span>
+                              <span className="rounded-full bg-white px-3 py-1 ring-1 ring-gray-200">
+                                PDF
+                              </span>
+                            </div>
+                            <p className="mt-4 text-xs text-gray-400">
+                              * By uploading you agree to our Terms and
+                              Conditions.
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+
+                    {summary ? (
+                      <div className="space-y-3 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm lg:p-6">
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="text-sm font-semibold text-gray-800">
+                            Conversion summary
+                          </h3>
+                          <Dialog
+                            open={summaryDetailsOpen}
+                            onOpenChange={setSummaryDetailsOpen}
+                          >
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                Show details
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-3xl">
+                              <DialogHeader>
+                                <DialogTitle>
+                                  Conversion summary details
+                                </DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-6">
+                                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                                  <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                                      Total questions
+                                    </p>
+                                    <p className="mt-1 text-lg font-semibold text-gray-900">
+                                      {summary.totalQuestions}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                                      Generated items
+                                    </p>
+                                    <p className="mt-1 text-lg font-semibold text-gray-900">
+                                      {summary.generatedItems}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                                      Skipped items
+                                    </p>
+                                    <p className="mt-1 text-lg font-semibold text-gray-900">
+                                      {summary.skippedItems}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+                                    <p className="text-xs font-medium uppercase tracking-wide text-amber-700">
+                                      Warnings
+                                    </p>
+                                    <p className="mt-1 text-lg font-semibold text-amber-950">
+                                      {summary.warnings.length}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-md border border-red-200 bg-red-50 p-3">
+                                    <p className="text-xs font-medium uppercase tracking-wide text-red-700">
+                                      Errors
+                                    </p>
+                                    <p className="mt-1 text-lg font-semibold text-red-950">
+                                      {summary.errors.length}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <section className="space-y-3">
+                                  <h4 className="text-sm font-semibold text-gray-900">
+                                    Warnings
+                                  </h4>
+                                  {renderSummaryIssues(
+                                    summary.warnings,
+                                    "No warnings were reported.",
+                                    "warning",
+                                  )}
+                                </section>
+
+                                <section className="space-y-3">
+                                  <h4 className="text-sm font-semibold text-gray-900">
+                                    Errors
+                                  </h4>
+                                  {renderSummaryIssues(
+                                    summary.errors,
+                                    "No errors were reported.",
+                                    "error",
+                                  )}
+                                </section>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                              Total questions
+                            </p>
+                            <p className="mt-1 text-lg font-semibold text-gray-900">
+                              {summary.totalQuestions}
+                            </p>
+                          </div>
+                          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                              Generated items
+                            </p>
+                            <p className="mt-1 text-lg font-semibold text-gray-900">
+                              {summary.generatedItems}
+                            </p>
+                          </div>
+                          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                              Skipped items
+                            </p>
+                            <p className="mt-1 text-lg font-semibold text-gray-900">
+                              {summary.skippedItems}
+                            </p>
+                          </div>
+                          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3">
+                            <p className="text-xs font-medium uppercase tracking-wide text-amber-700">
+                              Warnings
+                            </p>
+                            <p className="mt-1 text-lg font-semibold text-amber-950">
+                              {summary.warnings.length}
+                            </p>
+                          </div>
+                          <div className="rounded-2xl border border-red-200 bg-red-50 p-3">
+                            <p className="text-xs font-medium uppercase tracking-wide text-red-700">
+                              Errors
+                            </p>
+                            <p className="mt-1 text-lg font-semibold text-red-950">
+                              {summary.errors.length}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {!processComplete ? (
+                      <Alert className="rounded-2xl border-amber-200 bg-amber-50 shadow-sm">
+                        <AlertCircle className="h-4 w-4 text-amber-600" />
+                        <AlertTitle className="text-amber-900 text-sm">
+                          Performance notice
+                        </AlertTitle>
+                        <AlertDescription className="text-amber-800 text-xs">
+                          Local AI processing may take several minutes for PDF
+                          or DOCX files and will use significant CPU and memory
+                          resources on your computer.
+                        </AlertDescription>
+                      </Alert>
+                    ) : null}
                   </div>
-                  <p className="text-sm text-gray-600">
-                    Upload a CSV, Excel, DOCX, or PDF file. The converter knows
-                    some common source structures and handles those
-                    deterministically. If the uploaded format is unfamiliar or
-                    inconsistent, it uses a local WebLLM in the browser to try
-                    to understand the structure and make a best-effort
-                    conversion to QTI3. Conversion happens locally in your
-                    browser and the uploaded content is not sent to a server.
-                    This remains experimental and there is no guarantee that the
-                    source will be converted correctly.
-                  </p>
-                  <Alert className="mt-4 border-amber-200 bg-amber-50">
-                    <AlertCircle className="h-4 w-4 text-amber-600" />
-                    <AlertTitle className="text-amber-900 text-sm">
-                      Performance notice
-                    </AlertTitle>
-                    <AlertDescription className="text-amber-800 text-xs">
-                      Local AI processing may take several minutes for PDF or
-                      DOCX files and will use significant CPU and memory
-                      resources on your computer.
-                    </AlertDescription>
-                  </Alert>
-                  <p className="mt-3 text-xs text-gray-500">
-                    <strong>Tip:</strong> If not all questions are detected, use
-                    the Settings button to add extra instructions describing the
-                    question format (e.g., how questions are numbered or
-                    structured).
-                  </p>
+
+                  <div className="rounded-3xl border border-gray-200 bg-linear-to-b from-gray-50 to-white p-5 shadow-sm xl:sticky xl:top-6 lg:p-6">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Sparkles className="text-citolab-600" size={20} />
+                      <h2 className="text-lg font-semibold text-gray-800">
+                        How local conversion works
+                      </h2>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      The converter first tries deterministic parsing. If the
+                      source structure is inconsistent, it uses a local WebLLM
+                      in the browser to infer question boundaries and map the
+                      content into QTI3. Nothing is uploaded to our server.
+                    </p>
+                    <p className="mt-3 text-xs text-gray-500">
+                      <strong>Tip:</strong> If not all questions are detected,
+                      use the Settings button to add extra instructions
+                      describing the question format.
+                    </p>
+                    <div className="mt-5 grid gap-3">
+                      {FILE_EXPLANATION_STEPS.map((step) => {
+                        const Icon = step.icon;
+                        return (
+                          <div
+                            key={step.title}
+                            className="rounded-2xl border border-gray-200 bg-white p-4 shadow-xs"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="rounded-full bg-citolab-50 p-2">
+                                <Icon className="h-4 w-4 text-citolab-600" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-gray-900">
+                                  {step.title}
+                                </p>
+                                <p className="mt-1 text-xs text-gray-600">
+                                  {step.description}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-4">
@@ -676,112 +1122,39 @@ export const AiConvertPage: React.FC = () => {
                     fail because of CORS, proxy limits, or changes in the source
                     page.
                   </p>
-                  <div className="flex gap-3">
-                    <Button onClick={() => void processGoogleForm()}>
-                      Convert URL
-                    </Button>
-                    <Button variant="outline" onClick={clearSelection}>
-                      Clear
-                    </Button>
-                  </div>
+                  {processComplete && convertedPackageFile ? (
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <Button
+                        className="sm:min-w-52"
+                        onClick={() => {
+                          if (downloadBlobState && downloadFileName) {
+                            downloadBlob(downloadBlobState, downloadFileName);
+                          }
+                        }}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Download QTI package
+                      </Button>
+                      <Button
+                        className="sm:min-w-52"
+                        onClick={() => void startConvertedAssessment()}
+                      >
+                        <Play className="w-4 h-4 mr-2" />
+                        Start Assessment
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-3">
+                      <Button onClick={() => void processGoogleForm()}>
+                        Convert URL
+                      </Button>
+                      <Button variant="outline" onClick={clearSelection}>
+                        Clear
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
-
-              {sourceMode === "file" &&
-                (selectedFile ? (
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <FileText className="text-citolab-600" size={20} />
-                        <h2 className="text-lg font-semibold text-gray-800">
-                          Selected file
-                        </h2>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={clearSelection}
-                        className="text-gray-500"
-                      >
-                        <X size={20} />
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 bg-white rounded border border-gray-200">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-citolab-50 rounded-full">
-                          <FileText className="text-citolab-600" size={24} />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-800">
-                            {selectedFile.name}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
-                          </p>
-                        </div>
-                      </div>
-
-                      <Button onClick={() => void processFile()}>
-                        Convert file
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    className={`relative rounded-xl transition-all duration-200 ${
-                      isDragging
-                        ? "border-2 border-citolab-500 bg-citolab-50"
-                        : "border-2 border-dashed border-gray-300 bg-gray-50"
-                    } hover:border-citolab-400 hover:bg-gray-100`}
-                    onDrop={onDrop}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      setIsDragging(true);
-                    }}
-                    onDragLeave={(event) => {
-                      event.preventDefault();
-                      setIsDragging(false);
-                    }}
-                  >
-                    <input
-                      id="ai-convert-file"
-                      type="file"
-                      className="hidden"
-                      onChange={onFileChange}
-                      accept=".csv,.xlsx,.xls,.docx,.pdf"
-                    />
-                    <label
-                      htmlFor="ai-convert-file"
-                      className="flex flex-col w-full p-10 cursor-pointer"
-                    >
-                      <div className="flex flex-col items-center justify-center text-center">
-                        <div
-                          className={`p-6 mb-4 rounded-full bg-citolab-50 text-citolab-500 ${
-                            isDragging ? "animate-pulse" : ""
-                          }`}
-                        >
-                          <Upload className="w-12 h-12" />
-                        </div>
-                        <h3 className="mb-2 text-xl font-semibold text-gray-700">
-                          {isDragging
-                            ? "Drop to convert"
-                            : "Select CSV, Excel, DOCX, or PDF file"}
-                        </h3>
-                        <p className="mb-4 text-sm text-gray-500">
-                          <span className="font-medium">Click to browse</span>{" "}
-                          or drag and drop your source file
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          CSV, XLSX, XLS, DOCX and PDF files are supported
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          * By uploading you agree to our Terms and Conditions.
-                        </p>
-                      </div>
-                    </label>
-                  </div>
-                ))}
 
               {error && (
                 <Alert variant="destructive">
@@ -801,123 +1174,6 @@ export const AiConvertPage: React.FC = () => {
                     </p>
                   </AlertDescription>
                 </Alert>
-              )}
-
-              {processComplete && convertedPackageFile ? (
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    onClick={() => {
-                      if (downloadBlobState && downloadFileName) {
-                        downloadBlob(downloadBlobState, downloadFileName);
-                      }
-                    }}
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    Download QTI package
-                  </Button>
-                  <Button onClick={() => void startConvertedAssessment()}>
-                    <Play className="w-4 h-4 mr-2" />
-                    Start Assessment
-                  </Button>
-                </div>
-              ) : null}
-
-              {summary && (
-                <div className="bg-white p-4 rounded-lg border border-gray-200 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-semibold text-gray-800">
-                      Conversion summary
-                    </h3>
-                    <Dialog
-                      open={summaryDetailsOpen}
-                      onOpenChange={setSummaryDetailsOpen}
-                    >
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          Show details
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-3xl">
-                        <DialogHeader>
-                          <DialogTitle>Conversion summary details</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-6">
-                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                            <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
-                              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                                Total questions
-                              </p>
-                              <p className="mt-1 text-lg font-semibold text-gray-900">
-                                {summary.totalQuestions}
-                              </p>
-                            </div>
-                            <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
-                              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                                Generated items
-                              </p>
-                              <p className="mt-1 text-lg font-semibold text-gray-900">
-                                {summary.generatedItems}
-                              </p>
-                            </div>
-                            <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
-                              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                                Skipped items
-                              </p>
-                              <p className="mt-1 text-lg font-semibold text-gray-900">
-                                {summary.skippedItems}
-                              </p>
-                            </div>
-                            <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
-                              <p className="text-xs font-medium uppercase tracking-wide text-amber-700">
-                                Warnings
-                              </p>
-                              <p className="mt-1 text-lg font-semibold text-amber-950">
-                                {summary.warnings.length}
-                              </p>
-                            </div>
-                            <div className="rounded-md border border-red-200 bg-red-50 p-3">
-                              <p className="text-xs font-medium uppercase tracking-wide text-red-700">
-                                Errors
-                              </p>
-                              <p className="mt-1 text-lg font-semibold text-red-950">
-                                {summary.errors.length}
-                              </p>
-                            </div>
-                          </div>
-
-                          <section className="space-y-3">
-                            <h4 className="text-sm font-semibold text-gray-900">
-                              Warnings
-                            </h4>
-                            {renderSummaryIssues(
-                              summary.warnings,
-                              "No warnings were reported.",
-                              "warning",
-                            )}
-                          </section>
-
-                          <section className="space-y-3">
-                            <h4 className="text-sm font-semibold text-gray-900">
-                              Errors
-                            </h4>
-                            {renderSummaryIssues(
-                              summary.errors,
-                              "No errors were reported.",
-                              "error",
-                            )}
-                          </section>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                  <div className="text-sm text-gray-700 space-y-1">
-                    <p>Total questions: {summary.totalQuestions}</p>
-                    <p>Generated items: {summary.generatedItems}</p>
-                    <p>Skipped items: {summary.skippedItems}</p>
-                    <p>Warnings: {summary.warnings.length}</p>
-                    <p>Errors: {summary.errors.length}</p>
-                  </div>
-                </div>
               )}
             </div>
           )}

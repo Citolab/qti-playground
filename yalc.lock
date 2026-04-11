@@ -7,9 +7,9 @@
       "replaced": "^7.26.0"
     },
     "@citolab/qti-convert-local-ai": {
-      "signature": "b140accbe0b2b89f655484bc17b99821",
+      "signature": "149beb56d9fc07b5015c417313e13a15",
       "file": true,
-      "replaced": "^0.4.7"
+      "replaced": "^0.4.9"
     }
   }
 }
