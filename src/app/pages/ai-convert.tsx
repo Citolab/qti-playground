@@ -702,9 +702,9 @@ export const AiConvertPage: React.FC = () => {
                     Performance notice
                   </AlertTitle>
                   <AlertDescription className="text-amber-800 text-xs">
-                    Local AI processing may take several minutes for PDF or
-                    DOCX files and will use significant CPU and memory
-                    resources on your computer.
+                    Local AI processing may take several minutes for PDF or DOCX
+                    files and will use significant CPU and memory resources on
+                    your computer.
                   </AlertDescription>
                 </Alert>
               ) : null}
