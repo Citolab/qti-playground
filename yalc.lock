@@ -2,14 +2,18 @@
   "version": "v1",
   "packages": {
     "@citolab/qti-components": {
-      "signature": "3cb310a4b2fd1a2e9b0df8d1fccfc229",
+      "signature": "bf193e227ba4e46fe37aa00d7a35ea60",
       "file": true,
-      "replaced": "^7.26.0"
+      "replaced": "7.27.3"
     },
     "@citolab/qti-convert-local-ai": {
       "signature": "149beb56d9fc07b5015c417313e13a15",
       "file": true,
       "replaced": "^0.4.9"
+    },
+    "@citolab/qti-convert-export": {
+      "signature": "72b47aa73052b01e47ebe3c6a58d3789",
+      "file": true
     }
   }
 }

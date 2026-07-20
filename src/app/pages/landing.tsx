@@ -65,100 +65,6 @@ const LANDING_PCI_ITEM_XML = `<qti-assessment-item xmlns:xsi="http://www.w3.org/
   </qti-item-body>
 </qti-assessment-item>`;
 
-const LANDING_ITEM_FEATURES = `<qti-assessment-item xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
-	xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
-	identifier="choice" title="Unattended Luggage" adaptive="false" time-dependent="false">
-	<qti-item-body>
-		<qti-choice-interaction class="qti-input-control-hidden" response-identifier="RESPONSE" max-choices="0">
-			<p>Here some features of this webapplication in a multiple response item</p>
-			<qti-simple-choice identifier="A">
-				<div
-					class="flex items-start"><div class="flex-shrink-0"><div
-							class="flex items-center justify-center h-12 w-12 rounded-md bg-secondary">
-							<svg
-								xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-								viewBox="0 0 24 24" fill="none" stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round" stroke-linejoin="round"
-								class="lucide lucide-file-search h-6 w-6">
-								<path d="M14 2v4a2 2 0 0 0 2 2h4"></path>
-								<path
-									d="M4.268 21a2 2 0 0 0 1.727 1H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3"></path>
-								<path d="m9 18-1.5-1.5"></path>
-								<circle cx="5" cy="14" r="3"></circle>
-							</svg>
-						</div></div>
-					
-						<div
-						class="ml-4"><h3 class="text-lg font-medium text-gray-900">Preview QTI
-				assessments</h3><p
-							class="mt-2 text-base text-gray-500">Upload and instantly preview QTI
-				2.x or QTI 3 assessments directly in your browser without sending any data to a
-				server.</p></div></div>
-			</qti-simple-choice>
-			<qti-simple-choice identifier="B">
-				<div
-					class="flex items-start"><div class="flex-shrink-0"><div
-							class="flex items-center justify-center h-12 w-12 rounded-md bg-secondary"><svg
-								xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-								viewBox="0 0 24 24" fill="none" stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round" stroke-linejoin="round"
-								class="lucide lucide-repeat h-6 w-6">
-								<path d="m17 2 4 4-4 4"></path>
-								<path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
-								<path d="m7 22-4-4 4-4"></path>
-								<path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
-							</svg></div></div><div
-						class="ml-4"><h3 class="text-lg font-medium text-gray-900">Convert QTI 2.x
-				to QTI 3</h3><p
-							class="mt-2 text-base text-gray-500">Seamlessly convert between QTI
-				formats using our powerful client-side conversion engine, ensuring compatibility
-				across different assessment platforms.</p></div></div>
-			</qti-simple-choice>
-			<qti-simple-choice identifier="C">
-				<div class="flex items-start"><div
-						class="flex-shrink-0"><div
-							class="flex items-center justify-center h-12 w-12 rounded-md bg-secondary"><svg
-								xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-								viewBox="0 0 24 24" fill="none" stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round" stroke-linejoin="round"
-								class="lucide lucide-split h-6 w-6">
-								<path d="M16 3h5v5"></path>
-								<path d="M8 3H3v5"></path>
-								<path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"></path>
-								<path d="m15 9 6-6"></path>
-							</svg></div></div><div
-						class="ml-4"><h3 class="text-lg font-medium text-gray-900">Tools to remove
-				media and split packages</h3><p class="mt-2 text-base text-gray-500">Optimize your
-				QTI packages by removing unnecessary media files or splitting large packages into
-				manageable pieces, all processed locally on your device.</p></div></div>
-			</qti-simple-choice>
-			<qti-simple-choice identifier="D">
-				<div
-					class="flex items-start"><div
-						class="flex-shrink-0"><div
-							class="flex items-center justify-center h-12 w-12 rounded-md bg-secondary"><svg
-								xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-								viewBox="0 0 24 24" fill="none" stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round" stroke-linejoin="round"
-								class="lucide lucide-square-pen h-6 w-6">
-								<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-								<path
-									d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"></path>
-							</svg></div></div><div
-						class="ml-4"><h3 class="text-lg font-medium text-gray-900">Edit QTI items
-				with a live previewer</h3><p class="mt-2 text-base text-gray-500">Make changes to
-				your QTI items and see the results in real-time with our integrated editor and
-				previewer, all running in your browser for maximum privacy.</p></div></div>
-			</qti-simple-choice>
-		</qti-choice-interaction>
-	</qti-item-body>
-</qti-assessment-item>`;
-
 const PCI_BLOCKS_RESPONSE = {
   xPlane: [
     { y: 0, z: 0, found: false },
@@ -675,7 +581,7 @@ export const LandingPage: React.FC = () => {
               <Card className="sm:col-span-2 overflow-hidden hover:shadow-md transition-shadow duration-200">
                 <div className="grid grid-cols-1 sm:grid-cols-2">
                   {/* Left: text content */}
-                  <div className="relative flex flex-col gap-4 p-8">
+                  <div className="flex flex-col gap-4 p-8">
                     <div className="flex items-center gap-3">
                       <span className="inline-flex items-center justify-center p-3 bg-citolab-yellow-500 rounded-md shadow-sm">
                         <Play className="h-6 w-6" />
@@ -698,46 +604,48 @@ export const LandingPage: React.FC = () => {
                         QTI player.
                       </p>
                     </div>
-                    <div className="flex items-center gap-5">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <a
-                            href="https://github.com/Citolab/qti-player"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                          >
-                            <GitCommit className="h-4 w-4 mr-1.5" />
-                            GitHub
-                          </a>
-                        </TooltipTrigger>
-                        <TooltipContent>View on GitHub</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <a
-                            href="https://stackblitz.com/~/github.com/Citolab/qti-player?file=index.html"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                          >
-                            <Book className="h-4 w-4 mr-1.5" />
-                            Stackblitz
-                          </a>
-                        </TooltipTrigger>
-                        <TooltipContent>Open in Stackblitz</TooltipContent>
-                      </Tooltip>
+                    <div className="flex items-end justify-between gap-4 pt-2">
+                      <div className="flex flex-wrap items-center gap-5">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <a
+                              href="https://github.com/Citolab/qti-player"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
+                            >
+                              <GitCommit className="h-4 w-4 mr-1.5" />
+                              GitHub
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent>View on GitHub</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <a
+                              href="https://stackblitz.com/~/github.com/Citolab/qti-player?file=index.html"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
+                            >
+                              <Book className="h-4 w-4 mr-1.5" />
+                              Stackblitz
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent>Open in Stackblitz</TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <a
+                        href="https://site.imsglobal.org/certifications/cito/cito-qti-player"
+                        className="shrink-0"
+                      >
+                        <img
+                          src="/1edtech_trusted-apps-certified.svg"
+                          alt="1EdTech Trusted Apps Certified"
+                          className="block h-16 w-[4.5rem] max-w-[4.5rem] object-contain"
+                        />
+                      </a>
                     </div>
-                    <a
-                      href="https://site.imsglobal.org/certifications/cito/cito-qti-player"
-                      className="absolute bottom-3 right-3"
-                    >
-                      <img
-                        src="/1edtech_trusted-apps-certified.svg"
-                        alt="1EdTech Trusted Apps Certified"
-                        className="w-20"
-                      />
-                    </a>
                   </div>
                   {/* Right: PCI preview */}
                   <div className="bg-gray-50 border-t sm:border-t-0 sm:border-l border-gray-200 flex flex-col items-center justify-center p-4 gap-3">
@@ -1038,21 +946,6 @@ export const LandingPage: React.FC = () => {
                 <span className="font-medium">Client-side Processing</span>
               </div>
             </div>
-
-            {/* Feature List */}
-            <div className="mt-12 max-w-3xl mx-auto">
-              <div className="bg-gray-100 rounded-lg p-4 pr-8">
-                <qti-item>
-                  <item-container itemXML={LANDING_ITEM_FEATURES}>
-                    <template
-                      dangerouslySetInnerHTML={{
-                        __html: `<style>${itemCss}</style>`,
-                      }}
-                    ></template>
-                  </item-container>
-                </qti-item>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -1124,11 +1017,14 @@ export const LandingPage: React.FC = () => {
                 </div>
               </div>
 
-              <a href="https://site.imsglobal.org/certifications/cito/cito-qti-player">
+              <a
+                href="https://site.imsglobal.org/certifications/cito/cito-qti-player"
+                className="shrink-0"
+              >
                 <img
                   src="/1edtech_trusted-apps-certified.svg"
                   alt="1EdTech Trusted Apps Certified"
-                  className="m-12 w-auto"
+                  className="m-12 block h-24 w-[6.75rem] max-w-[6.75rem] object-contain"
                 />
               </a>
             </div>

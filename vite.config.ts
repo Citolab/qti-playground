@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import * as esbuild from "esbuild";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +10,87 @@ import { playwright } from "@vitest/browser-playwright";
 
 // https://vite.dev/config/
 const dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const qtiPackagePattern =
+  /node_modules\/@citolab\/(?:prose-qti|prose-extensions)\//;
+
+/** Citolab packages ship raw TS with Lit @decorators; Vite's Oxc skips them. */
+function qtiTypeScriptTransform(): Plugin {
+  return {
+    name: "qti-typescript-transform",
+    enforce: "pre",
+    async transform(code, id) {
+      const filePath = id.split("?")[0]!;
+      if (!qtiPackagePattern.test(filePath)) return null;
+      if (filePath.includes("/core-css/")) return null;
+      if (filePath.includes(".vite/deps")) return null;
+      if (!/\.(?:tsx?|jsx?)$/.test(filePath)) return null;
+
+      const loader = filePath.endsWith(".tsx")
+        ? "tsx"
+        : filePath.endsWith(".ts")
+          ? "ts"
+          : filePath.endsWith(".jsx")
+            ? "jsx"
+            : "js";
+
+      const result = await esbuild.transform(code, {
+        loader,
+        format: "esm",
+        target: "es2022",
+        tsconfigRaw: {
+          compilerOptions: {
+            experimentalDecorators: true,
+            useDefineForClassFields: false,
+          },
+        },
+      });
+
+      return { code: result.code, map: result.map };
+    },
+  };
+}
+
+const prosemirrorDeps = [
+  "prosemirror-model",
+  "prosemirror-state",
+  "prosemirror-transform",
+  "prosemirror-view",
+  "prosemirror-commands",
+  "prosemirror-history",
+  "prosemirror-keymap",
+  "prosemirror-schema-list",
+  "prosemirror-schema-basic",
+  "prosemirror-inputrules",
+  "prosemirror-gapcursor",
+  "prosemirror-dropcursor",
+  "prosemirror-tables",
+] as const;
+
+const qtiEditorOptimizeDepsInclude = [
+  "prosekit/core",
+  "prosekit/pm/commands",
+  "prosekit/pm/history",
+  "prosekit/pm/state",
+  "prosekit/pm/model",
+  "prosekit/pm/transform",
+  "prosekit/pm/view",
+  "prosekit/pm/keymap",
+  "prosekit/pm/inputrules",
+  "prosekit/extensions/doc",
+  "prosekit/extensions/gap-cursor",
+  "prosekit/extensions/hard-break",
+  "prosekit/extensions/heading",
+  "prosekit/extensions/image",
+  "prosekit/extensions/mod-click-prevention",
+  "prosekit/extensions/paragraph",
+  "prosekit/extensions/table",
+  "prosekit/extensions/text",
+  "prosekit/extensions/virtual-selection",
+  "@citolab/prose-extensions/prosekit",
+  ...prosemirrorDeps,
+] as const;
+
 const appPackageJson = JSON.parse(
   fs.readFileSync(path.join(dirname, "package.json"), "utf-8"),
 ) as {
@@ -146,6 +228,7 @@ export default defineConfig(({ mode }) => {
           ensurePdfWorkerAsset();
         },
       },
+      qtiTypeScriptTransform(),
       spaHtmlFallbackForPackageRoute(),
       localQtiComponentsAssets(),
       react(),
@@ -164,14 +247,19 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: "dist",
       reportCompressedSize: true,
+      cssMinify: "esbuild",
       commonjsOptions: {
         transformMixedEsModules: true,
+        exclude: [/@citolab\/prose-qti/, /@citolab\/prose-extensions/, /@qti-components\//],
       },
     },
     optimizeDeps: {
       include: [
         "boolbase",
         "cheerio",
+        "docx",
+        "pdf-lib",
+        "@citolab/qti-convert-export",
         "xml-formatter",
         "@storybook/react-vite",
         "storybook/test",
@@ -200,6 +288,7 @@ export default defineConfig(({ mode }) => {
         "prosekit/pm/state",
         "@radix-ui/react-switch",
         "@radix-ui/react-dropdown-menu",
+        ...qtiEditorOptimizeDepsInclude,
       ],
       exclude: [
         "@citolab/qti-components",

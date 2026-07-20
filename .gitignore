@@ -29,3 +29,4 @@ dist-ssr
 # Storybook generated/local artifacts
 storybook-static/
 .storybook-cache/
+.opencode

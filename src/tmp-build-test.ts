@@ -1,0 +1,1 @@
+import { defineQtiExtension } from '@citolab/prose-qti/integration/interactions/prosekit'; console.log(defineQtiExtension);

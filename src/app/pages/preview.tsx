@@ -3,6 +3,7 @@ import { useDebouncedCallback } from "use-debounce";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store/store";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Clipboard, Code, Info, Share2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -13,7 +14,7 @@ import { QtiAssessmentItem, QtiItem } from "@citolab/qti-components";
 import { CustomElements } from "@citolab/qti-components/react";
 import { useSearchParams } from "react-router-dom";
 import { itemCss } from "../itemCss";
-import { QtiProsemirrorEditor } from "../components/editor/qti-prosemirror-editor";
+import { QtiCitolabEditorPanel } from "../components/editor/qti-citolab-editor-panel";
 import DraggablePopup from "../components/draggable-popup";
 
 type PreviewVariable = {
@@ -52,9 +53,10 @@ export const PreviewPage = () => {
   const sourceEditor = useRef<{ setValue: (value: string) => void; getValue: () => string } | null>(null);
   const qtiItemRef = useRef<QtiItem>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
-  const [sourceEditorMode] = useState<
-    "monaco" | "prosemirror"
+  const [sourceEditorMode, setSourceEditorMode] = useState<
+    "monaco" | "citolab"
   >("monaco");
+  const [citolabSessionKey, setCitolabSessionKey] = useState(0);
   const [openTooltip, setOpenTooltip] = useState(false);
   const [shareTooltipOpen, setShareTooltipOpen] = useState(false);
   const [sharePopupOpen, setSharePopupOpen] = useState(false);
@@ -66,6 +68,8 @@ export const PreviewPage = () => {
   const hasLoadedSharedItem = useRef(false);
   const hasLoadedItemFromQuery = useRef(false);
   const lastVariablesSignatureRef = useRef("");
+  const showVariablesRef = useRef(showVariables);
+  showVariablesRef.current = showVariables;
 
   // Zustand store - use selectors for optimal re-renders
   const qti3 = useStore((state) => state.qti3);
@@ -173,6 +177,18 @@ export const PreviewPage = () => {
   }, [searchParams, loadSharedQti]);
 
   useEffect(() => {
+    if (searchParams.get("editor") === "citolab") {
+      setSourceEditorMode("citolab");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (fillSource) {
+      setCitolabSessionKey((current) => current + 1);
+    }
+  }, [fillSource]);
+
+  useEffect(() => {
     if (hasLoadedItemFromQuery.current) return;
     const sharedQti = searchParams.get("sharedQti");
     if (sharedQti) return;
@@ -245,97 +261,116 @@ export const PreviewPage = () => {
   };
 
   useEffect(() => {
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+    let timeoutId = 0;
+    let attempts = 0;
+    const maxAttempts = 20;
+
     const attach = () => {
+      if (cancelled) return;
       const assessmentItem = getAssessmentItemElement();
-      if (!assessmentItem) return false;
-      const handleContextUpdate = () => refreshPreviewVariables();
-      const handleInteractionUpdate = () => refreshPreviewVariables();
+      if (!assessmentItem) {
+        attempts += 1;
+        if (attempts < maxAttempts) {
+          timeoutId = window.setTimeout(attach, 100);
+        }
+        return;
+      }
+      const handleUpdate = () => {
+        // Avoid re-rendering the whole preview pane unless the output popup is open
+        if (!showVariablesRef.current) return;
+        refreshPreviewVariables();
+      };
       assessmentItem.addEventListener(
         "qti-item-context-updated",
-        handleContextUpdate as EventListener,
+        handleUpdate as EventListener,
       );
       assessmentItem.addEventListener(
         "qti-interaction-changed",
-        handleInteractionUpdate as EventListener,
+        handleUpdate as EventListener,
       );
       assessmentItem.addEventListener(
         "qti-outcome-changed",
-        handleInteractionUpdate as EventListener,
+        handleUpdate as EventListener,
       );
       assessmentItem.addEventListener(
         "qti-interaction-response",
-        handleInteractionUpdate as EventListener,
+        handleUpdate as EventListener,
       );
-      refreshPreviewVariables();
-      return () => {
+      if (showVariablesRef.current) refreshPreviewVariables();
+      cleanup = () => {
         assessmentItem.removeEventListener(
           "qti-item-context-updated",
-          handleContextUpdate as EventListener,
+          handleUpdate as EventListener,
         );
         assessmentItem.removeEventListener(
           "qti-interaction-changed",
-          handleInteractionUpdate as EventListener,
+          handleUpdate as EventListener,
         );
         assessmentItem.removeEventListener(
           "qti-outcome-changed",
-          handleInteractionUpdate as EventListener,
+          handleUpdate as EventListener,
         );
         assessmentItem.removeEventListener(
           "qti-interaction-response",
-          handleInteractionUpdate as EventListener,
+          handleUpdate as EventListener,
         );
       };
     };
 
-    let cleanup: false | (() => void) = false;
-    let attempts = 0;
-    const maxAttempts = 20;
-    const tryAttach = () => {
-      const maybeCleanup = attach();
-      if (maybeCleanup) {
-        cleanup = maybeCleanup;
-        return;
-      }
-      attempts += 1;
-      if (attempts < maxAttempts) {
-        window.setTimeout(tryAttach, 100);
-      }
-    };
-
-    tryAttach();
+    attach();
 
     return () => {
-      if (cleanup) cleanup();
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      cleanup?.();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qti3ForPreview]);
 
+  const isQtiEditor = sourceEditorMode === "citolab";
+
   return (
-    <div className="relative grid md:grid-cols-2 gap-4 bg-gray-200">
+    <div
+      className={cn(
+        "relative flex flex-col bg-gray-200 transition-[gap] duration-300 ease-in-out md:flex-row",
+        isQtiEditor ? "gap-0" : "gap-4",
+      )}
+    >
       {sharePopupOpen ? (
         <div className="fixed top-4 right-4 z-50 rounded-md bg-citolab-700 px-4 py-2 text-white shadow-lg">
           Shareable URL copied to clipboard
         </div>
       ) : null}
+      <div className="min-h-0 min-w-0 flex-1">
       <Panel
         title="QTI 3"
+        pinnedActions={[
+          <button
+            key="qti-editor-toggle"
+            type="button"
+            disabled={!qti3}
+            onClick={() =>
+              setSourceEditorMode((current) => {
+                const next = current === "monaco" ? "citolab" : "monaco";
+                if (next === "citolab") {
+                  setCitolabSessionKey((session) => session + 1);
+                }
+                return next;
+              })
+            }
+            className="inline-flex items-center gap-1 rounded-md border border-citolab-600/70 px-2 py-1 text-xs font-medium whitespace-nowrap text-citolab-700 hover:bg-citolab-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {sourceEditorMode === "monaco" ? "QTI editor" : "XML editor"}
+            {sourceEditorMode === "monaco" ? (
+              <span className="rounded bg-citolab-600/90 px-1 py-px text-[7px] font-semibold uppercase leading-none tracking-wide text-white">
+                Beta
+              </span>
+            ) : null}
+          </button>,
+        ]}
         actionComponents={[
-          // <button
-          //   type="button"
-          //   onClick={() =>
-          //     setSourceEditorMode((current) =>
-          //       current === "monaco" ? "prosemirror" : "monaco",
-          //     )
-          //   }
-          //   className="inline-flex items-center gap-x-1.5 rounded-md border border-citolab-600 px-2.5 py-1.5 text-sm font-semibold text-citolab-700 hover:bg-citolab-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
-          // >
-          //   <FlaskConical className="-ml-0.5 h-4 w-4" aria-hidden="true" />
-          //   {sourceEditorMode === "monaco"
-          //     ? "Try our editor now!"
-          //     : "Hide beta editor"}
-          //   <span className="rounded bg-citolab-600 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-white">
-          //     Beta
-          //   </span>
-          // </button>,
           <Dropdown
             name="Examples"
             items={[
@@ -416,12 +451,25 @@ export const PreviewPage = () => {
             </div>
           </div>
         ) : (
-          <QtiProsemirrorEditor
+          <QtiCitolabEditorPanel
+            key={citolabSessionKey}
+            editorSessionKey={citolabSessionKey}
+            active
             sourceXml={qti3 || ""}
             onSourceChange={(nextXml) => debouncedPreview(nextXml)}
           />
         )}
       </Panel>
+      </div>
+      <div
+        className={cn(
+          "min-h-0 overflow-hidden transition-[width,max-width,max-height,opacity,flex] duration-300 ease-in-out",
+          isQtiEditor
+            ? "pointer-events-none max-h-0 w-0 max-w-0 flex-[0_0_0px] opacity-0 md:max-h-none"
+            : "max-h-[10000px] w-full max-w-full flex-1 opacity-100 md:max-w-[calc(50%-0.5rem)]",
+        )}
+        aria-hidden={isQtiEditor}
+      >
       <Panel
         title="QTI Preview"
         actionComponents={[
@@ -458,7 +506,16 @@ export const PreviewPage = () => {
               size="sm"
               disabled={!qti3}
               variant={showVariables ? "secondary" : "default"}
-              onClick={() => setShowVariables((current) => !current)}
+              onClick={() => {
+                setShowVariables((current) => {
+                  const next = !current;
+                  if (next) {
+                    // Snapshot once when opening — avoid continuous re-renders while closed
+                    queueMicrotask(() => refreshPreviewVariables());
+                  }
+                  return next;
+                });
+              }}
               className={showVariables ? "bg-green-700 text-white hover:bg-green-800" : "bg-green-600 hover:bg-green-700"}
             >
               <Code className="h-4 w-4" aria-hidden="true" />
@@ -567,6 +624,7 @@ export const PreviewPage = () => {
           </DraggablePopup>
         </>
       </Panel>
+      </div>
     </div>
   );
 };
