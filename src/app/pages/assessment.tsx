@@ -210,7 +210,15 @@ export const AssessmentPage: React.FC = () => {
     testContextsRef.current = testContexts;
   }, [testContexts]);
   const lastAppliedContextRef = useRef<ExtendedTestContext | null>(null);
-  const hasReceivedLiveContextRef = useRef(false);
+  // The test element that has produced a live context. State, not a ref, because the restore
+  // effect below is gated on it and a ref would not re-run it. Holding the element rather than a
+  // boolean means it resets itself when a different test mounts, with no teardown write.
+  const [liveContextElement, setLiveContextElement] = useState<IQtiTest | null>(
+    null,
+  );
+  // Whether the boot context has been seen. Until it has, a live context is the runtime's
+  // freshly initialised state and must not be written over a previous session's answers.
+  const hasSeenBootContextRef = useRef(false);
 
   type TransformItemApi = {
     configurePci: (
@@ -223,6 +231,7 @@ export const AssessmentPage: React.FC = () => {
     xmlDoc?: () => XMLDocument;
   };
 
+  const assessmentTestUrl = assessment?.testUrl;
   const postLoadTransformCallback = useCallback(
     async (
       transformer: TransformItemApi,
@@ -237,7 +246,7 @@ export const AssessmentPage: React.FC = () => {
           // `href` on qti-assessment-item-ref is relative to the *test XML URL* (not the app route URL).
           // If we resolve against `window.location.href`, PCI modules will be requested from `/items/...`
           // instead of `/__qti_pkg__/<packageId>/items/...`, causing 404s.
-          const testUrl = assessment?.testUrl || packageRootUrl;
+          const testUrl = assessmentTestUrl || packageRootUrl;
           const base = new URL(testUrl, window.location.href);
           const u = new URL(itemHref, base);
           const pathname = u.pathname;
@@ -251,7 +260,7 @@ export const AssessmentPage: React.FC = () => {
       const itemStemDirUrl = (() => {
         if (!itemHref) return null;
         try {
-          const testUrl = assessment?.testUrl || packageRootUrl;
+          const testUrl = assessmentTestUrl || packageRootUrl;
           const base = new URL(testUrl, window.location.href);
           const u = new URL(itemHref, base);
           const pathname = u.pathname;
@@ -468,7 +477,7 @@ export const AssessmentPage: React.FC = () => {
         return transformer;
       }
     },
-    [assessment?.testUrl, packageRootUrl],
+    [assessmentTestUrl, packageRootUrl],
   );
 
   // Stable event handler for QTI item connection
@@ -508,12 +517,23 @@ export const AssessmentPage: React.FC = () => {
         navTestLoading: previous?.navTestLoading ?? false,
       };
 
-      hasReceivedLiveContextRef.current = true;
+      setLiveContextElement(qtiTestElement);
+
+      // The first context after boot carries declaration defaults and no responses, because the
+      // runtime has only just initialised. Persisting it would erase what the candidate answered
+      // in an earlier session before the restore effect below can push it back into the element -
+      // the answers would be gone from storage, not merely unrestored. Skip that one write and
+      // let the restore run; the update it triggers carries the merged state and is persisted.
+      if (!hasSeenBootContextRef.current) {
+        hasSeenBootContextRef.current = true;
+        if (previous) return;
+      }
+
       // This update comes from the active qti-test instance, so avoid immediately replaying it back.
       lastAppliedContextRef.current = nextContext;
       updateTestContext(nextContext);
     },
-    [assessment?.id, updateTestContext],
+    [assessment?.id, qtiTestElement, updateTestContext],
   );
 
   // Stable ref callback for QTI test element
@@ -567,13 +587,18 @@ export const AssessmentPage: React.FC = () => {
   useEffect(() => {
     if (!qtiTestElement) {
       lastAppliedContextRef.current = null;
-      hasReceivedLiveContextRef.current = false;
+      hasSeenBootContextRef.current = false;
       return;
     }
     if (!assessment?.id) return;
     // Only restore persisted context after the runtime has produced at least one live context snapshot.
     // This avoids clobbering declaration defaults (e.g. QTI_CONTEXT) during initial item boot.
-    if (!hasReceivedLiveContextRef.current) return;
+    if (liveContextElement !== qtiTestElement) return;
+
+    // Write through the ref, not the state value: the runtime element is an external DOM node and
+    // a value React hands back from useState must not be mutated in place.
+    const testElement = qtiTestRef.current;
+    if (!testElement || testElement !== qtiTestElement) return;
 
     const stored = testContexts.find(
       (ctx) => ctx.assessmentId === assessment.id,
@@ -581,11 +606,11 @@ export const AssessmentPage: React.FC = () => {
     if (!stored || lastAppliedContextRef.current === stored) return;
 
     const merged = mergeRestoredTestContext(
-      qtiTestElement.testContext as ExtendedTestContext | undefined,
+      testElement.testContext as ExtendedTestContext | undefined,
       stored,
     );
 
-    qtiTestElement.testContext = {
+    testElement.testContext = {
       items: merged.items.map((item) => ({
         ...item,
         variables: item.variables?.map((variable) => ({ ...variable })),
@@ -595,7 +620,7 @@ export const AssessmentPage: React.FC = () => {
     };
 
     lastAppliedContextRef.current = stored;
-  }, [assessment?.id, qtiTestElement, testContexts]);
+  }, [assessment?.id, qtiTestElement, testContexts, liveContextElement]);
 
   const handleToggle = useCallback((mode: string) => {
     if (qtiTestRef.current)
@@ -610,7 +635,7 @@ export const AssessmentPage: React.FC = () => {
 
   // QTI test setup effect
   useEffect(() => {
-    if (!qtiTestRef.current || !assessment?.testUrl) return;
+    if (!qtiTestRef.current || !assessmentTestUrl) return;
 
     const itemId = queryParams.get("item");
 
@@ -644,7 +669,7 @@ export const AssessmentPage: React.FC = () => {
         );
       }
     };
-  }, [assessment?.content, assessment?.items, queryParams]);
+  }, [assessment?.content, assessment?.items, assessmentTestUrl, queryParams]);
 
   const items =
     itemsPerAssessment.find((i) => i.assessmentId === assessmentId)?.items ||
@@ -802,12 +827,12 @@ export const AssessmentPage: React.FC = () => {
     }
   }, [closeOverview, overviewNavTargets.nextId]);
 
-  useEffect(() => {
-    // If overview is opened via URL, skip intro
-    if (isOverviewOpen) {
-      setShowIntro(false);
-    }
-  }, [isOverviewOpen]);
+  // Overview is URL-driven, so it can open without going through a handler here (deep link, back/
+  // forward). Dismissing the intro during render instead of from an effect keeps that to a single
+  // render pass rather than a committed render followed by a cascading one.
+  if (isOverviewOpen && showIntro) {
+    setShowIntro(false);
+  }
 
   const clampZoom = useCallback((value: number) => {
     const rounded = Number(value.toFixed(2));
@@ -955,11 +980,13 @@ export const AssessmentPage: React.FC = () => {
             className="h-full min-h-0 flex flex-col"
           >
             <test-navigation
-              initContext={items.map((item) => ({
-                identifier: item.itemRefIdentifier,
-                title: item.title,
-                externalScored: item.interactionType === "extendedTextEntry",
-              }))}
+              initContext={items
+                .filter((item) => !!item.itemRefIdentifier)
+                .map((item) => ({
+                  identifier: item.itemRefIdentifier as string,
+                  title: item.title,
+                  externalScored: item.interactionType === "extendedTextEntry",
+                }))}
               auto-score-items
               className="h-full min-h-0 flex flex-col"
             >

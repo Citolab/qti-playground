@@ -163,6 +163,13 @@ export default defineConfig(({ mode }) => {
 
     build: {
       outDir: "dist",
+      // Vite 8 minifies CSS with lightningcss by default, which cannot parse
+      // `::part(drag):state(candidate-correct)` in @citolab/qti-components/dist/item.css
+      // ("Invalid state"). Unlike the `&::part(drop-list)[dragging]` selector this
+      // originally worked around — fixed in qti-components 8.0.0 — that selector is valid
+      // CSS and is qti-components' documented channel for painting a dropped drag, so this
+      // override stays until lightningcss supports `:state()` after `::part()`.
+      cssMinify: "esbuild",
       reportCompressedSize: true,
       commonjsOptions: {
         transformMixedEsModules: true,
@@ -230,7 +237,6 @@ export default defineConfig(({ mode }) => {
               provider: playwright({}),
               instances: [{ browser: "chromium" }],
             },
-            setupFiles: [".storybook/vitest.setup.ts"],
           },
         },
       ],

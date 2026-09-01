@@ -489,7 +489,7 @@ export const PreviewPage = () => {
         <>
           {qti3ForPreview ? (
             <qti-item ref={qtiItemRef}>
-              <item-container itemDoc={previewItemDoc}>
+              <item-container itemDoc={previewItemDoc ?? undefined}>
                 <template
                   dangerouslySetInnerHTML={{
                     __html: `<style>${itemCss}</style>`,

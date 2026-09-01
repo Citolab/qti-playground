@@ -108,14 +108,18 @@ main {
   zoom: 0.3;
 }
 
-item-container {
-  --qti-bg-active: #c6ffe3;
-  --qti-border-active: #00a748;
-}
-
+/* Brand tokens for the QTI theme.
+   qti-components 8 derives its whole palette from --qti-primary: --qti-border-active,
+   --qti-bg-active and --qti-border-color all resolve through it. Before 8.0.0 there was no
+   --qti-primary and the resting border had its own neutral value, which is why setting
+   --qti-bg-active + --qti-border-active used to be the entire theme. Set the brand once and
+   pin the resting border back to neutral, otherwise every ring, field and grid line inherits
+   the theme's default blue. */
+item-container,
 test-container {
-  --qti-bg-active: #c6ffe3;
-  --qti-border-active: #00a748;
+  --qti-primary: #00a748; /* citolab-600 */
+  --qti-bg-active: #c6ffe3; /* citolab-100, instead of the 8% color-mix over --qti-primary */
+  --qti-border-color: #c6cad0; /* neutral resting border, as it was before 8.0.0 */
 }
 
 qti-item {
