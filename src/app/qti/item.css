@@ -9,20 +9,45 @@ td {
   padding: 0.125rem 0;
 }
 
-/* Match CitoTestUit: tabular match interaction styling.
-   qti-components 8 renders this interaction as a CSS grid and ships the whole look itself
-   (cell rules, header cells, radio/checkbox paint, correct/incorrect overlays), all routed
-   through the theme tokens set on item-container in styles.css. The only deviation we want is
-   a larger hit target than the 1em default control. */
-qti-match-interaction.qti-match-tabular {
-  --qti-control-size: 24px;
+/* No rule for qti-match-interaction.qti-match-tabular on purpose. qti-components 8 ships the
+   whole tabular look itself (grid, cell rules, header cells, radio/checkbox paint), routed
+   through the theme tokens set on item-container in styles.css, and it sizes its controls from
+   the same --qti-control-size (1em) as qti-simple-choice. Leaving the token alone is what keeps
+   a tabular radio the same size as a choice radio; the 24px hit target that used to be set here
+   is what made them 1.5x every other radio on the page. Change --qti-control-size on
+   item-container if a bigger control is wanted -- everywhere, not per interaction. */
+
+/* The extended-text field always reserves a left gutter for the correction badge --
+   --qti-correction-gutter is inset + badge + glyph gap, so 40px at the default rhythm, and the
+   theme reserves it graded or not because padding is layout and must not shift when a verdict
+   arrives. This app renders no corrections at all (nothing here sets the candidate-* states),
+   so that gutter is dead space. Pin it to the same --qti-gap the field uses on its trailing
+   edge and the box reads symmetric. Re-derive it if corrections are ever switched on. */
+qti-extended-text-interaction {
+  --qti-correction-gutter: var(--qti-gap);
 }
 
+/* The theme has no font-size token -- item type is pure inheritance from the item root, which
+   makes this the one knob. Turn it down here and everything sized in em follows, including
+   --qti-control-size (1em), so radios and checkboxes stay proportional to the text they label. */
 qti-assessment-item {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.9375rem; /* 15px */
   line-height: 1.6;
   color: #374151;
+}
+
+/* The one ::part() rule we cannot avoid. These two field interactions pin `font-size: 1rem`
+   -- a literal rem, so they resolve against the document root and are the only text in an item
+   that does NOT follow the size set above; left alone they render a text field visibly larger
+   than the prose around it. `inherit` is the theme's own idiom for this (it is what
+   qti-inline-choice-interaction::part(trigger) does), and it carries no magic number, so this
+   tracks the container instead of needing to be kept in sync with it. Delete both selectors
+   the day qti-components exposes a font-size token or switches these two to `inherit`. */
+qti-text-entry-interaction::part(input),
+qti-extended-text-interaction::part(textarea) {
+  font-size: inherit;
 }
 
 /* Make rich content (like large images) scale within the available width */

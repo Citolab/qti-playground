@@ -14,7 +14,7 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
-    "@citolab/qti-api": "^8.0.40",
+    "@citolab/qti-api": "^9.0.0",
     "@citolab/qti-browser-import": "^0.4.19",
     "@citolab/qti-components": "8.0.1",
     "@citolab/qti-convert": "^0.4.18",
