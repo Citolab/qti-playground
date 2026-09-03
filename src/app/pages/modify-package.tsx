@@ -1,14 +1,20 @@
 import React, { useState } from "react";
+import JSZip from "jszip";
 import {
   removeMediaFromPackage,
   removeItemsFromPackage,
 } from "@citolab/qti-convert/qti-helper";
 import { convertPackage } from "@citolab/qti-convert/qti-convert";
 import {
+  convertPackageToDocx,
+  convertPackageToPdf,
+} from "@citolab/qti-convert-export";
+import {
   AlertCircle,
   ArrowUp,
   BookOpen,
   CheckCircle,
+  FileDown,
   FileText,
   List,
   Settings,
@@ -25,19 +31,50 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-type TabType = "upgrade" | "media" | "items";
+type TabType = "upgrade" | "media" | "items" | "export";
+type ExportFormat = "docx" | "pdf";
+type ExportLocale = "en" | "nl";
 
 const downloadBlob = (blob: Blob, filename: string) => {
+  const safe =
+    (filename || "download").replace(/[/\\?%*:|"<>]/g, "-").trim() || "download";
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = filename;
+  anchor.setAttribute("download", safe);
   anchor.rel = "noopener";
+  anchor.style.display = "none";
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 40_000);
+  // Keep the blob URL alive briefly so Chromium/Electron can finish the save
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 };
+
+const packageBaseName = (fileName: string) => {
+  let base = fileName.replace(/^.*[/\\]/, "");
+  for (let i = 0; i < 3; i++) {
+    const next = base
+      .replace(/\.zip$/i, "")
+      .replace(/\.qti\d*$/i, "")
+      .replace(/\.(package|pkg)$/i, "");
+    if (next === base) break;
+    base = next;
+  }
+  return base.trim() || "assessment";
+};
+
+async function zipExportBundle(
+  paperName: string,
+  paperBytes: Uint8Array,
+  correctionName: string,
+  correctionBytes: Uint8Array,
+): Promise<Blob> {
+  const zip = new JSZip();
+  zip.file(paperName, paperBytes);
+  zip.file(correctionName, correctionBytes);
+  return zip.generateAsync({ type: "blob" });
+}
 
 export const ModifyPackagePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +97,11 @@ export const ModifyPackagePage: React.FC = () => {
   const [itemsLoaded, setItemsLoaded] = useState(false);
   const [removedItems, setRemovedItems] = useState<string[]>([]);
   const [removedWebcontent, setRemovedWebcontent] = useState<number>(0);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>("docx");
+  const [exportLocale, setExportLocale] = useState<ExportLocale>("en");
+  const [correctionInDocument, setCorrectionInDocument] = useState(false);
+  const [correctionSeparate, setCorrectionSeparate] = useState(true);
+  const [exportItemCount, setExportItemCount] = useState<number | null>(null);
 
   const validateFile = (file: File | null) => {
     if (!file) return false;
@@ -133,6 +175,7 @@ export const ModifyPackagePage: React.FC = () => {
     setItemsLoaded(false);
     setRemovedItems([]);
     setRemovedWebcontent(0);
+    setExportItemCount(null);
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -160,7 +203,48 @@ export const ModifyPackagePage: React.FC = () => {
       const newName = fileName.substring(0, fileName.lastIndexOf(".")) || "";
       let newZipName = "";
 
-      if (activeTab === "media") {
+      if (activeTab === "export") {
+        const base = packageBaseName(fileName);
+        const ext = exportFormat === "pdf" ? "pdf" : "docx";
+        const paperName = `${base}.${ext}`;
+        const correctionName = `${base}-correction.${ext}`;
+        const options = {
+          locale: exportLocale,
+          correctionInDocument,
+          correctionSeparate,
+          fileNameBase: base,
+        };
+        const mime =
+          exportFormat === "pdf"
+            ? "application/pdf"
+            : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+        const result =
+          exportFormat === "pdf"
+            ? await convertPackageToPdf(selectedFile, options)
+            : await convertPackageToDocx(selectedFile, options);
+
+        setExportItemCount(result.paper.items.length);
+
+        if (result.answerKey && correctionSeparate) {
+          // One save dialog: question + correction in a single zip
+          blob = await zipExportBundle(
+            paperName,
+            result.assessment,
+            correctionName,
+            result.answerKey,
+          );
+          newZipName = `${base}.zip`;
+        } else {
+          // qti-convert-export declares a bare Uint8Array, which TS 5.7+ widens
+          // to Uint8Array<ArrayBufferLike>; docx/pdf-lib never hand back a
+          // SharedArrayBuffer, so narrowing it is safe.
+          blob = new Blob([result.assessment as Uint8Array<ArrayBuffer>], {
+            type: mime,
+          });
+          newZipName = paperName;
+        }
+      } else if (activeTab === "media") {
         const selectedFilters = Object.keys(filters).filter(
           (key) => filters[key as keyof typeof filters],
         );
@@ -209,7 +293,7 @@ export const ModifyPackagePage: React.FC = () => {
           <h1 className="text-2xl font-bold">QTI Package Modifier</h1>
           <p className="text-citolab-100 mt-1">
             Upgrade or modify your QTI packages. QTI2x to QTI3, reduce file
-            size, or select specific items to keep.
+            size, select items, or export to Word / PDF for paper use.
           </p>
         </div>
 
@@ -249,6 +333,13 @@ export const ModifyPackagePage: React.FC = () => {
                 <List size={16} />
                 Manage Items
               </TabsTrigger>
+              <TabsTrigger
+                value="export"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-citolab-600 data-[state=active]:text-citolab-600 data-[state=active]:shadow-none data-[state=active]:bg-transparent px-5 py-3 gap-2"
+              >
+                <FileDown size={16} />
+                Export Word / PDF
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -263,7 +354,9 @@ export const ModifyPackagePage: React.FC = () => {
                     ? "Processing Media"
                     : activeTab === "items"
                       ? "Processing Items"
-                      : "Converting QTI2 to QTI3"}
+                      : activeTab === "export"
+                        ? "Exporting document"
+                        : "Converting QTI2 to QTI3"}
                 </h3>
                 <p className="text-sm text-gray-500 mb-6">
                   {activeTab === "media"
@@ -272,7 +365,9 @@ export const ModifyPackagePage: React.FC = () => {
                       ? itemsLoaded
                         ? "Please wait while we process the selected items..."
                         : "Analyzing package to count available items..."
-                      : "Please wait while we convert your QTI2 package to QTI3 format..."}
+                      : activeTab === "export"
+                        ? `Building a paper-friendly ${exportFormat === "pdf" ? "PDF" : "Word"} document from your QTI package...`
+                        : "Please wait while we convert your QTI2 package to QTI3 format..."}
                 </p>
                 <Progress
                   value={uploadProgress}
@@ -442,6 +537,129 @@ export const ModifyPackagePage: React.FC = () => {
                       </div>
                     )}
                   </div>
+                ) : activeTab === "export" ? (
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <div className="flex items-center gap-2 mb-4">
+                      <FileDown className="text-citolab-600" size={20} />
+                      <h2 className="text-lg font-semibold text-gray-800">
+                        Export to Word / PDF
+                      </h2>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Create a paper-friendly document from a QTI 3 package.
+                      Choice, text, match, order, gap-match and hottext items
+                      are mapped to printable layouts; unsupported types get a
+                      short note.
+                    </p>
+
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          Format
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant={exportFormat === "docx" ? "default" : "outline"}
+                            onClick={() => setExportFormat("docx")}
+                          >
+                            Word (.docx)
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={exportFormat === "pdf" ? "default" : "outline"}
+                            onClick={() => setExportFormat("pdf")}
+                          >
+                            PDF
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 max-w-xs">
+                        <Label htmlFor="export-locale">Language</Label>
+                        <select
+                          id="export-locale"
+                          value={exportLocale}
+                          onChange={(event) =>
+                            setExportLocale(event.target.value as ExportLocale)
+                          }
+                          className="flex h-9 w-full rounded-md border border-gray-200 bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-citolab-600"
+                        >
+                          <option value="en">English</option>
+                          <option value="nl">Nederlands</option>
+                        </select>
+                        <p className="text-xs text-gray-500">
+                          Labels and instructions in the exported document
+                          (question content stays as in the package).
+                        </p>
+                      </div>
+
+                      <label className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-200 cursor-pointer">
+                        <Checkbox
+                          checked={correctionInDocument}
+                          onCheckedChange={(checked) =>
+                            setCorrectionInDocument(checked === true)
+                          }
+                        />
+                        <span className="text-gray-700 text-sm">
+                          Correction in question document
+                        </span>
+                      </label>
+
+                      <label className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-200 cursor-pointer">
+                        <Checkbox
+                          checked={correctionSeparate}
+                          onCheckedChange={(checked) =>
+                            setCorrectionSeparate(checked === true)
+                          }
+                        />
+                        <span className="text-gray-700 text-sm">
+                          Correction in separate document
+                        </span>
+                      </label>
+                      {correctionSeparate ? (
+                        <p className="text-xs text-gray-500 pl-1">
+                          Downloads a zip with the question sheet and{" "}
+                          <code className="text-[11px]">…-correction.docx</code>.
+                          {correctionInDocument
+                            ? " The question sheet will also include the correction at the end."
+                            : ""}
+                        </p>
+                      ) : correctionInDocument ? (
+                        <p className="text-xs text-gray-500 pl-1">
+                          Correction is appended at the end of the question
+                          document (single file).
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-500 pl-1">
+                          Questions only — no correction sheet.
+                        </p>
+                      )}
+
+                      {processComplete ? (
+                        <Alert variant="success">
+                          <CheckCircle className="h-4 w-4" />
+                          <AlertTitle>Export ready</AlertTitle>
+                          <AlertDescription className="text-sm space-y-1">
+                            {exportItemCount != null ? (
+                              <p>
+                                Exported {exportItemCount} items to{" "}
+                                {exportFormat === "pdf" ? "PDF" : "Word"}
+                                {correctionSeparate
+                                  ? " (zip)"
+                                  : correctionInDocument
+                                    ? " (with correction)"
+                                    : ""}
+                              </p>
+                            ) : null}
+                            <p className="font-medium">
+                              Download has started
+                            </p>
+                          </AlertDescription>
+                        </Alert>
+                      ) : null}
+                    </div>
+                  </div>
                 ) : (
                   <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <div className="flex items-center gap-2 mb-4">
@@ -516,7 +734,13 @@ export const ModifyPackagePage: React.FC = () => {
                         >
                           {activeTab === "upgrade"
                             ? "Convert Package"
-                            : "Process File"}
+                            : activeTab === "export"
+                              ? correctionSeparate
+                                ? "Export question + correction"
+                                : exportFormat === "pdf"
+                                  ? "Export PDF"
+                                  : "Export Word"
+                              : "Process File"}
                         </Button>
                       )}
                     </div>
@@ -585,7 +809,9 @@ export const ModifyPackagePage: React.FC = () => {
                         <p className="text-xs text-gray-400">
                           {activeTab === "upgrade"
                             ? "QTI 2.x ZIP files are supported"
-                            : "QTI 2.x and 3 ZIP files are supported"}
+                            : activeTab === "export"
+                              ? "QTI 3 ZIP packages work best for paper export"
+                              : "QTI 2.x and 3 ZIP files are supported"}
                         </p>
                         <p className="text-xs text-gray-400">
                           * By uploading you agree to our Terms and Conditions.

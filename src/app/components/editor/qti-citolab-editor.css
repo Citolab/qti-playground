@@ -1,0 +1,66 @@
+.qti-citolab-editor .ProseMirror {
+  width: 100%;
+  min-height: 100%;
+  outline: none;
+  cursor: text;
+}
+
+.qti-citolab-editor .ProseMirror:focus {
+  outline: none;
+}
+
+.qti-citolab-editor .ProseMirror ul,
+.qti-citolab-editor .ProseMirror ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.qti-citolab-editor .ProseMirror ul {
+  list-style-type: disc;
+}
+
+.qti-citolab-editor .ProseMirror ol {
+  list-style-type: decimal;
+}
+
+.qti-citolab-editor .ProseMirror li {
+  margin: 0.2em 0;
+}
+
+.qti-citolab-editor .ProseMirror li > p {
+  margin: 0;
+}
+
+.qti-citolab-editor .ProseMirror-selectednode {
+  outline: 2px solid color-mix(in oklab, #2563eb 35%, transparent);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+
+.qti-citolab-editor .ProseMirror table {
+  margin: 0.75rem 0;
+}
+
+.qti-citolab-editor .ProseMirror td,
+.qti-citolab-editor .ProseMirror th {
+  border: 1px solid #d1d5db;
+  padding: 0.375rem 0.75rem;
+}
+
+.qti-citolab-editor .ProseMirror th {
+  background-color: #f3f4f6;
+  font-weight: 600;
+  text-align: left;
+}
+
+.qti-citolab-editor .ProseMirror td > p,
+.qti-citolab-editor .ProseMirror th > p {
+  margin: 0;
+}
+
+.qti-citolab-editor .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  margin: 0.5rem 0;
+  border-radius: 0.375rem;
+}

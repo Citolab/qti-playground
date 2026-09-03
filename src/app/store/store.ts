@@ -22,6 +22,8 @@ export interface AssessmentInfoWithContent extends Omit<Assessment, "items"> {
   testUrl: string;
 }
 const urlsChecked = new Map<string, boolean>();
+/** Monotonic token so overlapping prepareForPreview calls don't thrash the preview. */
+let previewPrepareGeneration = 0;
 
 export interface ItemInfoWithBlobRef extends Omit<ItemInfo, "href"> {
   href: string; // Package URL (/__qti_pkg__/...)
@@ -450,6 +452,7 @@ export const useStore = create<Store>()(
       },
 
       prepareForPreview: async () => {
+        const nextGen = ++previewPrepareGeneration;
         const currentState = get();
         set({
           isPreparingForPreview: true,
@@ -472,6 +475,7 @@ export const useStore = create<Store>()(
         try {
           const qtiWithReplacementMedia =
             await replaceMediaWithMissingImagePlaceholder(currentState.qti3);
+          if (nextGen !== previewPrepareGeneration) return;
           const sanitizedXml = sanitizeXmlForPreview(qtiWithReplacementMedia);
           const transformedXml = qtiTransform(sanitizedXml)
             .fnCh(($: CheerioAPI) =>
@@ -483,12 +487,19 @@ export const useStore = create<Store>()(
             transformedXml,
             currentState.previewItemHref,
           );
+          if (nextGen !== previewPrepareGeneration) return;
+          // Skip identical preview XML to avoid remounting item-container
+          if (get().qti3ForPreview === resolvedXml) {
+            set({ isPreparingForPreview: false });
+            return;
+          }
           set({
             qti3ForPreview: resolvedXml,
             isPreparingForPreview: false,
           });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (e: any) {
+          if (nextGen !== previewPrepareGeneration) return;
           set({
             errorMessage: e.message,
             isPreparingForPreview: false,

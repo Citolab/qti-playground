@@ -672,6 +672,17 @@ export const AssessmentPage: React.FC = () => {
     }
   }, [currentItemIdentifier, editItem, navigate]);
 
+  const onEditItemWithCitolabEditor = useCallback(async () => {
+    try {
+      await editItem(currentItemIdentifier);
+      navigate(
+        `/preview?itemId=${encodeURIComponent(currentItemIdentifier || "")}&editor=citolab`,
+      );
+    } catch (error) {
+      console.error("Edit item error:", error);
+    }
+  }, [currentItemIdentifier, editItem, navigate]);
+
   const handleBackNavigation = useCallback(() => {
     navigate("/package");
   }, [navigate]);
@@ -933,6 +944,18 @@ export const AssessmentPage: React.FC = () => {
           <Button size="sm" onClick={onEditItem}>
             <Edit className="sm:mr-1 h-4 w-4" />
             <span className="hidden sm:inline">Edit QTI</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onEditItemWithCitolabEditor}
+            title="Open in QTI editor (beta)"
+          >
+            <span className="hidden sm:inline">QTI editor</span>
+            <span className="sm:hidden">Editor</span>
+            <span className="ml-1 rounded bg-citolab-600/90 px-1 py-px text-[7px] font-semibold uppercase leading-none tracking-wide text-white">
+              Beta
+            </span>
           </Button>
           <Button
             size="sm"
