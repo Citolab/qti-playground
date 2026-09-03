@@ -115,6 +115,52 @@ export function syncScopedRegistry(
 
 const watchedTags = new WeakMap<CustomElementRegistry, Set<string>>();
 
+/**
+ * Mirrors tags into the scoped registry as they appear in the rendered tree.
+ *
+ * Seeding from the source XML is not enough: qti-components injects markup at
+ * runtime that the source never mentions. The clearest case is
+ * `<qti-response-processing template="...rptemplates/map_response.xml">`, which
+ * is empty in the item and expands in `firstUpdated()` into eight processing
+ * elements. Scoped correctly (qti-components >= 8.1.0), those elements resolve
+ * against this registry -- so if the registry has not heard of them they never
+ * upgrade, and response processing fails with `rule.process is not a function`.
+ *
+ * The right long-term fix is upstream: qti-components exporting a complete
+ * tag -> constructor manifest (it exports only `qtiInteractionElements` today),
+ * so the registry can be populated up front from the library's own classes
+ * rather than mirrored out of the global registry. That also matters when an
+ * editor owns the global names -- mirroring would then copy the wrong classes.
+ */
+export function observeScopedSubtree(
+  root: ShadowRoot,
+  registry: CustomElementRegistry,
+): () => void {
+  const mirror = (element: Element) => {
+    const tag = element.localName;
+    if (!tag.includes("-") || registry.get(tag)) return;
+    const ctor = customElements.get(tag);
+    // Defining the tag upgrades the elements already waiting on it.
+    if (ctor) registry.define(tag, ctor);
+  };
+  const scan = (node: Node) => {
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const element = node as Element;
+    mirror(element);
+    element.querySelectorAll("*").forEach(mirror);
+  };
+
+  const observer = new MutationObserver((records) => {
+    for (const record of records) record.addedNodes.forEach(scan);
+  });
+  observer.observe(root, { childList: true, subtree: true });
+  // Catch whatever was already rendered before the observer attached.
+  root.querySelectorAll("*").forEach(mirror);
+
+  return () => observer.disconnect();
+}
+
+
 function collectCustomTagNames(
   source: Document | DocumentFragment | Element,
 ): Set<string> {

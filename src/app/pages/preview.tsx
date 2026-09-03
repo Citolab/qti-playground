@@ -1,6 +1,6 @@
 import { Editor } from "@monaco-editor/react";
 import { useDebouncedCallback } from "use-debounce";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store/store";
 import { Button } from "@/components/ui/button";
 import { Clipboard, Code, Info, Share2 } from "lucide-react";
@@ -18,6 +18,7 @@ import { QtiProsemirrorEditor } from "../components/editor/qti-prosemirror-edito
 import {
   createScopedQtiRegistry,
   inspectScopedContainer,
+  observeScopedSubtree,
   syncScopedRegistry,
 } from "../scoped-registry";
 import DraggablePopup from "../components/draggable-popup";
@@ -161,6 +162,25 @@ export const PreviewPage = () => {
     return { doc: transformer.htmlDoc(scopedRegistry), scopedTags: defined };
   }, [qti3ForPreview, scopedRegistry]);
   const previewItemDoc = preview?.doc ?? null;
+
+  // Attach the mirror as early as possible: the ref callback runs right after
+  // React inserts the container, which is when Lit has just created the shadow
+  // root and before qti-components expands any response-processing template.
+  const scopedObserverRef = useRef<(() => void) | null>(null);
+  const attachScopedObserver = useCallback(
+    (container: HTMLElement | null) => {
+      scopedObserverRef.current?.();
+      scopedObserverRef.current = null;
+      if (!container || !scopedRegistry) return;
+      const shadowRoot = container.shadowRoot;
+      if (!shadowRoot) return;
+      scopedObserverRef.current = observeScopedSubtree(
+        shadowRoot,
+        scopedRegistry,
+      );
+    },
+    [scopedRegistry],
+  );
 
   useEffect(() => {
     if (sourceEditorMode !== "monaco") {
@@ -552,6 +572,7 @@ export const PreviewPage = () => {
           {qti3ForPreview ? (
             <qti-item ref={qtiItemRef}>
               <item-container
+                ref={attachScopedObserver}
                 itemDoc={previewItemDoc ?? undefined}
                 customElementRegistry={scopedRegistry}
               >
