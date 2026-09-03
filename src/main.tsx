@@ -1,6 +1,10 @@
 import { StrictMode } from "react";
 import { BrowserRouter } from "react-router-dom";
 import * as ReactDOM from "react-dom/client";
+// Must precede "@citolab/qti-components": it hands the global registry to the
+// editor and records what the editor claimed, so the player can be scoped to
+// qti-components' own classes instead. See app/editor-first.ts.
+import "./app/editor-first";
 import "@citolab/qti-components";
 import { GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 import "./app/dep-tools-register";

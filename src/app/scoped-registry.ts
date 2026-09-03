@@ -18,6 +18,43 @@
  * side-effect-free entry point upstream in qti-components.
  */
 
+import { qtiInteractionElements } from "@citolab/qti-components";
+
+import { isEditorOwned } from "./registry-recorder";
+
+/**
+ * qti-components' own classes, keyed by tag. This is the authority for the
+ * player: the editor owns these names on the global registry, so looking them
+ * up there would hand the player the editor's components.
+ */
+const playerElements = new Map<string, CustomElementConstructor>(
+  qtiInteractionElements.map(
+    (element) => [element.tag, element.ctor as CustomElementConstructor] as const,
+  ),
+);
+
+/**
+ * The constructor the player should use for a tag, or undefined if it should
+ * stay unresolved.
+ *
+ * Three cases:
+ *  - qti-components publishes the tag -> use its class, whoever holds the
+ *    global name.
+ *  - the editor claimed the tag but qti-components does not publish it (e.g.
+ *    `qti-simple-match-set`, inert markup as far as the player is concerned)
+ *    -> leave it undefined, exactly as it would be without an editor present.
+ *  - nobody contests it (`item-container`, `qti-assessment-item`, the
+ *    processing elements) -> the global registry is qti-components' own.
+ */
+function resolvePlayerConstructor(
+  tag: string,
+): CustomElementConstructor | undefined {
+  const published = playerElements.get(tag);
+  if (published) return published;
+  if (isEditorOwned(tag)) return undefined;
+  return customElements.get(tag);
+}
+
 let supportCache: boolean | null = null;
 
 /**
@@ -63,7 +100,14 @@ export function supportsScopedShadowRoots(): boolean {
 
 export function createScopedQtiRegistry(): CustomElementRegistry | null {
   if (!supportsScopedRegistries()) return null;
-  return new CustomElementRegistry();
+  const registry = new CustomElementRegistry();
+  // Seed qti-components' published elements up front. These are exactly the
+  // names the editor holds on the global registry, so they can never be
+  // mirrored in later -- and seeding them here means a container works even
+  // when it loads its own content (e.g. <test-container testURL=...>) and we
+  // never see the source document.
+  for (const [tag, ctor] of playerElements) registry.define(tag, ctor);
+  return registry;
 }
 
 export type ScopedRegistrySyncResult = {
@@ -95,17 +139,19 @@ export function syncScopedRegistry(
 
   for (const tag of collectCustomTagNames(source)) {
     if (registry.get(tag)) continue;
-    const ctor = customElements.get(tag);
+    const ctor = resolvePlayerConstructor(tag);
     if (ctor) {
       registry.define(tag, ctor);
       defined.push(tag);
       continue;
     }
+    // An editor-owned tag is deliberately left unresolved, not awaited.
+    if (isEditorOwned(tag)) continue;
     pending.push(tag);
     if (watched.has(tag)) continue;
     watched.add(tag);
     void customElements.whenDefined(tag).then(() => {
-      const lateCtor = customElements.get(tag);
+      const lateCtor = resolvePlayerConstructor(tag);
       if (lateCtor && !registry.get(tag)) registry.define(tag, lateCtor);
     });
   }
@@ -139,7 +185,7 @@ export function observeScopedSubtree(
   const mirror = (element: Element) => {
     const tag = element.localName;
     if (!tag.includes("-") || registry.get(tag)) return;
-    const ctor = customElements.get(tag);
+    const ctor = resolvePlayerConstructor(tag);
     // Defining the tag upgrades the elements already waiting on it.
     if (ctor) registry.define(tag, ctor);
   };

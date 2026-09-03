@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ItemInfoWithBlobRef } from "../store/store";
 import { itemCss } from "../itemCss";
+import { useScopedQtiRegistry } from "../use-scoped-registry";
 import {
   QTI_PKG_URL_PREFIX,
   detectPciBaseUrl,
@@ -25,6 +26,10 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
     const [error, setError] = useState<string>("");
     const navigate = useNavigate();
     const containerRef = useRef<HTMLDivElement>(null);
+    // The editor owns the qti-* names on the global registry, so every player
+    // surface needs its own scope. See app/editor-first.ts.
+    const { registry: scopedRegistry, attachRef: attachScopedRegistry } =
+      useScopedQtiRegistry();
 
     const packageRootUrl = (() => {
       try {
@@ -476,7 +481,11 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
         {headerContent && <div className="px-4 pt-4">{headerContent}</div>}
         <div className="aspect-[4/3] overflow-hidden m-3" ref={containerRef}>
           <qti-item>
-            <item-container itemDoc={itemDoc}>
+            <item-container
+              ref={attachScopedRegistry}
+              customElementRegistry={scopedRegistry}
+              itemDoc={itemDoc}
+            >
               <template
                 dangerouslySetInnerHTML={{
                   __html: `<style>${itemCss}</style>`,

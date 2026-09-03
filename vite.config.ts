@@ -254,7 +254,6 @@ export default defineConfig(({ mode }) => {
       // override stays until lightningcss supports `:state()` after `::part()`.
       cssMinify: "esbuild",
       reportCompressedSize: true,
-      cssMinify: "esbuild",
       commonjsOptions: {
         transformMixedEsModules: true,
         exclude: [/@citolab\/prose-qti/, /@citolab\/prose-extensions/, /@qti-components\//],

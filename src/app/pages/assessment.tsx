@@ -26,6 +26,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { itemCss } from "../itemCss";
+import { useScopedQtiRegistry } from "../use-scoped-registry";
 import {
   QTI_PKG_URL_PREFIX,
   detectPciBaseUrl,
@@ -143,6 +144,10 @@ export const AssessmentPage: React.FC = () => {
   const [qtiTestElement, setQtiTestElement] = useState<IQtiTest | null>(null);
   const hasRedirectedForMissingPackageCacheRef = useRef(false);
   const [queryParams, setQueryParams] = useSearchParams();
+  // The editor owns the qti-* names on the global registry, so the test player
+  // needs its own scope. See app/editor-first.ts.
+  const { registry: scopedRegistry, attachRef: attachScopedRegistry } =
+    useScopedQtiRegistry();
   const [showVariables, setShowVariables] = useState(false);
   const [currentItemIdentifier, setCurrentItemIdentifier] = useState("");
   const [currentItemRefIdentifier, setCurrentItemRefIdentifier] = useState("");
@@ -1063,6 +1068,8 @@ export const AssessmentPage: React.FC = () => {
                   ) : (
                     <div className="flex justify-center p-6 min-h-full">
                       <test-container
+                        ref={attachScopedRegistry}
+                        customElementRegistry={scopedRegistry}
                         className="custom-qti-style cito-style w-full max-w-4xl"
                         testURL={assessment?.testUrl}
                       >
