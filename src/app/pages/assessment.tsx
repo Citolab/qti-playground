@@ -9,7 +9,12 @@ import React, {
 import { useStore } from "../store/store";
 import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { CustomElements } from "@citolab/qti-components/react";
-import { IQtiTest, QtiAssessmentItem } from "@citolab/qti-components";
+import {
+  IQtiTest,
+  QtiAssessmentItem,
+  QtiAssessmentItemRef,
+  transformItemApi,
+} from "@citolab/qti-components";
 import type { TestContext } from "@citolab/qti-components";
 // import { QtiTest } from "@citolab/qti-components";
 import {
@@ -220,22 +225,11 @@ export const AssessmentPage: React.FC = () => {
   // freshly initialised state and must not be written over a previous session's answers.
   const hasSeenBootContextRef = useRef(false);
 
-  type TransformItemApi = {
-    configurePci: (
-      baseUrl: string,
-      getModuleResolutionConfig: (
-        baseUrl: string,
-        fileUrl: string,
-      ) => Promise<{ paths: Record<string, string | string[]> } | null>,
-    ) => Promise<TransformItemApi>;
-    xmlDoc?: () => XMLDocument;
-  };
-
   const assessmentTestUrl = assessment?.testUrl;
   const postLoadTransformCallback = useCallback(
     async (
-      transformer: TransformItemApi,
-      itemRef?: { getAttribute: (name: string) => string | null },
+      transformer: transformItemApi,
+      itemRef?: QtiAssessmentItemRef,
     ) => {
       if (!packageRootUrl || !transformer?.configurePci) return transformer;
 
@@ -279,13 +273,8 @@ export const AssessmentPage: React.FC = () => {
         }
       })();
 
-      const transformerXml = (): string => {
-        const maybeXml = (transformer as unknown as { xml?: () => string })?.xml;
-        return typeof maybeXml === "function" ? maybeXml() : "";
-      };
-
       try {
-        const rawXml = transformerXml();
+        const rawXml = transformer.xml();
         const hasPreconfiguredPortablePci =
           /<qti-portable-custom-interaction\b/i.test(rawXml) &&
           /\bdata-base-url="/i.test(rawXml) &&
@@ -315,7 +304,7 @@ export const AssessmentPage: React.FC = () => {
           (_baseUrl, fileUrl) => fetcher(fileUrl),
         );
 
-        const doc = configured.xmlDoc?.();
+        const doc = configured.xmlDoc();
         if (doc) {
           // Legacy CES / "qti-custom-interaction" support.
           // qti-components expects `data`, `data-base-item`, and `data-base-ref` on the host element.
@@ -542,9 +531,7 @@ export const AssessmentPage: React.FC = () => {
       if (element) {
         qtiTestRef.current = element;
         setQtiTestElement(element);
-        (
-          element as unknown as { postLoadTransformCallback?: unknown }
-        ).postLoadTransformCallback = postLoadTransformCallback;
+        element.postLoadTransformCallback = postLoadTransformCallback;
       } else {
         qtiTestRef.current = null;
         setQtiTestElement(null);
@@ -569,9 +556,7 @@ export const AssessmentPage: React.FC = () => {
 
   useEffect(() => {
     if (!qtiTestRef.current) return;
-    (
-      qtiTestRef.current as unknown as { postLoadTransformCallback?: unknown }
-    ).postLoadTransformCallback = postLoadTransformCallback;
+    qtiTestRef.current.postLoadTransformCallback = postLoadTransformCallback;
   }, [postLoadTransformCallback]);
 
   useEffect(() => {

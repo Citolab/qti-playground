@@ -172,8 +172,7 @@ function mountPreparedPackagePreview(
   root.appendChild(test);
 
   const navigateToFirstItem = () => {
-    const instance = test as unknown as { navigateTo?: (type: 'item' | 'section', id?: string) => void };
-    instance.navigateTo?.('item', first);
+    test.navigateTo('item', first);
   };
 
   test.addEventListener('qti-assessment-test-connected', () => {

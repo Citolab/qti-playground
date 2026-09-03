@@ -225,15 +225,14 @@ export const AiConvertPage: React.FC = () => {
     setDownloadFileName("");
     setStatusMessage("");
     setUploadProgress(0);
+    setVisibleExplanationCount(1);
   };
 
   useEffect(() => {
     if (!inProgress) {
-      setVisibleExplanationCount(1);
       return;
     }
 
-    setVisibleExplanationCount(1);
     const interval = window.setInterval(() => {
       setVisibleExplanationCount((count) =>
         count < FILE_EXPLANATION_STEPS.length ? count + 1 : count,
@@ -382,7 +381,9 @@ export const AiConvertPage: React.FC = () => {
     }
   };
 
-  processFileRef.current = processFile;
+  useEffect(() => {
+    processFileRef.current = processFile;
+  });
 
   useEffect(() => {
     const redirectedFile = navigationState.redirectedFile;
@@ -479,6 +480,7 @@ export const AiConvertPage: React.FC = () => {
 
     try {
       setError(null);
+      setVisibleExplanationCount(1);
       setInProgress(true);
       setStatusMessage("Preparing converted QTI package for assessment...");
       setUploadProgress(20);

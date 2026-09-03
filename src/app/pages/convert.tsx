@@ -8,48 +8,49 @@ import { Dropdown } from "../components/dropdown";
 import { Panel } from "../components/panel";
 import { Button } from "@/components/ui/button";
 
+const ITEMS = [
+  {
+    name: "choice",
+    items: [
+      { name: "choice", href: "/choice.xml", current: true },
+      {
+        name: "choice multiple",
+        href: "/choice_multiple.xml",
+        current: false,
+      },
+      { name: "gap match", href: "/gap_match.xml", current: false },
+      {
+        name: "graphic gap match",
+        href: "/graphic_gap_match.xml",
+        current: false,
+      },
+      {
+        name: "graphic associate",
+        href: "/graphic_associate.xml",
+        current: false,
+      },
+      {
+        name: "position object",
+        href: "/position_object.xml",
+        current: false,
+      },
+      { name: "select point", href: "/select_point.xml", current: false },
+      { name: "hotspot", href: "/hotspot.xml", current: false },
+      { name: "inline choice", href: "/inline_choice.xml", current: false },
+      { name: "match", href: "/match.xml", current: false },
+      { name: "order", href: "/order.xml", current: false },
+      { name: "slider", href: "/slider.xml", current: false },
+    ],
+  },
+];
+
+const ALL_ITEMS = ITEMS.flatMap((i) => i.items);
+
 export const ConvertPage = () => {
   const sourceEditor = useRef<{ setValue: (value: string) => void } | null>(null);
   const resultEditor = useRef<object | null>(null);
 
   const [openTooltip, setOpenTooltip] = useState(false);
-
-  const items = useRef([
-    {
-      name: "choice",
-      items: [
-        { name: "choice", href: "/choice.xml", current: true },
-        {
-          name: "choice multiple",
-          href: "/choice_multiple.xml",
-          current: false,
-        },
-        { name: "gap match", href: "/gap_match.xml", current: false },
-        {
-          name: "graphic gap match",
-          href: "/graphic_gap_match.xml",
-          current: false,
-        },
-        {
-          name: "graphic associate",
-          href: "/graphic_associate.xml",
-          current: false,
-        },
-        {
-          name: "position object",
-          href: "/position_object.xml",
-          current: false,
-        },
-        { name: "select point", href: "/select_point.xml", current: false },
-        { name: "hotspot", href: "/hotspot.xml", current: false },
-        { name: "inline choice", href: "/inline_choice.xml", current: false },
-        { name: "match", href: "/match.xml", current: false },
-        { name: "order", href: "/order.xml", current: false },
-        { name: "slider", href: "/slider.xml", current: false },
-      ],
-    },
-  ]);
-  const allItems = items.current.flatMap((i) => i.items);
 
   // Zustand store - use selectors for optimal re-renders
   const qtiInput = useStore((state) => state.qtiInput);
@@ -83,9 +84,9 @@ export const ConvertPage = () => {
         actionComponents={[
           <Dropdown
             name="Examples"
-            items={items.current}
+            items={ITEMS}
             onMenuClick={async (name) => {
-              const i = allItems.find((i) => i.name === name);
+              const i = ALL_ITEMS.find((i) => i.name === name);
               await loadQti(`/2${i?.href || ""}`);
               sourceEditor.current?.setValue(useStore.getState().qtiInput);
             }}

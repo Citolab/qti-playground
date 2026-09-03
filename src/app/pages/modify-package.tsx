@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   removeMediaFromPackage,
   removeItemsFromPackage,
@@ -198,12 +198,6 @@ export const ModifyPackagePage: React.FC = () => {
       setInProgress(false);
     }
   };
-
-  useEffect(() => {
-    if (itemCount > 0) {
-      setEndIndex(itemCount - 1);
-    }
-  }, [itemCount]);
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-linear-to-br from-slate-50 via-citolab-50/20 to-citolab-teal-50/20 p-4">

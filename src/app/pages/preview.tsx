@@ -10,6 +10,7 @@ import { Dropdown } from "../components/dropdown";
 import { Panel } from "../components/panel";
 import { qtiTransformItem } from "@citolab/qti-components/qti-transformers";
 import { QtiAssessmentItem, QtiItem } from "@citolab/qti-components";
+import type { QtiAssessmentItemCorrection } from "@citolab/qti-components/corrections";
 import { CustomElements } from "@citolab/qti-components/react";
 import { useSearchParams } from "react-router-dom";
 import { itemCss } from "../itemCss";
@@ -48,6 +49,37 @@ declare module "react" {
     interface IntrinsicElements extends CustomElements {}
   }
 }
+const ITEMS = [
+  {
+    name: "choice",
+    items: [
+      // { name: 'adaptive', href: '/adaptive.xml', current: false },
+      { name: "associate", href: "/associate.xml", current: false },
+      { name: "choice", href: "/choice.xml", current: true },
+      { name: "extended text", href: "/extended_text.xml", current: false },
+      { name: "gap match", href: "/gap-match.xml", current: false },
+      {
+        name: "graphic gap match",
+        href: "/graphic_gap_match.xml",
+        current: false,
+      },
+      { name: "graphic order", href: "/graphic_order.xml", current: false },
+      // { name: 'hotspot', href: '/hotspot.xml', current: false },
+      {
+        name: "inline choice math",
+        href: "/inline_choice_math.xml",
+        current: false,
+      },
+      { name: "inline_choice", href: "/inline_choice.xml", current: false },
+      { name: "match", href: "/match.xml", current: false },
+      { name: "mc_stat2", href: "/mc_stat2.xml", current: false },
+      { name: "order", href: "/order.xml", current: false },
+    ],
+  },
+];
+
+const ALL_ITEMS = ITEMS.flatMap((i) => i.items);
+
 export const PreviewPage = () => {
   const sourceEditor = useRef<{ setValue: (value: string) => void; getValue: () => string } | null>(null);
   const qtiItemRef = useRef<QtiItem>(null);
@@ -78,36 +110,6 @@ export const PreviewPage = () => {
   const setQti3 = useStore((state) => state.setQti3);
   const loadSharedQti = useStore((state) => state.loadSharedQti);
   const editItem = useStore((state) => state.editItem);
-
-  const items = useRef([
-    {
-      name: "choice",
-      items: [
-        // { name: 'adaptive', href: '/adaptive.xml', current: false },
-        { name: "associate", href: "/associate.xml", current: false },
-        { name: "choice", href: "/choice.xml", current: true },
-        { name: "extended text", href: "/extended_text.xml", current: false },
-        { name: "gap match", href: "/gap-match.xml", current: false },
-        {
-          name: "graphic gap match",
-          href: "/graphic_gap_match.xml",
-          current: false,
-        },
-        { name: "graphic order", href: "/graphic_order.xml", current: false },
-        // { name: 'hotspot', href: '/hotspot.xml', current: false },
-        {
-          name: "inline choice math",
-          href: "/inline_choice_math.xml",
-          current: false,
-        },
-        { name: "inline_choice", href: "/inline_choice.xml", current: false },
-        { name: "match", href: "/match.xml", current: false },
-        { name: "mc_stat2", href: "/mc_stat2.xml", current: false },
-        { name: "order", href: "/order.xml", current: false },
-      ],
-    },
-  ]);
-  const allItems = items.current.flatMap((i) => i.items);
 
   const editorOptions = {
     minimap: { enabled: false },
@@ -341,11 +343,11 @@ export const PreviewPage = () => {
             items={[
               {
                 name: "choice",
-                items: allItems,
+                items: ALL_ITEMS,
               },
             ]}
             onMenuClick={(name) => {
-              const i = allItems.find((i) => i.name === name);
+              const i = ALL_ITEMS.find((i) => i.name === name);
               loadQti3(`/3${i?.href || ""}`);
             }}
           />,
@@ -435,10 +437,8 @@ export const PreviewPage = () => {
                   qtiItemRef.current?.querySelector("item-container");
                 const assessmentItem = container?.shadowRoot?.querySelector(
                   "qti-assessment-item",
-                ) as QtiAssessmentItem;
-                if (assessmentItem) {
-                  assessmentItem.showCorrectResponse(true);
-                }
+                ) as QtiAssessmentItemCorrection | null;
+                assessmentItem?.showCorrectResponse?.(true);
               }}
             >
               Set correct response
