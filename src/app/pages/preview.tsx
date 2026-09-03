@@ -15,6 +15,11 @@ import { CustomElements } from "@citolab/qti-components/react";
 import { useSearchParams } from "react-router-dom";
 import { itemCss } from "../itemCss";
 import { QtiProsemirrorEditor } from "../components/editor/qti-prosemirror-editor";
+import {
+  createScopedQtiRegistry,
+  inspectScopedContainer,
+  syncScopedRegistry,
+} from "../scoped-registry";
 import DraggablePopup from "../components/draggable-popup";
 
 type PreviewVariable = {
@@ -124,14 +129,38 @@ export const PreviewPage = () => {
     1000,
   );
 
-  const previewItemDoc = useMemo(() => {
+  // Spike: scope the player's custom element names to the preview's own
+  // registry, so the surrounding app keeps the global `qti-*` names.
+  // Opt out with `?scopedRegistry=0` to compare against the global behaviour.
+  // Created during the first render rather than in an effect: `ItemContainer`
+  // reads `customElementRegistry` in `createRenderRoot()`, so it has to sit on
+  // the element before React connects it.
+  const [scopedRegistry] = useState<CustomElementRegistry | null>(() =>
+    searchParams.get("scopedRegistry") === "0" ? null : createScopedQtiRegistry(),
+  );
+
+  const preview = useMemo(() => {
     if (!qti3ForPreview) return null;
-    return qtiTransformItem()
+    const transformer = qtiTransformItem()
       .parse(qti3ForPreview)
       .extendElementsWithClass("type")
-      .convertCDATAtoComment()
-      .htmlDoc();
-  }, [qti3ForPreview]);
+      .convertCDATAtoComment();
+    if (!scopedRegistry) {
+      return { doc: transformer.htmlDoc(), scopedTags: [] as string[] };
+    }
+    // The registry instance is stable across edits so the container never has
+    // to remount; only newly seen tags are added, before the elements that
+    // need them are created.
+    const { defined, pending } = syncScopedRegistry(
+      scopedRegistry,
+      transformer.xmlDoc(),
+    );
+    if (pending.length) {
+      console.info("[scoped-registry] tags not defined anywhere yet:", pending);
+    }
+    return { doc: transformer.htmlDoc(scopedRegistry), scopedTags: defined };
+  }, [qti3ForPreview, scopedRegistry]);
+  const previewItemDoc = preview?.doc ?? null;
 
   useEffect(() => {
     if (sourceEditorMode !== "monaco") {
@@ -245,6 +274,39 @@ export const PreviewPage = () => {
     lastVariablesSignatureRef.current = nextSignature;
     setPreviewVariables(nextVariables);
   };
+
+  // Spike diagnostics: did the scoped registry actually reach the shadow root?
+  // The property has to be set before connection, and React sets custom element
+  // properties during the complete phase (before insertion), so this is what
+  // confirms the timing rather than assuming it.
+  const scopedReportedRef = useRef(false);
+  useEffect(() => {
+    if (!previewItemDoc || scopedReportedRef.current) return;
+    let cancelled = false;
+    let attempts = 0;
+    const report = () => {
+      if (cancelled) return;
+      const container = qtiItemRef.current?.querySelector("item-container");
+      if (!container?.shadowRoot) {
+        attempts += 1;
+        if (attempts < 20) window.setTimeout(report, 100);
+        return;
+      }
+      scopedReportedRef.current = true;
+      console.info(
+        "[scoped-registry] preview report",
+        inspectScopedContainer(
+          container,
+          scopedRegistry,
+          preview?.scopedTags ?? [],
+        ),
+      );
+    };
+    report();
+    return () => {
+      cancelled = true;
+    };
+  }, [preview, previewItemDoc, scopedRegistry]);
 
   useEffect(() => {
     const attach = () => {
@@ -489,7 +551,10 @@ export const PreviewPage = () => {
         <>
           {qti3ForPreview ? (
             <qti-item ref={qtiItemRef}>
-              <item-container itemDoc={previewItemDoc ?? undefined}>
+              <item-container
+                itemDoc={previewItemDoc ?? undefined}
+                customElementRegistry={scopedRegistry}
+              >
                 <template
                   dangerouslySetInnerHTML={{
                     __html: `<style>${itemCss}</style>`,
