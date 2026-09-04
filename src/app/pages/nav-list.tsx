@@ -1,14 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  questionPillClasses,
+  questionPillStyle,
+  type ResponseState,
+} from "../components/question-pill";
 
 interface NavigationBarProps {
   stampContext: any;
   bookmarkedItemIds?: string[];
   onClick: (identifier: string) => void;
 }
-
-type ResponseState = "missing" | "incomplete" | "complete";
 
 export function NavigationBar({
   stampContext,
@@ -171,63 +174,17 @@ export function NavigationBar({
           );
         }
 
-        const baseClasses =
-          "relative w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium cursor-pointer transition-all duration-300 select-none transform";
-
-        let itemClasses = baseClasses;
-
-        const isComplete = item.responseState === "complete";
-        const isIncomplete = item.responseState === "incomplete";
-
-        if (item.isActive) {
-          if (isComplete) {
-            // Active and answered - strong citolab with darker border
-            itemClasses +=
-              " bg-citolab-600 text-white border-2 border-citolab-800 shadow-lg";
-          } else {
-            // Active but not answered - white background with citolab border
-            itemClasses +=
-              " bg-white text-citolab-700 border-2 border-citolab-600 shadow-md";
-          }
-        } else {
-          if (isComplete) {
-            if (item.isMarked) {
-              itemClasses +=
-                " bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200";
-            } else {
-              itemClasses +=
-                " bg-citolab-500 text-citolab-900 border border-citolab-600 hover:bg-citolab-600";
-            }
-          } else {
-            // Not answered and not active - neutral colors with citolab hover
-            if (item.isMarked) {
-              itemClasses +=
-                " bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100";
-            } else {
-              itemClasses +=
-                " bg-white text-gray-700 border border-gray-300 hover:border-citolab-400 hover:bg-citolab-50";
-            }
-          }
-        }
-
-        if (item.isInfo) {
-          itemClasses += " italic";
-        }
-
         return (
           <Button
             key={item.identifier || item.originalIndex}
-            className={itemClasses}
+            className={questionPillClasses(item.responseState, {
+              isActive: item.isActive,
+              isMarked: item.isMarked,
+              isInfo: item.isInfo,
+            })}
             onClick={() => handleItemClick(item)}
             title={item.label || `Item ${item.displayNumber}`}
-            style={
-              isIncomplete
-                ? {
-                    backgroundImage:
-                      "linear-gradient(135deg, var(--color-citolab-200) 0%, var(--color-citolab-200) 50%, rgba(0,0,0,0) 50%, rgba(0,0,0,0) 100%)",
-                  }
-                : undefined
-            }
+            style={questionPillStyle(item.responseState)}
           >
             {item.isMarked && (
               <div

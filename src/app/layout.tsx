@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, Sparkles, X, type LucideIcon } from "lucide-react";
+import { Menu, Pencil, Sparkles, X, type LucideIcon } from "lucide-react";
 import { NavLink, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,8 @@ type NavItem = {
   name: string;
   href: string;
   icon?: LucideIcon;
+  /** Corner sticker drawing the eye to a page that has just landed. */
+  isNew?: boolean;
 };
 
 const packageNavigation: NavItem[] = [
@@ -18,8 +20,9 @@ const packageNavigation: NavItem[] = [
 ];
 
 const itemNavigation: NavItem[] = [
-  { name: "Preview item", href: "/preview" },
-  { name: "Convert item", href: "/convert" },
+  { name: "Edit", href: "/edit", icon: Pencil, isNew: true },
+  { name: "Preview", href: "/preview" },
+  { name: "Convert", href: "/convert" },
 ];
 
 const navigationGroups = [
@@ -35,13 +38,26 @@ const navLinkClassName = ({
   isPending: boolean;
 }) =>
   cn(
-    "rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-all duration-150",
+    "relative rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-all duration-150",
     isPending
       ? "text-citolab-600"
       : isActive
         ? "bg-citolab-600 text-white shadow-sm"
         : "text-gray-600 hover:bg-white hover:text-citolab-700",
   );
+
+/**
+ * Sits on the corner of the nav pill rather than in the label, so "new" reads
+ * as a sticker on the tab instead of a chip competing with the label. The white
+ * ring keeps it legible where it overlaps the group pill's border.
+ */
+function NewSticker() {
+  return (
+    <span className="pointer-events-none absolute -top-1.5 -right-1.5 z-10 rounded-full bg-red-500 px-1.5 py-px text-[8px] font-bold uppercase leading-[1.4] tracking-wide text-white shadow-sm ring-2 ring-white">
+      New
+    </span>
+  );
+}
 
 function NavItemLink({ item }: { item: NavItem }) {
   return (
@@ -50,6 +66,7 @@ function NavItemLink({ item }: { item: NavItem }) {
         {item.icon ? <item.icon className="h-3.5 w-3.5 shrink-0" /> : null}
         {item.name}
       </span>
+      {item.isNew ? <NewSticker /> : null}
     </NavLink>
   );
 }
@@ -97,7 +114,7 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
 
             <div className="hidden md:block h-6 w-px bg-gray-200 shrink-0" />
 
-            <div className="hidden md:flex min-w-0 flex-1 items-center justify-start gap-3 overflow-x-auto lg:gap-5">
+            <div className="hidden md:flex min-w-0 flex-1 items-center justify-start gap-3 overflow-x-auto py-2 lg:gap-5">
               {navigationGroups.map((group, index) => (
                 <div key={group.label} className="flex items-center gap-3 lg:gap-5">
                   {index > 0 ? (
@@ -155,6 +172,11 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
                               <item.icon className="h-4 w-4" />
                             ) : null}
                             {item.name}
+                            {item.isNew ? (
+                              <span className="rounded-full bg-red-500 px-1.5 py-px text-[8px] font-bold uppercase leading-[1.4] tracking-wide text-white">
+                                New
+                              </span>
+                            ) : null}
                           </span>
                         </NavLink>
                       ))}

@@ -11,8 +11,14 @@ import { getUpgraderStylesheetBlobUrl } from "./qti-upgrader";
 import {
   deletePackageCache,
   prepareQtiPackage,
-  QTI_PKG_URL_PREFIX,
+  putTextFileInPackageCache,
 } from "@citolab/qti-browser-import";
+import { packagePathFromUrl } from "./package-export";
+import { blankItemXml } from "./blank-item";
+import {
+  createItemAssetResolver,
+  mapItemAssetUrls,
+} from "../qti/asset-urls";
 
 // omit items
 export interface AssessmentInfoWithContent extends Omit<Assessment, "items"> {
@@ -44,12 +50,22 @@ export interface StateModel {
   isPreparingForPreview: boolean;
   errorMessage: string;
   fillSource: boolean;
+  /**
+   * Bumped whenever a document is loaded into `qti3` from outside an editor
+   * (example, package item, shared link, new item). Editors that take their
+   * source at mount time key off this to remount on the new document.
+   */
+  sourceVersion: number;
   assessments: AssessmentInfoWithContent[];
   importErrors: string[];
   selectedAssessment?: string;
   testContexts: ({ assessmentId: string } & ExtendedTestContext)[];
   itemsPerAssessment: { assessmentId: string; items: ItemInfoWithBlobRef[] }[];
   activePackageId?: string;
+  /** Name of the uploaded .zip, used to name the package download. */
+  packageFileName?: string;
+  /** Identifiers of items the in-place editor has written back to the package cache. */
+  editedItemIdentifiers: string[];
 }
 
 export const initialState: StateModel = {
@@ -63,6 +79,7 @@ export const initialState: StateModel = {
   isConverting: false,
   isPreparingForPreview: false,
   fillSource: false,
+  sourceVersion: 0,
   loadingItems: false,
   errorMessage: "",
   testContexts: [],
@@ -70,16 +87,23 @@ export const initialState: StateModel = {
   itemsPerAssessment: [],
   importErrors: [],
   activePackageId: undefined,
+  packageFileName: undefined,
+  editedItemIdentifiers: [],
 };
 
 // Helper functions (moved from class actions)
 async function checkFileExists(url: string): Promise<boolean> {
   try {
-    if (url.startsWith("http") || url.startsWith("//")) {
-      return true;
-    }
-    const response = await axios.head(url);
-    return response.status === 200;
+    // Cross-origin assets can't be probed without CORS, so take them on trust.
+    const resolved = new URL(url, window.location.href);
+    if (resolved.origin !== window.location.origin) return true;
+    const response = await axios.head(resolved.href);
+    if (response.status !== 200) return false;
+    // Vite's dev server (and any SPA host with a catch-all rewrite) answers an
+    // unknown path with index.html instead of a 404, so status alone would call
+    // every missing asset present. An asset that comes back as a document isn't.
+    const contentType = String(response.headers?.["content-type"] ?? "");
+    return !contentType.toLowerCase().startsWith("text/html");
   } catch {
     return false;
   }
@@ -96,15 +120,18 @@ const replaceMediaWithMissingImagePlaceholder = async (
     );
     for (const node of Array.from(srcAttributes)) {
       const srcValue = node.getAttribute(attribute)!;
+      // `href` is media only on a few elements. Pointing a hyperlink at
+      // missing.png would be a worse outcome than leaving it dangling.
+      if (attribute === "href" && node.tagName.toLowerCase() === "a") continue;
+      if (srcValue.startsWith("data:") || srcValue.startsWith("blob:")) continue;
 
-      const imageExists = urlsChecked.has(srcValue)
-        ? urlsChecked.get(srcValue)
-        : await checkFileExists(srcValue);
+      let imageExists = urlsChecked.get(srcValue);
+      if (imageExists === undefined) {
+        imageExists = await checkFileExists(srcValue);
+        urlsChecked.set(srcValue, imageExists);
+      }
 
-      if (
-        !imageExists &&
-        !(srcValue.startsWith("data:") || srcValue.startsWith("blob:"))
-      ) {
+      if (!imageExists) {
         node.setAttribute(attribute, "/missing.png");
       }
     }
@@ -119,7 +146,6 @@ const sanitizeXmlForPreview = (xmlString: string): string => {
     "script",
     "style",
     "iframe",
-    "object",
     "embed",
     "link",
     "meta",
@@ -128,6 +154,17 @@ const sanitizeXmlForPreview = (xmlString: string): string => {
 
   blockedTags.forEach((tag) => {
     doc.querySelectorAll(tag).forEach((el) => el.remove());
+  });
+
+  // `object` is how QTI carries the image behind every graphic interaction
+  // (`<object type="image/png" data="...">`), so blocking the tag outright
+  // stripped the picture out of graphic order / graphic gap match / the
+  // extended-text postcard. Keep the media types QTI uses and drop the rest,
+  // which is where an object element could actually smuggle in markup.
+  doc.querySelectorAll("object").forEach((el) => {
+    const type = (el.getAttribute("type") || "").toLowerCase();
+    const isMedia = /^(image|audio|video)\//.test(type);
+    if (!isMedia) el.remove();
   });
 
   doc.querySelectorAll("*").forEach((el) => {
@@ -145,113 +182,9 @@ const resolvePreviewAssetUrls = (
   xmlString: string,
   previewItemHref?: string,
 ): string => {
-  if (!previewItemHref) return xmlString;
-
-  let itemDirPath = "";
-  let packageRootUrl: string | null = null;
-  try {
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const baseUrl = new URL(previewItemHref, origin || "http://localhost");
-    const pathname = baseUrl.pathname;
-    const isPackageHost = baseUrl.hostname === "__qti_pkg__";
-    const pathnameWithPrefix = isPackageHost
-      ? `${QTI_PKG_URL_PREFIX}${pathname}`
-      : pathname;
-    const idx = pathnameWithPrefix.lastIndexOf("/");
-    itemDirPath =
-      idx >= 0 ? pathnameWithPrefix.slice(0, idx + 1) : pathnameWithPrefix;
-
-    if (isPackageHost) {
-      const parts = pathname.split("/").filter(Boolean);
-      const packageId = parts[0] || "";
-      if (packageId) {
-        packageRootUrl = `${QTI_PKG_URL_PREFIX}/${packageId}`;
-      }
-    } else {
-      const parts = pathname.split("/").filter(Boolean);
-      const prefix = QTI_PKG_URL_PREFIX.replace(/^\//, "");
-      const pkgIdx = parts.indexOf(prefix);
-      if (pkgIdx >= 0) {
-        const packageId = parts[pkgIdx + 1] || "";
-        if (packageId) {
-          packageRootUrl = `${QTI_PKG_URL_PREFIX}/${packageId}`;
-        }
-      }
-    }
-  } catch {
-    return xmlString;
-  }
-
-  if (!itemDirPath) return xmlString;
-
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const base = origin
-    ? `${origin}${itemDirPath}`
-    : `http://localhost${itemDirPath}`;
-
-  const resolveUrl = (raw: string) => {
-    const value = raw.trim();
-    if (!value) return raw;
-    if (value.startsWith("#")) return raw;
-    const originPrefix =
-      typeof window !== "undefined" ? window.location.origin : "";
-    if (/^https?:\/\/__qti_pkg__\//.test(value)) {
-      const pathOnly = value.replace(/^https?:\/\/__qti_pkg__/, "");
-      return originPrefix ? `${originPrefix}${pathOnly}` : pathOnly;
-    }
-    if (value.startsWith("//__qti_pkg__/")) {
-      const pathOnly = value.slice(1);
-      return originPrefix ? `${originPrefix}${pathOnly}` : pathOnly;
-    }
-    if (value.startsWith("__qti_pkg__/")) {
-      const pathOnly = `/${value}`;
-      return originPrefix ? `${originPrefix}${pathOnly}` : pathOnly;
-    }
-    if (value.startsWith("/__qti_pkg__/")) {
-      return originPrefix ? `${originPrefix}${value}` : value;
-    }
-    if (/^(data:|blob:|https?:)/.test(value)) return raw;
-    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value)) return raw;
-    if (value.startsWith("/assets/")) return raw;
-
-    try {
-      const normalizedValue =
-        value.startsWith("/") &&
-        packageRootUrl &&
-        !value.startsWith(QTI_PKG_URL_PREFIX)
-          ? `${packageRootUrl}${value}`
-          : value;
-      const u = new URL(normalizedValue, base);
-      const path =
-        u.hostname === "__qti_pkg__"
-          ? `${QTI_PKG_URL_PREFIX}${u.pathname}${u.search}${u.hash}`
-          : `${u.pathname}${u.search}${u.hash}`;
-      return originPrefix && path.startsWith("/")
-        ? `${originPrefix}${path}`
-        : path;
-    } catch {
-      return raw;
-    }
-  };
-
-  const doc = new DOMParser().parseFromString(xmlString, "text/xml");
-  const nodes = doc.querySelectorAll("[src],[href],[data]");
-  nodes.forEach((node) => {
-    const el = node as Element;
-    const tagName = el.tagName.toLowerCase();
-    const inLegacyCustomInteraction =
-      tagName === "qti-custom-interaction" ||
-      (tagName === "object" && el.closest("qti-custom-interaction"));
-    (["src", "href", "data"] as const).forEach((attr) => {
-      const current = el.getAttribute(attr);
-      if (!current) return;
-      if (attr === "data" && inLegacyCustomInteraction) return;
-      const next = resolveUrl(current);
-      if (next !== current) el.setAttribute(attr, next);
-    });
-  });
-
-  return new XMLSerializer().serializeToString(doc);
+  const resolve = createItemAssetResolver(previewItemHref);
+  if (!resolve) return xmlString;
+  return mapItemAssetUrls(xmlString, resolve);
 };
 
 // Zustand store actions interface
@@ -265,6 +198,7 @@ interface StoreActions {
   loadQti3: (href: string) => Promise<void>;
   setSelectedItem: (identifier: string, assessmentId: string) => Promise<void>;
   editItem: (identifier: string) => Promise<void>;
+  saveEditedItem: (identifier: string, xml: string) => Promise<boolean>;
   updateTestContext: (
     context: { assessmentId: string } & ExtendedTestContext,
   ) => void;
@@ -276,6 +210,7 @@ interface StoreActions {
   startAssessment: (assessmentId: string) => void;
   setQti3: (qti: string) => Promise<void>;
   loadSharedQti: (qti: string) => Promise<void>;
+  newItem: () => Promise<void>;
   prepareForPreview: () => Promise<void>;
   convertQti: (qti: string) => Promise<void>;
 }
@@ -309,6 +244,7 @@ export const useStore = create<Store>()(
           set({
             qtiInput: qtiResultData.data,
             fillSource: true,
+            sourceVersion: get().sourceVersion + 1,
           });
           await get().convertQti(qtiResultData.data);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -330,6 +266,7 @@ export const useStore = create<Store>()(
             qtiInput: qtiResultData.data,
             qti3: qtiResultData.data,
             fillSource: true,
+            sourceVersion: get().sourceVersion + 1,
             isConverting: false,
           });
           await get().prepareForPreview();
@@ -374,6 +311,7 @@ export const useStore = create<Store>()(
             const content = response.data;
             set({
               fillSource: true,
+              sourceVersion: get().sourceVersion + 1,
               qti3: content,
               previewItemHref: item.href,
             });
@@ -385,6 +323,50 @@ export const useStore = create<Store>()(
             });
           }
         }
+      },
+
+      /**
+       * Writes an edited item back into the package cache, so the Service Worker starts
+       * serving it to every surface that loads items by URL -- the test player included.
+       * Without this, closing the editor drops the edit on the floor: the player re-fetches
+       * `item.href` on navigation and gets the version that was imported.
+       *
+       * Returns whether anything was written.
+       */
+      saveEditedItem: async (identifier: string, xml: string) => {
+        const currentState = get();
+        const packageId = currentState.activePackageId;
+        if (!packageId || !xml.trim()) return false;
+
+        const item = currentState.itemsPerAssessment
+          .flatMap((entry) => entry.items)
+          .find((candidate) => candidate.identifier === identifier);
+        if (!item) return false;
+
+        const zipPath = packagePathFromUrl(packageId, item.href);
+        if (!zipPath) return false;
+
+        try {
+          await putTextFileInPackageCache(
+            packageId,
+            zipPath,
+            xml,
+            "application/xml",
+          );
+        } catch (error) {
+          console.error("Failed to store edited item in package cache:", error);
+          return false;
+        }
+
+        if (!currentState.editedItemIdentifiers.includes(identifier)) {
+          set({
+            editedItemIdentifiers: [
+              ...currentState.editedItemIdentifiers,
+              identifier,
+            ],
+          });
+        }
+        return true;
       },
 
       updateTestContext: (
@@ -420,6 +402,8 @@ export const useStore = create<Store>()(
 
         const newState = {
           activePackageId: prepared.packageId,
+          packageFileName: file.name,
+          editedItemIdentifiers: [],
           assessments: prepared.assessments as AssessmentInfoWithContent[],
           importErrors: prepared.importErrors,
           itemsPerAssessment: prepared.itemsPerAssessment as {
@@ -445,6 +429,21 @@ export const useStore = create<Store>()(
         set({
           qti3: qti,
           fillSource: true,
+          sourceVersion: get().sourceVersion + 1,
+          errorMessage: "",
+          previewItemHref: undefined,
+        });
+        await get().prepareForPreview();
+      },
+
+      newItem: async () => {
+        // No previewItemHref: a brand new item has no directory yet, so any
+        // asset the author adds stays relative to the page rather than being
+        // resolved against a package that does not exist.
+        set({
+          qti3: blankItemXml(),
+          fillSource: true,
+          sourceVersion: get().sourceVersion + 1,
           errorMessage: "",
           previewItemHref: undefined,
         });
@@ -473,28 +472,31 @@ export const useStore = create<Store>()(
           return;
         }
         try {
-          const qtiWithReplacementMedia =
-            await replaceMediaWithMissingImagePlaceholder(currentState.qti3);
-          if (nextGen !== previewPrepareGeneration) return;
-          const sanitizedXml = sanitizeXmlForPreview(qtiWithReplacementMedia);
+          const sanitizedXml = sanitizeXmlForPreview(currentState.qti3);
           const transformedXml = qtiTransform(sanitizedXml)
             .fnCh(($: CheerioAPI) =>
               $("qti-inline-choice span").contents().unwrap(),
             )
             .fnCh(($: CheerioAPI) => $("*").remove("qti-stylesheet"))
             .xml();
+          // Resolve first, probe second. Asset paths in an item are relative to
+          // the item, not to the page the player happens to be rendered on, so
+          // probing the raw value asked the wrong server path -- which is why a
+          // genuinely missing image rendered broken instead of as missing.png.
           const resolvedXml = resolvePreviewAssetUrls(
             transformedXml,
             currentState.previewItemHref,
           );
+          const withPlaceholders =
+            await replaceMediaWithMissingImagePlaceholder(resolvedXml);
           if (nextGen !== previewPrepareGeneration) return;
           // Skip identical preview XML to avoid remounting item-container
-          if (get().qti3ForPreview === resolvedXml) {
+          if (get().qti3ForPreview === withPlaceholders) {
             set({ isPreparingForPreview: false });
             return;
           }
           set({
-            qti3ForPreview: resolvedXml,
+            qti3ForPreview: withPlaceholders,
             isPreparingForPreview: false,
           });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -543,6 +545,8 @@ export const useStore = create<Store>()(
       partialize: (state) => ({
         // Only persist specific state fields (not transient ones)
         activePackageId: state.activePackageId,
+        packageFileName: state.packageFileName,
+        editedItemIdentifiers: state.editedItemIdentifiers,
         assessments: state.assessments,
         itemsPerAssessment: state.itemsPerAssessment,
         selectedAssessment: state.selectedAssessment,

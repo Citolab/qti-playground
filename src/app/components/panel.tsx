@@ -14,6 +14,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+/**
+ * Square icon button, sized to sit level with the labelled controls (h-8) that
+ * share a panel header. Exported so every panel toolbar reads the same.
+ */
+export const iconActionClassName = "w-8 px-0";
+
 interface Props {
   title: string;
   actionComponents: ReactNode[];

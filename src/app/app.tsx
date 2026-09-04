@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { PageLayout } from "./layout";
 import { ConvertPage } from "./pages/convert";
 import { PreviewPage } from "./pages/preview";
+import { EditPage } from "./pages/edit";
 import { UploadPage } from "./pages/upload";
 import { AssessmentPage } from "./pages/assessment";
 import { ModifyPackagePage } from "./pages/modify-package";
@@ -17,6 +18,7 @@ export function App() {
         <Route path="/package" element={<UploadPage />} />
         <Route path="/upload" element={<Navigate to="/package" replace />} />
         <Route path="/convert" element={<ConvertPage />} />
+        <Route path="/edit" element={<EditPage />} />
         <Route path="/preview" element={<PreviewPage />} />
         <Route path="/modify" element={<ModifyPackagePage />} />
         <Route path="/ai-convert" element={<AiConvertPage />} />

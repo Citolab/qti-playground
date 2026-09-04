@@ -52,6 +52,16 @@
 }
 
 @theme {
+  /* A real named breakpoint rather than an arbitrary `min-[2200px]:` variant. Tailwind v4 sorts
+     arbitrary min-width variants BEFORE the named ones, so on an ultra-wide screen -- where both
+     media queries match -- `2xl:` would come later in the sheet and silently win. Registering the
+     breakpoint here puts it after `2xl` in the cascade, which is what the ramp needs.
+
+     In `rem`, not `px`: Tailwind's own breakpoints are all rem, and it orders them by comparing
+     those values, so a px-valued custom breakpoint cannot be placed among them and gets emitted
+     ahead of every default instead -- putting `2xl` later in the sheet and losing to it again.
+     137.5rem is 2200px. */
+  --breakpoint-3xl: 137.5rem;
   --max-w-80vw-1200px: min(80vw, 1200px);
   --color-citolab-DEFAULT: #00a748;
   --color-citolab-50: #eafef5;
@@ -114,7 +124,16 @@ main {
    --qti-primary and the resting border had its own neutral value, which is why setting
    --qti-bg-active + --qti-border-active used to be the entire theme. Set the brand once and
    pin the resting border back to neutral, otherwise every ring, field and grid line inherits
-   the theme's default blue. */
+   the theme's default blue.
+
+   Why the selector lists three places instead of one. The theme declares its tokens on
+   `:root, :host`, and every derived token is computed THERE -- `--qti-selected-bg: var(--qti-primary)`
+   resolves against whatever --qti-primary is on that same element, then inherits down as a finished
+   value. Set the brand any lower and the derived tokens stay frozen at the theme's blue while
+   --qti-primary itself reads green. So the brand has to land on each element the theme declares on:
+   the document root, where the Citolab editor's QTI elements resolve, and each shadow host, whose
+   own :host declaration would otherwise outrank anything inherited from the root. */
+:root,
 item-container,
 test-container {
   --qti-primary: #00a748; /* citolab-600 */
@@ -190,37 +209,6 @@ qti-item {
   }
   .btn {
     @apply cursor-pointer select-none whitespace-nowrap rounded-md border-0 bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50;
-  }
-}
-
-test-scoring-buttons {
-  &[view].show {
-    @apply flex gap-4;
-  }
-
-  form {
-    @apply flex gap-0.5;
-  }
-  input {
-    @apply appearance-none;
-  }
-  input:checked + label {
-    @apply bg-gray-400;
-  }
-  label {
-    @apply border-[3px] p-1 border-gray-300 shadow-none w-9 h-9 cursor-pointer select-none whitespace-nowrap rounded-full bg-white text-sm font-semibold text-gray-900 hover:bg-gray-50 flex flex-col justify-center items-center;
-  }
-
-  input:checked + label {
-    @apply border-green-400 text-green-500 bg-green-100;
-  }
-
-  input:checked + label:first-of-type {
-    @apply border-red-400 text-red-500 bg-red-100;
-  }
-
-  &[disabled="true"] label {
-    @apply cursor-default text-slate-200 border-slate-200;
   }
 }
 

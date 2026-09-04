@@ -1,13 +1,58 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../store/store";
-import { Upload, Play, AlertTriangle } from "lucide-react";
+import { Upload, AlertTriangle } from "lucide-react";
 import { forceMemoryCleanup } from "@citolab/qti-convert/qti-helper";
 import { ItemPreview } from "../components/item-preview";
 import { PackageUploadZone } from "../components/package-upload-zone";
+import { DownloadPackageButton } from "../components/download-package-button";
+import { LayoutModeIcon } from "../components/layout-mode-select";
+import {
+  AssessmentLayoutMode,
+  DEFAULT_LAYOUT_MODE,
+  LAYOUT_MODES,
+} from "../qti/layout-mode";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useState } from "react";
+
+/**
+ * Start the test straight into one layout, skipping the intro screen that
+ * would otherwise ask the same question again.
+ *
+ * Icon-only until hovered: two buttons per assessment have to fit a toolbar
+ * that already carries the package actions, and the layout icon (a screen
+ * against a booklet) is the part worth keeping visible. The label slides open
+ * on hover and on keyboard focus, so it is not mouse-only.
+ */
+function StartLayoutButton({
+  mode,
+  assessmentName,
+  onStart,
+}: {
+  mode: AssessmentLayoutMode;
+  assessmentName: string;
+  onStart: (mode: AssessmentLayoutMode) => void;
+}) {
+  const meta = LAYOUT_MODES.find((layout) => layout.value === mode);
+  const label = meta?.label ?? mode;
+  const action = `Play ${label.toLowerCase()} mode`;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onStart(mode)}
+      title={`${action} – ${meta?.description ?? ""}`}
+      aria-label={`${action}: ${assessmentName}`}
+      className="group/mode flex h-9 items-center gap-1.5 px-3 text-white transition-colors hover:bg-white/20 focus-visible:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
+    >
+      <LayoutModeIcon mode={mode} className="w-4 h-4 shrink-0" />
+      <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-200 group-hover/mode:max-w-32 group-hover/mode:opacity-100 group-focus-visible/mode:max-w-32 group-focus-visible/mode:opacity-100">
+        {action}
+      </span>
+    </button>
+  );
+}
 
 export const UploadPage: React.FC = () => {
   const navigate = useNavigate();
@@ -23,6 +68,19 @@ export const UploadPage: React.FC = () => {
         a.items.map((i) => ({ ...i, assessmentId: a.assessmentId }))
       ) || [],
     [itemsPerAssessment]
+  );
+
+  /**
+   * The layout is chosen here, so the player's intro screen has nothing left
+   * to ask: `start=1` tells it to open the test straight away.
+   */
+  const startAssessment = useCallback(
+    (assessmentId: string) => (mode: AssessmentLayoutMode) => {
+      const params = new URLSearchParams({ start: "1" });
+      if (mode !== DEFAULT_LAYOUT_MODE) params.set("layout", mode);
+      navigate(`/assessment/${assessmentId}?${params.toString()}`);
+    },
+    [navigate]
   );
 
   if (assessments.length > 0) {
@@ -55,23 +113,27 @@ export const UploadPage: React.FC = () => {
           </Button>
 
           <div className="flex items-center gap-2 flex-wrap justify-end">
+            <DownloadPackageButton className="border-citolab-200 text-citolab-700 hover:bg-citolab-50 hover:border-citolab-400" />
+
             {assessments?.map((assessment) => (
-              <Button
+              <div
                 key={assessment.id}
-                onClick={() => navigate(`/assessment/${assessment.id}`)}
-                title={`Start assessment: ${assessment.name}`}
-                className="gap-2 bg-linear-to-r from-citolab-700 to-citolab-teal-700 hover:from-citolab-600 hover:to-citolab-teal-600 text-white border-0 shadow-sm"
+                className="flex items-center divide-x divide-white/25 overflow-hidden rounded-md bg-linear-to-r from-citolab-700 to-citolab-teal-700 shadow-sm"
               >
-                <Play className="w-4 h-4" />
-                <div className="hidden sm:flex flex-col items-start leading-tight">
-                  <span className="text-[10px] opacity-80 font-normal">
-                    Start assessment
-                  </span>
-                  <span className="text-sm font-semibold leading-none">
+                {assessments.length > 1 && (
+                  <span className="hidden max-w-40 truncate px-3 text-xs font-semibold text-white sm:inline">
                     {assessment.name}
                   </span>
-                </div>
-              </Button>
+                )}
+                {LAYOUT_MODES.map((mode) => (
+                  <StartLayoutButton
+                    key={mode.value}
+                    mode={mode.value}
+                    assessmentName={assessment.name}
+                    onStart={startAssessment(assessment.id)}
+                  />
+                ))}
+              </div>
             ))}
           </div>
         </div>

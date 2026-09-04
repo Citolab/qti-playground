@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  DEFAULT_WEB_LLM_MODEL,
   type ConversionIssue,
   convertDocxToQtiPackage,
   convertGoogleFormToQtiPackage,
@@ -27,6 +26,10 @@ import {
 } from "lucide-react";
 import { Terms } from "../components/terms";
 import { useStore } from "../store/store";
+import {
+  DEFAULT_LOCAL_AI_MODEL,
+  createLocalAiEngine,
+} from "./local-ai-engine";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -173,7 +176,7 @@ export const AiConvertPage: React.FC = () => {
   const [downloadFileName, setDownloadFileName] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [summaryDetailsOpen, setSummaryDetailsOpen] = useState(false);
-  const [modelName, setModelName] = useState(DEFAULT_WEB_LLM_MODEL);
+  const [modelName, setModelName] = useState(DEFAULT_LOCAL_AI_MODEL);
   const [extraInstructions, setExtraInstructions] = useState("");
   const [usePublicProxy, setUsePublicProxy] = useState(true);
   const [proxyBaseUrl, setProxyBaseUrl] = useState(
@@ -314,9 +317,10 @@ export const AiConvertPage: React.FC = () => {
   };
 
   const llmSettings = {
-    model: modelName.trim() || DEFAULT_WEB_LLM_MODEL,
+    model: modelName.trim() || DEFAULT_LOCAL_AI_MODEL,
     instructions: extraInstructions.trim() || undefined,
     initProgressCallback: updateInitProgress,
+    createEngine: createLocalAiEngine,
   };
 
   const processFile = async (fileOverride?: File) => {
@@ -578,7 +582,7 @@ export const AiConvertPage: React.FC = () => {
                       id="ai-model-name"
                       value={modelName}
                       onChange={(event) => setModelName(event.target.value)}
-                      placeholder={DEFAULT_WEB_LLM_MODEL}
+                      placeholder={DEFAULT_LOCAL_AI_MODEL}
                     />
                   </div>
                   <div className="space-y-2">

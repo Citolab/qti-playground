@@ -1,21 +1,185 @@
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 1rem 0;
+/*
+ * App-side item styling, for both surfaces that render an item.
+ *
+ *   1. The player. This sheet is injected as a <style> into the shadow root of
+ *      item-container / test-container, through the <template> those elements adopt -- and the
+ *      theme's own item.css is adopted into that same root, so its layer names are declared
+ *      alongside us.
+ *   2. The Citolab editor. There the QTI elements live in the document, so this sheet is imported
+ *      into the document (see qti-citolab-editor.tsx) next to the same theme. The theme is built
+ *      for exactly this: it scopes its own item rules to `(qti-item-body, .ProseMirror)`, one
+ *      definition covering a rendered item body and an editor document.
+ *
+ * Hence the paired selectors below: `qti-assessment-item` is the player's item root,
+ * `.qti-citolab-editor .ProseMirror` is the editor's. A rule that names only one of them is
+ * making the two surfaces look different on purpose, and says so.
+ *
+ * Two further rules follow from the injection mechanics:
+ *
+ *   1. Anything that can be a variable IS a variable. The brand tokens live on the item hosts in
+ *      styles.css; per-interaction token overrides live at the bottom of this file. Custom
+ *      properties stay unlayered on purpose -- they are the theme's documented override surface and
+ *      are meant to win.
+ *   2. Anything that has to be a rule goes in `qti-extended`, the layer the theme declares and
+ *      leaves empty for the consumer. Its header spells out why: "unlayered CSS outranks every
+ *      layer, so a single stray rule here would sit above the whole theme AND above the
+ *      `qti-extended` slot consumers are told to author in."
+ *
+ * The order statement below is repeated from the theme so it holds whichever sheet the shadow root
+ * parses first: a layer's position is fixed where it is first named, so without it our own
+ * `@layer qti-extended` block could create that layer ahead of `qti-components` and end up the
+ * weakest layer instead of the strongest.
+ */
+@layer qti-base, qti-components, qti-extended;
+
+@layer qti-extended {
+  /* Editor only, and the single biggest reason the two surfaces used to disagree. Tailwind's
+     preflight zeroes every block margin, strips list markers and flattens headings to inherited
+     size and weight -- document-wide, and the editor's item body IS in the document. The player's
+     is not: it renders inside item-container's shadow root, which preflight cannot reach, so its
+     author markup keeps the UA defaults. `revert` drops the author declarations for these
+     properties and leaves the UA's, which is precisely what the player shows.
+
+     Only plain HTML author markup is listed. QTI elements are painted by the theme and must never
+     be reverted, and tables are the app's own look, set below (this rule comes first so those
+     win). */
+  .qti-citolab-editor .ProseMirror
+    :is(
+      p,
+      blockquote,
+      ul,
+      ol,
+      li,
+      dl,
+      dt,
+      dd,
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6,
+      hr,
+      pre,
+      figure,
+      figcaption,
+      img,
+      a
+    ) {
+    margin: revert;
+    padding: revert;
+    list-style: revert;
+    font-size: revert;
+    font-weight: revert;
+    color: revert;
+    text-decoration: revert;
+    display: revert;
+    vertical-align: revert;
+    border: revert;
+  }
+
+  /* ...with one carve-out, re-stating the theme's own paragraph reset. That reset lives in
+     `qti-components.reset`, which the revert above outranks, and without it every choice, prompt
+     and gap in the editor gains a paragraph's block margin that the player does not have. Same
+     allowlist as upstream: a lone paragraph inside a text-bearing QTI element is that element's
+     text, not a block of prose. */
+  .qti-citolab-editor .ProseMirror
+    :is(
+      qti-prompt,
+      qti-simple-choice,
+      qti-associable-choice,
+      qti-simple-associable-choice,
+      qti-gap,
+      qti-gap-text,
+      qti-inline-choice,
+      qti-hottext
+    )
+    > p:only-of-type {
+    margin: 0;
+  }
+
+  /* Author tables. The theme leaves a RENDERED table completely unpainted, on purpose: a table in
+     an item body is author content, and the QTI presentation vocabulary makes its appearance the
+     author's call (`.qti-bordered` exists precisely so borders are opt-in). So this is not a gap
+     being patched, it is this app deciding every author table gets a look -- keep that in mind
+     before reaching for `.qti-bordered` in markup, because these rules land on top of it.
+
+     In an EDITOR document the theme does paint: a full grid, so an author can see the cells they
+     are editing. That look is deliberate upstream but it is not what the preview shows, so the app
+     look replaces it -- see the `border` shorthand below and the `th` rule further down.
+
+     The look is a ruled list rather than a grid: a bottom rule per cell, no outer border. Values
+     route through the theme's --qti-prose-table-* tokens -- the same names its editor-scoped grid
+     reads, and its documented override surface -- so a brand set once reaches both. */
+  :is(qti-assessment-item, .qti-citolab-editor .ProseMirror) table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: var(--qti-prose-table-margin, 1rem 0);
+  }
+
+  /* `border`, not `border-bottom`: in the editor the theme has already drawn all four edges, and a
+     bare `border-bottom` would sit on top of that grid instead of replacing it. Zeroing the other
+     three edges first costs nothing in the player, where nothing painted them. */
+  :is(qti-assessment-item, .qti-citolab-editor .ProseMirror) :is(td, th) {
+    border: 0
+      var(--qti-prose-table-border-style, var(--qti-border-style, solid))
+      var(--qti-prose-table-border-color, var(--qti-border-color, #c6cad0));
+    border-bottom-width: var(
+      --qti-prose-table-border-width,
+      var(--qti-border-thickness, 1px)
+    );
+    padding: var(--qti-prose-table-cell-padding, 0.125rem 0);
+  }
+
+  /* Editor only, and only to undo something. `th` is otherwise left alone deliberately -- these
+     tables are header-less in practice -- but the theme's editor grid gives it a filled band, its
+     own weight and its own alignment, none of which the player shows. Put the UA defaults back so
+     a header row that does turn up reads the same in both. */
+  .qti-citolab-editor .ProseMirror th {
+    background: none;
+    font-weight: bold;
+    text-align: center;
+  }
+
+  /* The theme has no font-size token and paints nothing on the item root -- item type is pure
+     inheritance from there, which makes this the one knob. Turn it down here and everything sized
+     in em follows. `color` reaches the interactions on its own: the theme resolves their text
+     through --qti-fg, whose value is `inherit`.
+
+     --qti-control-size is the exception, and it is pinned to px ON PURPOSE. It defaults to 1em, so
+     it used to follow the size above to 15px -- proportional to the label, and a radio that cannot
+     draw itself straight. The theme paints a checked radio as a ring plus a separate centred dot,
+     and the dot's inset works out to `0.25 * size - 1`: a whole pixel only when the size divides by
+     4. At 15px that is 2.75px, the two boxes snap to different device pixels, and the dot sits a
+     full device pixel left of centre (measured at DPR 2 against 8.1.0; 16px, which is what
+     Storybook renders at, gives 3px and looks perfect -- that is the whole difference between the
+     two). 12px is the nearest multiple of 4 below the text size, so the radio is both smaller and
+     concentric. Drop this line once the theme draws the dot as one box with its ring -- the fix
+     lands in qti-components' `radio-checked` mixin, after which every size is safe again. */
+  :is(qti-assessment-item, .qti-citolab-editor .ProseMirror) {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.9375rem; /* 15px */
+    line-height: 1.6;
+    color: #374151;
+    --qti-control-size: 12px;
+  }
+
+  /* The one rule here with no token behind it. These two field interactions pin `font-size: 1rem`
+     -- a literal rem, so it resolves against the document root and is the only text in an item that
+     does NOT follow the size set above; left alone they render a field visibly larger than the
+     prose around it. There is no font-size token and no --text-font-size role slot to route through
+     (checked against 8.1.0), so a rule is the only channel. `inherit` is the theme's own idiom for
+     this -- it is what qti-inline-choice-interaction::part(trigger) does -- so it carries no magic
+     number and tracks the size above instead of needing to be kept in sync with it. Delete both
+     selectors the day the theme exposes a font-size token or switches these two to `inherit`. */
+  qti-text-entry-interaction::part(input),
+  qti-extended-text-interaction::part(textarea) {
+    font-size: inherit;
+  }
 }
 
-td {
-  border-bottom: 1px solid var(--qti-border-color);
-  padding: 0.125rem 0;
-}
-
-/* No rule for qti-match-interaction.qti-match-tabular on purpose. qti-components 8 ships the
-   whole tabular look itself (grid, cell rules, header cells, radio/checkbox paint), routed
-   through the theme tokens set on item-container in styles.css, and it sizes its controls from
-   the same --qti-control-size (1em) as qti-simple-choice. Leaving the token alone is what keeps
-   a tabular radio the same size as a choice radio; the 24px hit target that used to be set here
-   is what made them 1.5x every other radio on the page. Change --qti-control-size on
-   item-container if a bigger control is wanted -- everywhere, not per interaction. */
+/* ── Token overrides ────────────────────────────────────────────────────────────────────────── */
 
 /* The extended-text field always reserves a left gutter for the correction badge --
    --qti-correction-gutter is inset + badge + glyph gap, so 40px at the default rhythm, and the
@@ -25,45 +189,4 @@ td {
    edge and the box reads symmetric. Re-derive it if corrections are ever switched on. */
 qti-extended-text-interaction {
   --qti-correction-gutter: var(--qti-gap);
-}
-
-/* The theme has no font-size token -- item type is pure inheritance from the item root, which
-   makes this the one knob. Turn it down here and everything sized in em follows, including
-   --qti-control-size (1em), so radios and checkboxes stay proportional to the text they label. */
-qti-assessment-item {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-  font-size: 0.9375rem; /* 15px */
-  line-height: 1.6;
-  color: #374151;
-}
-
-/* The one ::part() rule we cannot avoid. These two field interactions pin `font-size: 1rem`
-   -- a literal rem, so they resolve against the document root and are the only text in an item
-   that does NOT follow the size set above; left alone they render a text field visibly larger
-   than the prose around it. `inherit` is the theme's own idiom for this (it is what
-   qti-inline-choice-interaction::part(trigger) does), and it carries no magic number, so this
-   tracks the container instead of needing to be kept in sync with it. Delete both selectors
-   the day qti-components exposes a font-size token or switches these two to `inherit`. */
-qti-text-entry-interaction::part(input),
-qti-extended-text-interaction::part(textarea) {
-  font-size: inherit;
-}
-
-/* Make rich content (like large images) scale within the available width */
-qti-assessment-item img {
-  max-width: 100%;
-  height: auto;
-  display: block;
-}
-
-/* Match CitoTestUit: keep 2-column QTI layout rows from wrapping too early */
-@media (min-width: 640px) {
-  .custom-qti-style.cito-style .qti-layout-row {
-    flex-wrap: nowrap !important;
-  }
-
-  .custom-qti-style.cito-style .qti-layout-row [class*="qti-layout-col"] {
-    min-width: 0;
-  }
 }
