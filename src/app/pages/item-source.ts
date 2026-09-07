@@ -28,16 +28,20 @@ export const buildShareUrl = (xml: string, pathname = "/preview") => {
 };
 
 /**
- * The interaction each example is built around. The editor's example list is
- * filtered on this, so an example can only be offered there once the editor can
- * actually round-trip its interaction.
+ * The interaction each example is built around. It pre-filters the editor's
+ * example list — cheaply ruling out an example whose interaction the editor
+ * cannot represent, before `useEditorExamples()` reads the survivors and asks
+ * the gate itself.
  */
-type ExampleItem = {
+export type ExampleItem = {
   name: string;
   href: string;
   current: boolean;
   interaction: string;
 };
+
+/** Where the example files live; `href` on each example is relative to this. */
+export const EXAMPLE_BASE_PATH = "/3";
 
 const EXAMPLES: ExampleItem[] = [
   // { name: "adaptive", href: "/adaptive.xml", current: false, interaction: "qti-choice-interaction" },
@@ -132,17 +136,27 @@ const EXAMPLES: ExampleItem[] = [
 ];
 
 /**
- * Interactions the QTI editor can import and write back, mirroring
- * `listInteractionDescriptors()` in @citolab/prose-qti. Kept as a plain list
- * rather than read from the package so that loading the /edit page's example
- * menu does not pull the editor bundle into the main chunk; the editor asserts
- * the two still agree in dev — see `unsupported-interactions.ts`.
+ * Interactions the QTI editor can import and write back — the one list both the
+ * example menu below and the editor's own gate read, so neither can go stale
+ * against the other (`findUnsupportedItemFeatures` in
+ * `unsupported-interactions.ts` refuses to open anything else).
+ *
+ * Deliberately NARROWER than `listInteractionDescriptors()` in
+ * @citolab/prose-qti: that registry says which interactions have a ProseMirror
+ * node, which is not the same as round-tripping without loss. An interaction
+ * joins this list once it has been checked end to end — opened, edited, saved,
+ * re-opened — not once it renders. The editor asserts in dev that every tag here
+ * is at least registered upstream.
+ *
+ * Kept as a plain list rather than read from the package so that loading the
+ * /edit page's example menu does not pull the editor bundle into the main chunk.
+ *
+ * Not listed because the scan never looks at them: `qti-rubric-block` (not an
+ * interaction, and it round-trips), and the tabular variant of match, which
+ * shares the `qti-match-interaction` tag.
  */
 export const EDITOR_SUPPORTED_INTERACTIONS = [
   "qti-choice-interaction",
-  "qti-extended-text-interaction",
-  "qti-gap-match-interaction",
-  "qti-hottext-interaction",
   "qti-inline-choice-interaction",
   "qti-match-interaction",
   "qti-order-interaction",
@@ -153,7 +167,12 @@ export const EDITOR_SUPPORTED_INTERACTIONS = [
 /** Every example, for the preview player, which renders all of them. */
 export const ALL_EXAMPLE_ITEMS: ExampleItem[] = EXAMPLES;
 
-/** Only what the editor can open without dropping part of the item. */
+/**
+ * The examples whose interaction the editor can represent -- a pre-filter, not
+ * the answer. It rules out an example by the one tag it is labelled with, which
+ * cannot see what surrounds the interaction; `useEditorExamples()` reads each
+ * survivor and drops any the editor would actually refuse.
+ */
 export const EDITOR_EXAMPLE_ITEMS: ExampleItem[] = EXAMPLES.filter((example) =>
   EDITOR_SUPPORTED_INTERACTIONS.includes(example.interaction),
 );

@@ -15,8 +15,9 @@ import { Dropdown } from "../components/dropdown";
 import { iconActionClassName, Panel } from "../components/panel";
 import { QtiCitolabEditorPanel } from "../components/editor/qti-citolab-editor-panel";
 import { DownloadItemPackageButton } from "../components/download-package-button";
+import { useEditorExamples } from "../components/editor/use-editor-examples";
 import {
-  EDITOR_EXAMPLE_ITEMS,
+  EXAMPLE_BASE_PATH,
   buildShareUrl,
   decodeSharedParamToXml,
 } from "./item-source";
@@ -30,6 +31,9 @@ export const EditPage = () => {
   const hasLoadedSharedItem = useRef(false);
   const hasLoadedItemFromQuery = useRef(false);
   const hasSeededBlankItem = useRef(false);
+  // Checked against the editor's own gate rather than declared, so the menu
+  // cannot offer an example that opens straight into the refusal panel.
+  const exampleItems = useEditorExamples();
 
   const qti3 = useStore((state) => state.qti3);
   // The editor takes its source as a mount-time prop, so anything that loads a
@@ -148,12 +152,11 @@ export const EditPage = () => {
             <Dropdown
               key="examples"
               name="Examples"
-              items={[{ name: "choice", items: EDITOR_EXAMPLE_ITEMS }]}
+              items={[{ name: "choice", items: exampleItems }]}
               onMenuClick={(name) => {
-                const example = EDITOR_EXAMPLE_ITEMS.find(
-                  (i) => i.name === name,
-                );
-                loadQti3(`/3${example?.href || ""}`);
+                const example = exampleItems.find((i) => i.name === name);
+                if (!example) return;
+                loadQti3(`${EXAMPLE_BASE_PATH}${example.href}`);
               }}
             />,
             <div key="actions" className="flex gap-2">

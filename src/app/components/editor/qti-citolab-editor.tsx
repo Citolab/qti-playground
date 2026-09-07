@@ -50,7 +50,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { defineQtiPlaygroundExtension } from "./qti-citolab-editor-extensions";
-import { findUnsupportedInteractions } from "./unsupported-interactions";
+import {
+  findUnsupportedItemFeatures,
+  type UnsupportedItemFeature,
+} from "./unsupported-interactions";
 import { InteractionIcon } from "./interaction-icons";
 import {
   isInLayoutRow,
@@ -593,8 +596,8 @@ export function QtiCitolabEditor({
   const lastEmittedXmlRef = useRef(sourceXml);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-  const [unsupportedInteractions, setUnsupportedInteractions] = useState<
-    string[]
+  const [unsupportedFeatures, setUnsupportedFeatures] = useState<
+    UnsupportedItemFeature[]
   >([]);
 
   onSourceChangeRef.current = onSourceChange;
@@ -643,10 +646,11 @@ export function QtiCitolabEditor({
       return;
     }
 
-    // Opening an item the importer can't represent would export it back
-    // without the missing interaction, so refuse before the editor mounts.
-    const unsupported = findUnsupportedInteractions(initialXml);
-    setUnsupportedInteractions(unsupported);
+    // Opening an item the exporter can't write back would save it without the
+    // parts it cannot represent, so refuse before the editor mounts. This covers
+    // more than interactions -- see findUnsupportedItemFeatures.
+    const unsupported = findUnsupportedItemFeatures(initialXml);
+    setUnsupportedFeatures(unsupported);
     if (unsupported.length > 0) {
       setImportError(null);
       return;
@@ -755,23 +759,22 @@ export function QtiCitolabEditor({
     };
   }, [debouncedExport]);
 
-  if (unsupportedInteractions.length > 0) {
+  if (unsupportedFeatures.length > 0) {
     return (
       <div
         className={`qti-citolab-editor flex ${heightClassName} items-center justify-center p-6 ${className ?? ""}`}
       >
         <div className="max-w-md rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <p className="font-semibold">Unsupported item type</p>
-          <p className="mt-1">
-            This item uses{" "}
-            {unsupportedInteractions.length === 1
-              ? "an interaction"
-              : "interactions"}{" "}
-            the QTI editor cannot edit yet:
-          </p>
-          <ul className="mt-1 list-inside list-disc font-mono text-xs">
-            {unsupportedInteractions.map((tagName) => (
-              <li key={tagName}>{tagName}</li>
+          <p className="font-semibold">Unsupported item</p>
+          <p className="mt-1">This item uses QTI the editor cannot edit yet:</p>
+          {/* Each entry names what was found and what saving would do to it: the
+              tag alone reads as a missing feature rather than as data loss. */}
+          <ul className="mt-1 space-y-1 text-xs">
+            {unsupportedFeatures.map((feature) => (
+              <li key={feature.label}>
+                <span className="font-mono">{feature.label}</span>
+                <span className="text-amber-800"> — {feature.detail}</span>
+              </li>
             ))}
           </ul>
           <p className="mt-2 text-amber-800">
