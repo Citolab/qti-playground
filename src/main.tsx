@@ -1,7 +1,8 @@
 import { StrictMode } from "react";
 import { BrowserRouter } from "react-router-dom";
 import * as ReactDOM from "react-dom/client";
-import "@citolab/qti-components";
+// import "@citolab/qti-components";
+import "@citolab/qti-components/corrections";
 import { GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 import "./app/dep-tools-register";
 
