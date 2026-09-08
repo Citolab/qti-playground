@@ -164,6 +164,17 @@ export const EDITOR_SUPPORTED_INTERACTIONS = [
   "qti-text-entry-interaction",
 ];
 
+/**
+ * Blocks the editor can insert and write back.
+ *
+ * Kept apart from the interaction list because the gate never consults it: a
+ * block does not end in `-interaction`, so `findUnsupportedItemFeatures` walks
+ * straight past it and an unlisted block is simply left alone rather than
+ * refused. The Insert menu does need it, to know which of the registry's
+ * non-interaction nodes to offer.
+ */
+export const EDITOR_SUPPORTED_BLOCKS = ["qti-rubric-block"];
+
 /** Every example, for the preview player, which renders all of them. */
 export const ALL_EXAMPLE_ITEMS: ExampleItem[] = EXAMPLES;
 

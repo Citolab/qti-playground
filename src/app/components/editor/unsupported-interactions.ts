@@ -1,5 +1,8 @@
 import { listInteractionDescriptors } from "@citolab/prose-qti/core/interactions/composer";
-import { EDITOR_SUPPORTED_INTERACTIONS } from "../../pages/item-source";
+import {
+  EDITOR_SUPPORTED_BLOCKS,
+  EDITOR_SUPPORTED_INTERACTIONS,
+} from "../../pages/item-source";
 
 /**
  * One reason the editor refuses to open an item.
@@ -132,10 +135,12 @@ export function findUnsupportedItemFeatures(
 }
 
 /**
- * The allowlist above is narrower than the registry on purpose, so a registered
- * interaction missing from it is not a defect. The reverse is: a tag we let
- * through that the package has no descriptor for imports as a hole in the item
- * and exports without it -- exactly what this gate exists to prevent.
+ * The allowlists are narrower than the registry on purpose, so a registered
+ * interaction missing from them is not a defect. The reverse is: a tag we allow
+ * that the package has no descriptor for. For an interaction that means letting
+ * an item through that imports as a hole and exports without it -- exactly what
+ * this gate exists to prevent; for a block it means an Insert menu entry that
+ * silently never appears.
  */
 if (import.meta.env.DEV) {
   const registered = new Set(
@@ -143,12 +148,13 @@ if (import.meta.env.DEV) {
       descriptor.tagName.toLowerCase(),
     ),
   );
-  const unregistered = EDITOR_SUPPORTED_INTERACTIONS.filter(
-    (tag) => !registered.has(tag),
-  );
+  const unregistered = [
+    ...EDITOR_SUPPORTED_INTERACTIONS,
+    ...EDITOR_SUPPORTED_BLOCKS,
+  ].filter((tag) => !registered.has(tag));
   if (unregistered.length > 0) {
     console.warn(
-      "[editor] EDITOR_SUPPORTED_INTERACTIONS allows interactions @citolab/prose-qti does not register.",
+      "[editor] the editor allows tags @citolab/prose-qti does not register.",
       { unregistered },
     );
   }

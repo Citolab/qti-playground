@@ -64,6 +64,10 @@ import {
   createItemAssetResolver,
   mapItemAssetUrls,
 } from "../../qti/asset-urls";
+import {
+  EDITOR_SUPPORTED_BLOCKS,
+  EDITOR_SUPPORTED_INTERACTIONS,
+} from "../../pages/item-source";
 
 // prosekit's structural sheet only. Its sibling `typography.css` is a general-purpose prose
 // theme -- 16px paragraphs with their own padding, px-sized headings, a bar down the side of
@@ -174,10 +178,28 @@ function displayRank(descriptor: InteractionDescriptor): number {
   return index === -1 ? INTERACTION_ORDER.length : index;
 }
 
+/**
+ * What the Insert menu offers: the registry, narrowed to what the editor is
+ * allowed to open again.
+ *
+ * The allowlist has to apply here too, not just at the door. Offering an
+ * interaction the gate refuses lets an author insert one, save it into the
+ * package, and then be locked out of the item they just wrote -- the one failure
+ * mode the gate exists to prevent, reached from inside the editor.
+ *
+ * Filtered on `tagName`, so match and its tabular variant both survive: they are
+ * two descriptors over one tag, and each is its own menu entry.
+ */
+const EDITOR_SUPPORTED_TAGS = new Set([
+  ...EDITOR_SUPPORTED_INTERACTIONS,
+  ...EDITOR_SUPPORTED_BLOCKS,
+]);
+
 const INSERTABLE_INTERACTIONS = listInteractionDescriptors()
   .filter(
     (descriptor): descriptor is InsertableInteraction =>
-      descriptor.insertCommand != null,
+      descriptor.insertCommand != null &&
+      EDITOR_SUPPORTED_TAGS.has(descriptor.tagName.toLowerCase()),
   )
   .sort((left, right) => displayRank(left) - displayRank(right));
 
