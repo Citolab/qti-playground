@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Sample custom response processing template, used to try out
+     qtiTransform(...).inlineResponseProcessingTemplate() from @citolab/qti-convert.
+     Reference it from an item with:
+       <qti-response-processing template="/rptemplates/random_feedback.xml"/> -->
+<qti-response-processing xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0">
+  <qti-response-condition>
+    <qti-response-if>
+      <qti-match>
+        <qti-variable identifier="RESPONSE"/>
+        <qti-correct identifier="RESPONSE"/>
+      </qti-match>
+      <qti-set-outcome-value identifier="SCORE">
+        <qti-base-value base-type="float">1</qti-base-value>
+      </qti-set-outcome-value>
+      <qti-set-outcome-value identifier="FEEDBACK">
+        <qti-random>
+          <qti-multiple>
+            <qti-base-value base-type="identifier">NICE_WORK</qti-base-value>
+            <qti-base-value base-type="identifier">WELL_DONE</qti-base-value>
+            <qti-base-value base-type="identifier">KEEP_IT_UP</qti-base-value>
+          </qti-multiple>
+        </qti-random>
+      </qti-set-outcome-value>
+    </qti-response-if>
+    <qti-response-else>
+      <qti-set-outcome-value identifier="SCORE">
+        <qti-base-value base-type="float">0</qti-base-value>
+      </qti-set-outcome-value>
+      <qti-set-outcome-value identifier="FEEDBACK">
+        <qti-base-value base-type="identifier">TRY_AGAIN</qti-base-value>
+      </qti-set-outcome-value>
+    </qti-response-else>
+  </qti-response-condition>
+</qti-response-processing>

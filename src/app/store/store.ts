@@ -331,7 +331,7 @@ export const useStore = create<Store>()(
             isConverting: false,
           });
           await get().prepareForPreview();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (e: any) {
           set({
             errorMessage: e.message,
@@ -473,12 +473,18 @@ export const useStore = create<Store>()(
           const qtiWithReplacementMedia =
             await replaceMediaWithMissingImagePlaceholder(currentState.qti3);
           const sanitizedXml = sanitizeXmlForPreview(qtiWithReplacementMedia);
-          const transformedXml = qtiTransform(sanitizedXml)
+          const transformResult = await qtiTransform(sanitizedXml)
             .fnCh(($: CheerioAPI) =>
               $("qti-inline-choice span").contents().unwrap(),
             )
             .fnCh(($: CheerioAPI) => $("*").remove("qti-stylesheet"))
-            .xml();
+            .inlineResponseProcessingTemplate({
+              baseUrl: new URL(
+                currentState.previewItemHref || "/",
+                window.location.origin,
+              ).toString(),
+            });
+          const transformedXml = transformResult.xml();
           const resolvedXml = resolvePreviewAssetUrls(
             transformedXml,
             currentState.previewItemHref,
