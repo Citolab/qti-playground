@@ -82,6 +82,11 @@ import "prosekit/basic/style.css";
 // that package, a major version behind the one qti-components ships, which is what made the
 // editor paint a different item than the preview next to it.
 import "@citolab/prose-qti/qti-prose.css";
+// The other half of the decorator opt-in wired up in qti-citolab-editor-extensions.ts. Kept out of
+// qti-prose.css by the package on purpose, so a player host never picks it up. It declares its own
+// `--qti-edit-*` tokens as well as the rules reading them, and stays unlayered by design -- app CSS
+// is meant to win -- so it must load before item.css and this component's own sheet below.
+import "@citolab/prose-qti/decorations.css";
 import "../../qti/item.css";
 import "./qti-citolab-editor.css";
 

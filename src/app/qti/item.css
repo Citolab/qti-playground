@@ -184,9 +184,13 @@
 /* The extended-text field always reserves a left gutter for the correction badge --
    --qti-correction-gutter is inset + badge + glyph gap, so 40px at the default rhythm, and the
    theme reserves it graded or not because padding is layout and must not shift when a verdict
-   arrives. This app renders no corrections at all (nothing here sets the candidate-* states),
-   so that gutter is dead space. Pin it to the same --qti-gap the field uses on its trailing
-   edge and the box reads symmetric. Re-derive it if corrections are ever switched on. */
+   arrives. This app does render corrections (see src/main.tsx: the qti-components entry point is
+   `/corrections`), but extended-text is the one interaction that cannot derive its own verdict --
+   free prose has nothing to compare against, so QtiExtendedTextInteractionCorrection only accepts
+   a `candidateCorrection` pushed in by the host, and nothing in this app pushes one. "Set correct
+   response" leaves the field untouched, verified. So the gutter is still dead space here: pin it
+   to the same --qti-gap the field uses on its trailing edge and the box reads symmetric.
+   Re-derive it the moment anything starts setting candidateCorrection on extended-text. */
 qti-extended-text-interaction {
   --qti-correction-gutter: var(--qti-gap);
 }

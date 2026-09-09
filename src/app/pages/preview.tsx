@@ -517,7 +517,13 @@ export const PreviewPage = () => {
                 const assessmentItem = container?.shadowRoot?.querySelector(
                   "qti-assessment-item",
                 ) as QtiAssessmentItemCorrection | null;
-                assessmentItem?.showCorrectResponse?.(true);
+                // Unconditional now. The `?.()` this used to carry was not
+                // defensiveness, it was papering over the method being absent:
+                // `showCorrectResponse` lives on QtiAssessmentItemCorrection,
+                // and until the qti-components 9 upgrade this app registered
+                // the correction-free QtiAssessmentItem, so the button silently
+                // did nothing. See src/main.tsx.
+                assessmentItem?.showCorrectResponse(true);
               }}
               title="Set correct response"
               aria-label="Set correct response"

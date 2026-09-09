@@ -19,17 +19,97 @@
  */
 
 import { qtiInteractionElements } from "@citolab/qti-components";
+import {
+  QtiAssociateInteractionCorrection,
+  QtiChoiceInteractionCorrection,
+  QtiExtendedTextInteractionCorrection,
+  QtiGapMatchInteractionCorrection,
+  QtiGapTextCorrection,
+  QtiGraphicAssociateInteractionCorrection,
+  QtiGraphicGapMatchInteractionCorrection,
+  QtiGraphicOrderInteractionCorrection,
+  QtiHotspotChoiceCorrection,
+  QtiHotspotInteractionCorrection,
+  QtiHottextCorrection,
+  QtiHottextInteractionCorrection,
+  QtiInlineChoiceInteractionCorrection,
+  QtiMatchInteractionCorrection,
+  QtiOrderInteractionCorrection,
+  QtiPortableCustomInteractionCorrection,
+  QtiSelectPointInteractionCorrection,
+  QtiSimpleAssociableChoiceCorrection,
+  QtiSimpleChoiceCorrection,
+  QtiSliderInteractionCorrection,
+  QtiTextEntryInteractionCorrection,
+} from "@citolab/qti-components/corrections";
 
 import { isEditorOwned } from "./registry-recorder";
+
+/**
+ * The correction-capable subclass for each interaction tag that has one.
+ *
+ * `@citolab/qti-components/corrections` applies exactly this substitution when
+ * it registers (see `src/main.tsx`), but only to tags that are still free. The
+ * editor claims the interaction names first and deliberately keeps them, so on
+ * the global registry the correction variants for those are inactive -- which is
+ * what the entry point's own console warning is telling us. The player resolves
+ * against its scoped registry instead, so this is where the substitution has to
+ * be repeated for it to reach the player at all.
+ *
+ * Written out by hand because the entry point exports the classes but not the
+ * tag -> constructor manifest it builds internally, so there is nothing to
+ * derive this from. Listing it explicitly at least makes an upstream rename a
+ * compile error rather than a silently correction-free interaction.
+ *
+ * `qti-portable-custom-interaction` is the one entry that matters even with
+ * corrections switched off: `src/main.tsx` patches whatever class holds that
+ * name globally, which is now the Correction subclass. Patching a subclass
+ * prototype does not reach its base, so a scoped registry seeded with the
+ * correction-free base would silently lose every PCI patch (srcdoc iframe,
+ * RequireJS bare-name aliases, the QTI_CONTEXT environment fix).
+ */
+const interactionCorrections: Record<string, CustomElementConstructor> = {
+  "qti-associate-interaction": QtiAssociateInteractionCorrection,
+  "qti-choice-interaction": QtiChoiceInteractionCorrection,
+  "qti-extended-text-interaction": QtiExtendedTextInteractionCorrection,
+  "qti-gap-match-interaction": QtiGapMatchInteractionCorrection,
+  "qti-gap-text": QtiGapTextCorrection,
+  "qti-graphic-associate-interaction": QtiGraphicAssociateInteractionCorrection,
+  "qti-graphic-gap-match-interaction": QtiGraphicGapMatchInteractionCorrection,
+  "qti-graphic-order-interaction": QtiGraphicOrderInteractionCorrection,
+  "qti-hotspot-choice": QtiHotspotChoiceCorrection,
+  "qti-hotspot-interaction": QtiHotspotInteractionCorrection,
+  "qti-hottext": QtiHottextCorrection,
+  "qti-hottext-interaction": QtiHottextInteractionCorrection,
+  "qti-inline-choice-interaction": QtiInlineChoiceInteractionCorrection,
+  "qti-match-interaction": QtiMatchInteractionCorrection,
+  "qti-order-interaction": QtiOrderInteractionCorrection,
+  "qti-portable-custom-interaction": QtiPortableCustomInteractionCorrection,
+  "qti-select-point-interaction": QtiSelectPointInteractionCorrection,
+  "qti-simple-associable-choice": QtiSimpleAssociableChoiceCorrection,
+  "qti-simple-choice": QtiSimpleChoiceCorrection,
+  "qti-slider-interaction": QtiSliderInteractionCorrection,
+  "qti-text-entry-interaction": QtiTextEntryInteractionCorrection,
+};
 
 /**
  * qti-components' own classes, keyed by tag. This is the authority for the
  * player: the editor owns these names on the global registry, so looking them
  * up there would hand the player the editor's components.
+ *
+ * Correction variant where one exists, matching what the corrections entry
+ * point puts on the global registry for the tags the editor leaves alone
+ * (`qti-assessment-item`, `qti-item`, the processing elements), so the player
+ * is one consistent element set rather than a mix.
  */
 const playerElements = new Map<string, CustomElementConstructor>(
   qtiInteractionElements.map(
-    (element) => [element.tag, element.ctor as CustomElementConstructor] as const,
+    (element) =>
+      [
+        element.tag,
+        interactionCorrections[element.tag] ??
+          (element.ctor as CustomElementConstructor),
+      ] as const,
   ),
 );
 

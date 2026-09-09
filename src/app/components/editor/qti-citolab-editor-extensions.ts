@@ -12,6 +12,7 @@ import {
 } from "@citolab/prose-extensions/prosekit-extensions";
 import type { Command } from "prosekit/pm/state";
 import {
+  listInteractionDecoratorPluginFactories,
   listInteractionDescriptors,
   listInteractionPluginFactories,
   listInteractionSchemaNodeSpecs,
@@ -133,10 +134,33 @@ function defineQtiLayoutExtension() {
   });
 }
 
+/*
+ * Editor-only affordances for the interactions that ship one (choice, today): a hover boundary
+ * around the interaction and its choices, a per-choice x, a trailing + and a node-action pill.
+ *
+ * prose-qti holds these apart from `pluginFactories` in a separate `decoratorPluginFactories`
+ * bucket precisely so a host has to ask -- they are an opinion about how authoring should feel,
+ * and a read-only or player host must not inherit them. So this is opt-in in two places and both
+ * are required: the plugins here, and `@citolab/prose-qti/decorations.css` in
+ * qti-citolab-editor.tsx. With only one of the two you get behaviour that paints nothing, or
+ * tokens nothing reads.
+ *
+ * Enumerated rather than named: the list is whatever the registered descriptors contribute, so an
+ * interaction that gains a decorator upstream arrives without a change here.
+ */
+function defineQtiPlaygroundDecorationsExtension() {
+  return union(
+    ...listInteractionDecoratorPluginFactories().map((pluginFactory) =>
+      definePlugin(pluginFactory),
+    ),
+  );
+}
+
 export function defineQtiPlaygroundExtension() {
   return union(
     defineBasicExtension(),
     defineQtiPlaygroundInteractionsExtension(),
+    defineQtiPlaygroundDecorationsExtension(),
     defineQtiLayoutExtension(),
     // Shift+arrows / mouse drag select whole blocks (e.g. a full interaction),
     // matching the qti-editor apps.

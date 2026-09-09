@@ -14,11 +14,11 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
-    "@citolab/prose-extensions": "^1.3.0",
-    "@citolab/prose-qti": "^1.4.0",
+    "@citolab/prose-extensions": "^1.6.1",
+    "@citolab/prose-qti": "^1.22.0",
     "@citolab/qti-api": "^9.0.0",
     "@citolab/qti-browser-import": "^0.4.19",
-    "@citolab/qti-components": "^8.1.0",
+    "@citolab/qti-components": "^9.1.0",
     "@citolab/qti-convert": "^0.4.18",
     "@citolab/qti-convert-export": "file:.yalc/@citolab/qti-convert-export",
     "@citolab/qti-convert-local-ai": "^0.4.18",
