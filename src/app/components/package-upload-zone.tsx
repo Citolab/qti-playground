@@ -4,6 +4,7 @@ import { useStore } from "../store/store";
 import { Upload, AlertCircle, X, AlertTriangle, RefreshCw, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Terms } from "./terms";
 
@@ -15,6 +16,7 @@ export const PackageUploadZone: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [showValidationDetails, setShowValidationDetails] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [removeStylesheets, setRemoveStylesheets] = useState(false);
 
   const processPackage = useStore((state) => state.processPackage);
 
@@ -99,7 +101,7 @@ export const PackageUploadZone: React.FC = () => {
 
         try {
           const result = await processPackage(packageFile, {
-            removeStylesheets: false,
+            removeStylesheets,
             skipValidation,
           });
           clearInterval(progressInterval);
@@ -218,6 +220,30 @@ export const PackageUploadZone: React.FC = () => {
         </label>
 
       </div>
+
+      {/*
+        Deliberately a sibling of the drop zone, not a child: the zone's <label> covers its whole
+        area, so a control nested inside it would open the file picker on every click.
+      */}
+      <label className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 cursor-pointer hover:bg-gray-50">
+        <Checkbox
+          id="remove-stylesheets"
+          className="mt-0.5"
+          checked={removeStylesheets}
+          onCheckedChange={(checked) => setRemoveStylesheets(checked === true)}
+        />
+        <span className="text-sm">
+          <span className="font-medium text-gray-700">
+            Ignore stylesheets referenced by the items
+          </span>
+          <span className="block text-xs text-gray-500">
+            Drops every <code>&lt;qti-stylesheet&gt;</code> reference on import, so items render in
+            the player&apos;s own theme. Use this when a package&apos;s CSS fights the theme — a
+            common case is a rule re-gapping <code>.qti-layout-row</code>, which makes QTI 3 column
+            layouts wrap into one column. It removes the package&apos;s intended styling too.
+          </span>
+        </span>
+      </label>
 
       {validationErrors.length > 0 && (
         <Alert variant="warning">
