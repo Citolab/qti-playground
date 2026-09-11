@@ -3,7 +3,11 @@ import { persist } from "zustand/middleware";
 import axios from "axios";
 import { qtiTransform } from "@citolab/qti-convert/qti-transformer";
 import { CheerioAPI } from "cheerio";
-import { isValidXml, qtiConversionFixes } from "../utils";
+import {
+  getXmlParseError,
+  qtiConversionFixes,
+  stripXmlLeadingNoise,
+} from "../utils";
 import { Assessment, ExtendedTestContext, ItemInfo } from "@citolab/qti-api";
 import { convertQti2toQti3 } from "@citolab/qti-convert/qti-convert";
 import { itemBlobManager } from "./item-blob-manager";
@@ -15,10 +19,7 @@ import {
 } from "@citolab/qti-browser-import";
 import { packagePathFromUrl } from "./package-export";
 import { blankItemXml } from "./blank-item";
-import {
-  createItemAssetResolver,
-  mapItemAssetUrls,
-} from "../qti/asset-urls";
+import { createItemAssetResolver, mapItemAssetUrls } from "../qti/asset-urls";
 
 // omit items
 export interface AssessmentInfoWithContent extends Omit<Assessment, "items"> {
@@ -123,7 +124,8 @@ const replaceMediaWithMissingImagePlaceholder = async (
       // `href` is media only on a few elements. Pointing a hyperlink at
       // missing.png would be a worse outcome than leaving it dangling.
       if (attribute === "href" && node.tagName.toLowerCase() === "a") continue;
-      if (srcValue.startsWith("data:") || srcValue.startsWith("blob:")) continue;
+      if (srcValue.startsWith("data:") || srcValue.startsWith("blob:"))
+        continue;
 
       let imageExists = urlsChecked.get(srcValue);
       if (imageExists === undefined) {
@@ -464,15 +466,25 @@ export const useStore = create<Store>()(
           });
           return;
         }
-        if (!isValidXml(currentState.qti3)) {
+        // The parser's own message names the line and column. "Invalid QTI XML"
+        // on its own is what made a stray blank line before `<?xml` so hard to
+        // place -- and until this guard detected the failure at all, the broken
+        // document went down the pipeline and the player rendered the browser's
+        // parse error as the item.
+        const parseError = getXmlParseError(currentState.qti3);
+        if (parseError) {
           set({
-            errorMessage: "Invalid QTI XML",
+            errorMessage: `Invalid QTI XML: ${parseError}`,
             isPreparingForPreview: false,
           });
           return;
         }
         try {
-          const sanitizedXml = sanitizeXmlForPreview(currentState.qti3);
+          // Normalised, not just validated: every stage below re-parses, so the
+          // leading whitespace the guard tolerates has to be gone by the first one.
+          const sanitizedXml = sanitizeXmlForPreview(
+            stripXmlLeadingNoise(currentState.qti3),
+          );
           const transformResult = await qtiTransform(sanitizedXml)
             .fnCh(($: CheerioAPI) =>
               $("qti-inline-choice span").contents().unwrap(),
@@ -522,9 +534,10 @@ export const useStore = create<Store>()(
             errorMessage: "",
             previewItemHref: undefined,
           });
-          if (!qti || !isValidXml(qti)) {
+          const conversionParseError = qti ? getXmlParseError(qti) : "no XML";
+          if (conversionParseError) {
             set({
-              errorMessage: "Invalid QTI XML",
+              errorMessage: `Invalid QTI XML: ${conversionParseError}`,
               isConverting: false,
             });
             return;

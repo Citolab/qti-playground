@@ -2,14 +2,61 @@ import { qtiTransform } from "@citolab/qti-convert/qti-transformer";
 import { convert as convertTaoPci } from "@citolab/qti-convert-tao-pci";
 import { removeDoubleSlashes } from "../lib/utils";
 
-// function to check if the xml is valid
-export const isValidXml = (xmlString: string): boolean => {
-  try {
-    new DOMParser().parseFromString(xmlString, "text/xml");
-    return true;
-  } catch {
-    return false;
-  }
+/**
+ * Leading whitespace and a BOM before the XML declaration.
+ *
+ * XML forbids anything before `<?xml`, so a blank line in front of it makes the
+ * whole document unparseable. It is also one of the most common artefacts of an
+ * item that has been through an editor or a copy and paste, and every parser
+ * already tolerates the analogous BOM. Stripped rather than rejected, matching
+ * what the player does.
+ */
+const XML_LEADING_NOISE = /^[\s\uFEFF]+/;
+
+export const stripXmlLeadingNoise = (xmlString: string): string =>
+  xmlString.replace(XML_LEADING_NOISE, "");
+
+/**
+ * The parse error in `xmlString`, or null when it parses.
+ *
+ * `DOMParser.parseFromString(..., "text/xml")` **never throws**: on a malformed
+ * document it returns a *document describing the failure*, whose root is an HTML
+ * page reading "This page contains the following errors...". So the try/catch
+ * this used to rely on could never fire, every string was "valid", and the
+ * broken document travelled the whole preview pipeline -- each stage of which
+ * round-trips through DOMParser and happily re-serialises the error page --
+ * until the player rendered it as the item.
+ */
+export const getXmlParseError = (xmlString: string): string | null => {
+  const doc = new DOMParser().parseFromString(
+    stripXmlLeadingNoise(xmlString),
+    "text/xml",
+  );
+  // Matched by the error document's own namespace rather than by tag name, so an
+  // item that legitimately contains a `parsererror` element is not a false
+  // positive. Blink and WebKit use the XHTML namespace; Gecko has its own.
+  const error =
+    doc.getElementsByTagNameNS(
+      "http://www.w3.org/1999/xhtml",
+      "parsererror",
+    )[0] ??
+    doc.getElementsByTagNameNS(
+      "http://www.mozilla.org/newlayout/xml/parsererror.xml",
+      "parsererror",
+    )[0];
+  if (!error) return null;
+  // The error document wraps the one useful sentence -- "error on line N at
+  // column M: ..." -- in page boilerplate. Keep the sentence.
+  const text = (error.textContent || "").replace(/\s+/g, " ").trim();
+  return (
+    text
+      .replace(/^This page contains the following errors:\s*/i, "")
+      .replace(
+        /\s*Below is a rendering of the page up to the first error\.?\s*$/i,
+        "",
+      )
+      .trim() || "malformed XML"
+  );
 };
 
 /**
@@ -146,8 +193,14 @@ export const qtiConversionFixes = async (qti3: string, itemXmlPath: string) => {
     });
   const taoConverted = await convertTaoPci(
     new Map([
-      [itemXmlPath || "item.xml", { content: transformResult.xml(), type: "item" }],
+      [
+        itemXmlPath || "item.xml",
+        { content: transformResult.xml(), type: "item" },
+      ],
     ]),
   );
-  return String(taoConverted.get(itemXmlPath || "item.xml")?.content || transformResult.xml());
+  return String(
+    taoConverted.get(itemXmlPath || "item.xml")?.content ||
+      transformResult.xml(),
+  );
 };
