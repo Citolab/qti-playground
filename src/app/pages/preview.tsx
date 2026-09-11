@@ -79,6 +79,53 @@ function collectInteractions(root: Element): ResettableInteraction[] {
   );
 }
 
+/**
+ * An icon-only button in the preview toolbar, with the tooltip it needs to be
+ * usable.
+ *
+ * Every control here is a bare icon, so the tooltip is not decoration -- it is
+ * the only thing naming the button. `label` serves as both the accessible name
+ * and, unless `tooltip` says otherwise, the hover text, which keeps the two from
+ * drifting apart.
+ *
+ * This replaces the native `title` attribute the toolbar used before: `title`
+ * takes about a second to appear, cannot be styled to match, and is suppressed
+ * entirely on a disabled control -- precisely when someone is hovering to find
+ * out why the button will not respond.
+ */
+function IconAction({
+  label,
+  tooltip,
+  className,
+  children,
+  ...buttonProps
+}: React.ComponentProps<typeof Button> & {
+  label: string;
+  /** Hover text, when there is more to say than the accessible name. */
+  tooltip?: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {/* A disabled button fires no pointer events, so the trigger sits on a
+            wrapper that still does -- otherwise the tooltip explaining why a
+            control is unavailable would be the one nobody can read. */}
+        <span className="inline-flex">
+          <Button
+            size="sm"
+            className={cn(iconActionClassName, className)}
+            aria-label={label}
+            {...buttonProps}
+          >
+            {children}
+          </Button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{tooltip ?? label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 /* React */
 declare module "react" {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -578,11 +625,15 @@ export const PreviewPage = () => {
       <Panel
         title="QTI Preview"
         actionComponents={[
-          <div key="actions" className="flex gap-2">
-            <Button
+          // One provider for the row rather than one per button, so the group
+          // shares a hover timer: moving along it shows each tooltip at once
+          // instead of waiting out the delay again at every button.
+          <TooltipProvider key="actions" delayDuration={200}>
+            <div className="flex gap-2">
+            <IconAction
               id="correct-button"
-              size="sm"
-              className={iconActionClassName}
+              label="Set correct response"
+              tooltip="Fill in the correct answer"
               disabled={!qti3}
               onClick={() => {
                 const container =
@@ -598,27 +649,28 @@ export const PreviewPage = () => {
                 // did nothing. See src/main.tsx.
                 assessmentItem?.showCorrectResponse(true);
               }}
-              title="Set correct response"
-              aria-label="Set correct response"
             >
               <CheckCheck className="h-4 w-4" aria-hidden="true" />
-            </Button>
-            <Button
-              size="sm"
-              className={iconActionClassName}
+            </IconAction>
+            <IconAction
+              label="Simulate end attempt"
+              tooltip="Score the item as if the candidate submitted it"
               disabled={!qti3}
               onClick={() => {
                 const assessmentItem = getAssessmentItemElement();
                 assessmentItem?.processResponse(true, true);
                 refreshPreviewVariables();
               }}
-              title="Simulate end attempt"
-              aria-label="Simulate end attempt"
             >
               <Play className="h-4 w-4" aria-hidden="true" />
-            </Button>
-            <Button
-              size="sm"
+            </IconAction>
+            <IconAction
+              label={showVariables ? "Hide item variables" : "Show item variables"}
+              tooltip={
+                showVariables
+                  ? "Hide the item's variable values"
+                  : "Show the item's variable values"
+              }
               disabled={!qti3}
               variant={showVariables ? "secondary" : "default"}
               aria-pressed={showVariables}
@@ -632,53 +684,40 @@ export const PreviewPage = () => {
                   return next;
                 });
               }}
-              title={showVariables ? "Hide item variables" : "Show item variables"}
-              aria-label={
-                showVariables ? "Hide item variables" : "Show item variables"
-              }
-              className={cn(
-                iconActionClassName,
+              className={
                 showVariables
                   ? "bg-green-700 text-white hover:bg-green-800"
-                  : "bg-green-600 hover:bg-green-700",
-              )}
+                  : "bg-green-600 hover:bg-green-700"
+              }
             >
               <Code className="h-4 w-4" aria-hidden="true" />
-            </Button>
-            <Button
+            </IconAction>
+            <IconAction
               id="refresh-button"
-              size="sm"
+              label="Reset"
+              tooltip="Reset the item to its initial state"
               disabled={!qti3}
               onClick={() => {
                 resetPreviewItem();
               }}
             >
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              Reset
-            </Button>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    className={iconActionClassName}
-                    disabled={!qti3}
-                    onClick={() => {
-                      window.open(
-                        "https://github.com/citolab/qti-components",
-                        "_blank",
-                      );
-                    }}
-                    aria-label="About the preview player"
-                  >
-                    <Info className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-
-                </TooltipTrigger>
-                <TooltipContent>Preview generated by @citolab/qti-components</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>,
+            </IconAction>
+            <IconAction
+              label="About the preview player"
+              tooltip="Preview generated by @citolab/qti-components"
+              disabled={!qti3}
+              onClick={() => {
+                window.open(
+                  "https://github.com/citolab/qti-components",
+                  "_blank",
+                );
+              }}
+            >
+              <Info className="h-4 w-4" aria-hidden="true" />
+            </IconAction>
+            </div>
+          </TooltipProvider>,
         ]}
       >
         <>
