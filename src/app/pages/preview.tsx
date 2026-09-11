@@ -60,6 +60,25 @@ const VARIABLE_EVENT_TYPES = [
   "qti-interaction-response",
 ] as const;
 
+/** The part of qti-components' `Interaction` base class this page relies on. */
+type ResettableInteraction = Element & { reset: () => void };
+
+/**
+ * Every interaction inside an item.
+ *
+ * Duck-typed rather than matched on `*-interaction`, because that is the real
+ * contract: `reset()` and `responseIdentifier` both come from qti-components'
+ * `Interaction` base class, so anything carrying them can be reset -- including a
+ * portable custom interaction, whose tag name says nothing about what it is.
+ */
+function collectInteractions(root: Element): ResettableInteraction[] {
+  return Array.from(root.querySelectorAll("*")).filter(
+    (element): element is ResettableInteraction =>
+      typeof (element as Partial<ResettableInteraction>).reset === "function" &&
+      "responseIdentifier" in element,
+  );
+}
+
 /* React */
 declare module "react" {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -289,13 +308,27 @@ export const PreviewPage = () => {
       getAssessmentItemElement() as QtiAssessmentItemCorrection | null;
     if (!assessmentItem) return;
 
+    // Interactions first, and this order matters: `reset()` saves a cleared
+    // response, so running it after `resetResponses()` would put an empty value
+    // back into a context that had just been returned to null.
+    //
+    // Restoring a value is not enough to clear a drag-and-drop interaction. For a
+    // choice, the rendering is derived from the value, so writing the value back
+    // re-renders it unselected. For order, match and gap-match the DOM *is* the
+    // state -- the chips have been physically moved into the drop zones -- and no
+    // value assignment moves them out again, which is why Reset looked like it did
+    // nothing on exactly those item types. `reset()` is the interaction's own way
+    // of putting its rendering back, and every interaction has one.
+    for (const interaction of collectInteractions(assessmentItem)) {
+      interaction.reset();
+    }
+
     // Variable state back to the snapshot taken after template processing:
     // responses, SCORE, completionStatus and numAttempts all revert.
     assessmentItem.resetResponses();
 
-    // resetResponses() only rewrites the item context — the interactions still hold
-    // the candidate's input. Assigning `variables` runs the setter, which pushes each
-    // restored value back into its interaction and clears the UI.
+    // Pushes each restored value back into its interaction, for the ones whose
+    // rendering follows the value.
     assessmentItem.variables = [...assessmentItem.variables];
 
     // If "Set correct response" was used, take the answer key back off.
