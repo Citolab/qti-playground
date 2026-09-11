@@ -1,0 +1,148 @@
+/*
+ * Editor chrome only.
+ *
+ * How QTI CONTENT is painted is not decided here: the item theme and the app's own item.css do
+ * that, for the editor and the preview at once. Anything in this file that describes content --
+ * type, tables, images -- was a second opinion on that, and a second opinion is exactly what makes
+ * the two panels disagree. What is left is the editing surface itself and the selection affordance,
+ * neither of which the preview has.
+ *
+ * These rules are unlayered, so they outrank the whole item theme. That is fine for the two
+ * ProseMirror-only concerns below and is the reason to keep the file this short.
+ */
+.qti-citolab-editor .ProseMirror {
+  width: 100%;
+  min-height: 100%;
+  outline: none;
+  cursor: text;
+}
+
+.qti-citolab-editor .ProseMirror:focus {
+  outline: none;
+}
+
+/*
+ * Lists. prosekit does not render `ul > li`: it renders a flat list of divs with an absolutely
+ * positioned marker, which is what makes list editing sane, and indents the content by one line
+ * height. A delivered item is a real `ul`, which the UA indents by 40px with the bullet sitting
+ * just inside that. Re-place prosekit's two boxes at those numbers and the same list reads the
+ * same in both panels; the marker keeps its own width so its centred glyph lands where the UA
+ * puts the bullet.
+ */
+.qti-citolab-editor .ProseMirror .prosemirror-flat-list > .list-content {
+  margin-inline-start: 40px;
+}
+
+.qti-citolab-editor .ProseMirror .prosemirror-flat-list > .list-marker {
+  inset-inline-start: calc(40px - 1.5em);
+  inset-inline-start: calc(40px - 1lh);
+}
+
+.qti-citolab-editor
+  .ProseMirror
+  .prosemirror-flat-list[data-list-kind="ordered"]::before {
+  inset-inline-end: calc(100% - 40px + 0.5em);
+}
+
+/* A `ul` carries a block margin; prosekit's flat list is a run of siblings and carries none, so
+   the run needs the margin at its two ends and nowhere in between. Top-level only: the UA gives a
+   nested list no margin either, and `> ` keeps this off lists inside a `.list-content`. */
+.qti-citolab-editor
+  .ProseMirror
+  > :not(.prosemirror-flat-list)
+  + .prosemirror-flat-list {
+  margin-top: 1em;
+}
+
+.qti-citolab-editor
+  .ProseMirror
+  > .prosemirror-flat-list:not(:has(+ .prosemirror-flat-list)) {
+  margin-bottom: 1em;
+}
+
+/* ProseMirror's schema requires block content where the delivered item has bare text, so it wraps
+   a list item's and a table cell's text in a paragraph the player has no equivalent of. Left alone,
+   each invented paragraph contributes its block margin and the editor's rows and bullets stand
+   taller than the preview's. Cells only when the paragraph is the whole cell: two paragraphs in one
+   cell really are prose, and the player would space those too. */
+.qti-citolab-editor .ProseMirror :is(li, .list-content) > p,
+.qti-citolab-editor .ProseMirror :is(td, th) > p:only-child {
+  margin: 0;
+}
+
+/*
+ * Hand author tables back to the item sheet. prosekit's structural CSS paints a grid and a fixed
+ * column layout on `.ProseMirror td, th` -- editing affordances, and unlayered, so they outrank
+ * item.css's `qti-extended` rules no matter what those say. `revert-layer` in an unlayered rule
+ * rolls each property back to the topmost cascade layer, which is exactly where the app's table
+ * look lives; the selector only has to out-specify prosekit's to get the chance. Property list
+ * kept narrow on purpose: everything named here is something prosekit declares.
+ */
+.qti-citolab-editor .ProseMirror table {
+  table-layout: revert-layer;
+  overflow: revert-layer;
+}
+
+/* prosemirror-tables wraps every table in a scroll container, and that wrapper is a block
+   formatting context: the table's own block margin can no longer collapse with the paragraph above
+   or the list below, so the editor spaces a table about twice as far as the preview does. Move the
+   margin out to the wrapper, which collapses like the player's table does, and take it off the
+   table. Same token as item.css so a brand still reaches it. */
+.qti-citolab-editor .ProseMirror .tableWrapper {
+  margin: var(--qti-prose-table-margin, 1rem 0);
+}
+
+.qti-citolab-editor .ProseMirror .tableWrapper > table {
+  margin: 0;
+}
+
+.qti-citolab-editor .ProseMirror :is(td, th) {
+  border-width: revert-layer;
+  padding-left: revert-layer;
+  padding-right: revert-layer;
+  vertical-align: revert-layer;
+}
+
+/*
+ * Show the layout grid while editing. A delivered item paints nothing here -- `.qti-layout-row` is
+ * just a flex row and `.qti-layout-colN` just a width -- and an empty column is then completely
+ * invisible, which is the one thing an author needs to see. Editor-only, so the preview stays as it
+ * was; the deliberate exception to this file's rule that content styling belongs to the item sheet.
+ *
+ * `outline`, not `border`: the columns are sized in percentages and a border would either eat into
+ * that width or, with the theme's `box-sizing: border-box`, into the text inside it. An outline is
+ * drawn outside the box and changes no geometry at all, so the editor's column measures exactly
+ * what the player's does. The row's own outline is inset by the same offset so the two rules read
+ * as one nested frame rather than two coincident lines.
+ */
+.qti-citolab-editor .ProseMirror .qti-layout-row {
+  outline: 1px dashed #d8dbe0;
+  outline-offset: 4px;
+}
+
+.qti-citolab-editor .ProseMirror [class*="qti-layout-col"] {
+  outline: 1px dashed #c6cad0;
+  outline-offset: 1px;
+}
+
+.qti-citolab-editor .ProseMirror-selectednode {
+  outline: 2px solid color-mix(in oklab, #2563eb 35%, transparent);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+
+/* The block-select extension injects a rule of its own -- a translucent background fill plus
+   `outline: none` -- from a <style> it appends to document.head when the plugin sets up. That
+   lands after this sheet and its `:has()` selector outranks the plain rule above, so it wins.
+   A fill is the wrong mechanic for a QTI item regardless: qti-simple-choice paints its own opaque
+   white background, so the tint only survived in the gaps between choices and a selected
+   interaction read as a broken blue stripe. Out-specify it and go back to a ring, which no child
+   can paint over. */
+.qti-citolab-editor
+  .ProseMirror:has(.block-selected)
+  .ProseMirror-selectednode.block-selected {
+  background: transparent;
+  outline: 2px solid color-mix(in oklab, #2563eb 45%, transparent);
+  outline-offset: 3px;
+  border-radius: 0.375rem;
+}

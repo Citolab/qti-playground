@@ -1,6 +1,10 @@
 import type { Preview } from '@storybook/react';
 import '../src/styles.css';
-import '@citolab/qti-components';
+// Registration entry point. `/corrections` rather than the package root, so the
+// stories exercise the same element set as the app -- see src/main.tsx. Importing
+// both entries is what qti-components 9 warns about; the root is only ever pulled
+// in for values here, and its guarded registration backs off behind this.
+import '@citolab/qti-components/corrections';
 
 const isVitestStorybookRun =
   Boolean((import.meta as { env?: { VITEST?: string | boolean } }).env?.VITEST) ||

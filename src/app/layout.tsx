@@ -1,17 +1,103 @@
 import { useState } from "react";
-import { Menu, Sparkles, X } from "lucide-react";
+import { Menu, Pencil, Sparkles, X, type LucideIcon } from "lucide-react";
 import { NavLink, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { CitolabLogo } from "./components/citolab-logo";
 
-const navigation = [
-  { name: "Preview Package", href: "/upload" },
+type NavItem = {
+  name: string;
+  href: string;
+  icon?: LucideIcon;
+  /** Corner sticker drawing the eye to a page that has just landed. */
+  isNew?: boolean;
+};
+
+const packageNavigation: NavItem[] = [
+  { name: "Preview package", href: "/upload" },
   { name: "Convert", href: "/ai-convert", icon: Sparkles },
-  { name: "Upgrade / modify packages", href: "/modify" },
-
-  { name: "Preview item", href: "/preview" },
-  { name: "Convert item", href: "/convert" },
+  { name: "Modify packages", href: "/modify" },
 ];
+
+const itemNavigation: NavItem[] = [
+  { name: "Edit", href: "/edit", icon: Pencil, isNew: true },
+  { name: "Preview", href: "/preview" },
+  { name: "Convert", href: "/convert" },
+];
+
+const navigationGroups = [
+  { label: "Package", items: packageNavigation },
+  { label: "Item", items: itemNavigation },
+];
+
+const navLinkClassName = ({
+  isActive,
+  isPending,
+}: {
+  isActive: boolean;
+  isPending: boolean;
+}) =>
+  cn(
+    "relative rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-all duration-150",
+    isPending
+      ? "text-citolab-600"
+      : isActive
+        ? "bg-citolab-600 text-white shadow-sm"
+        : "text-gray-600 hover:bg-white hover:text-citolab-700",
+  );
+
+/**
+ * Sits on the corner of the nav pill rather than in the label, so "new" reads
+ * as a sticker on the tab instead of a chip competing with the label. The white
+ * ring keeps it legible where it overlaps the group pill's border.
+ */
+function NewSticker() {
+  return (
+    <span className="pointer-events-none absolute -top-1.5 -right-1.5 z-10 rounded-full bg-red-500 px-1.5 py-px text-[8px] font-bold uppercase leading-[1.4] tracking-wide text-white shadow-sm ring-2 ring-white">
+      New
+    </span>
+  );
+}
+
+function NavItemLink({ item }: { item: NavItem }) {
+  return (
+    <NavLink to={item.href} className={navLinkClassName}>
+      <span className="inline-flex items-center gap-1.5">
+        {item.icon ? <item.icon className="h-3.5 w-3.5 shrink-0" /> : null}
+        {item.name}
+      </span>
+      {item.isNew ? <NewSticker /> : null}
+    </NavLink>
+  );
+}
+
+function DesktopNavGroup({ label, items }: { label: string; items: NavItem[] }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="hidden lg:inline text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+        {label}
+      </span>
+      <div className="flex items-center gap-0.5 rounded-full border border-gray-200/80 bg-gray-50/90 p-0.5">
+        {items.map((item) => (
+          <NavItemLink key={item.name} item={item} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BrandLogo({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-9 shrink-0 items-center rounded-md text-citolab-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
+      aria-label="CitoLab home"
+    >
+      <CitolabLogo className="h-7 w-[4.5rem]" />
+    </button>
+  );
+}
 
 export const PageLayout = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
@@ -22,56 +108,29 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="bg-gray-100 flex flex-col h-full">
       {!fullScreen ? (
-        <nav className="bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm sticky top-0 z-50">
-          <div className="mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex h-14 items-center gap-6">
-              {/* Logo */}
-              <div
-                className="shrink-0 cursor-pointer"
-                onClick={() => navigate("/")}
-              >
-                <img
-                  className="block h-10 w-auto"
-                  src="/citolab.jpeg"
-                  alt="CitoLab"
-                />
-              </div>
+        <nav className="w-full bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm sticky top-0 z-50">
+          <div className="flex h-14 w-full items-center gap-3 px-4 sm:gap-4 sm:px-6 lg:px-8">
+            <BrandLogo onClick={() => navigate("/")} />
 
-              {/* Divider */}
-              <div className="hidden md:block h-6 w-px bg-gray-200" />
+            <div className="hidden md:block h-6 w-px bg-gray-200 shrink-0" />
 
-              {/* Nav links */}
-              <div className="hidden md:flex items-center gap-1 flex-1">
-                {navigation.map((item) => (
-                  <NavLink
-                    key={item.name}
-                    to={item.href}
-                    className={({ isActive, isPending }) =>
-                      cn(
-                        "rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-150",
-                        isPending
-                          ? "text-citolab-600"
-                          : isActive
-                            ? "bg-citolab-600 text-white shadow-sm"
-                            : "text-gray-600 hover:text-citolab-700 hover:bg-citolab-50",
-                      )
-                    }
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      {item.icon ? <item.icon className="h-4 w-4" /> : null}
-                      {item.name}
-                    </span>
-                  </NavLink>
-                ))}
-              </div>
+            <div className="hidden md:flex min-w-0 flex-1 items-center justify-start gap-3 overflow-x-auto py-2 lg:gap-5">
+              {navigationGroups.map((group, index) => (
+                <div key={group.label} className="flex items-center gap-3 lg:gap-5">
+                  {index > 0 ? (
+                    <div className="h-6 w-px bg-gray-200 shrink-0" />
+                  ) : null}
+                  <DesktopNavGroup label={group.label} items={group.items} />
+                </div>
+              ))}
+            </div>
 
-              {/* Mobile menu button */}
-              <div className="ml-auto flex md:hidden">
+            <div className="ml-auto flex md:hidden">
                 <Button
                   variant="ghost"
                   size="icon"
                   className="text-gray-600 hover:bg-citolab-50 hover:text-citolab-700"
-                  onClick={() => setMobileOpen((o) => !o)}
+                  onClick={() => setMobileOpen((open) => !open)}
                 >
                   <span className="sr-only">Open main menu</span>
                   {mobileOpen ? (
@@ -81,38 +140,52 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
                   )}
                 </Button>
               </div>
-            </div>
           </div>
 
-          {/* Green accent line */}
           <div className="h-0.5 bg-linear-to-r from-citolab-600 via-citolab-teal-500 to-citolab-teal-700" />
 
-          {mobileOpen && (
+          {mobileOpen ? (
             <div className="md:hidden border-t border-gray-100">
-              <div className="space-y-1 px-3 pb-3 pt-2 bg-white">
-                {navigation.map((item) => (
-                  <NavLink
-                    key={item.name}
-                    to={item.href}
-                    onClick={() => setMobileOpen(false)}
-                    className={({ isActive }) =>
-                      cn(
-                        "block rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                        isActive
-                          ? "bg-citolab-50 text-citolab-700 border-l-2 border-citolab-600"
-                          : "text-gray-600 hover:bg-citolab-50 hover:text-citolab-700",
-                      )
-                    }
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      {item.icon ? <item.icon className="h-4 w-4" /> : null}
-                      {item.name}
-                    </span>
-                  </NavLink>
+              <div className="space-y-4 px-3 pb-3 pt-2 bg-white">
+                {navigationGroups.map((group) => (
+                  <div key={group.label}>
+                    <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                      {group.label}
+                    </p>
+                    <div className="space-y-0.5">
+                      {group.items.map((item) => (
+                        <NavLink
+                          key={item.name}
+                          to={item.href}
+                          onClick={() => setMobileOpen(false)}
+                          className={({ isActive }) =>
+                            cn(
+                              "block rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                              isActive
+                                ? "bg-citolab-50 text-citolab-700 border-l-2 border-citolab-600"
+                                : "text-gray-600 hover:bg-citolab-50 hover:text-citolab-700",
+                            )
+                          }
+                        >
+                          <span className="inline-flex items-center gap-2">
+                            {item.icon ? (
+                              <item.icon className="h-4 w-4" />
+                            ) : null}
+                            {item.name}
+                            {item.isNew ? (
+                              <span className="rounded-full bg-red-500 px-1.5 py-px text-[8px] font-bold uppercase leading-[1.4] tracking-wide text-white">
+                                New
+                              </span>
+                            ) : null}
+                          </span>
+                        </NavLink>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
         </nav>
       ) : null}
       <main className="flex-1 min-h-0 overflow-y-auto">{children}</main>

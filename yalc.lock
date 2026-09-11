@@ -1,0 +1,9 @@
+{
+  "version": "v1",
+  "packages": {
+    "@citolab/qti-convert-export": {
+      "signature": "72b47aa73052b01e47ebe3c6a58d3789",
+      "file": true
+    }
+  }
+}

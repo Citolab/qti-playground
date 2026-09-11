@@ -14,18 +14,19 @@ import {
   QtiAssessmentItem,
   QtiAssessmentItemRef,
   transformItemApi,
+  transformTestApi,
 } from "@citolab/qti-components";
 import type { TestContext } from "@citolab/qti-components";
 // import { QtiTest } from "@citolab/qti-components";
 import {
   ChevronLeft,
-  Edit,
   Code,
   ChevronRight,
   LayoutGrid,
   LogOut,
 } from "lucide-react";
 import { itemCss } from "../itemCss";
+import { useScopedQtiRegistry } from "../use-scoped-registry";
 import {
   QTI_PKG_URL_PREFIX,
   detectPciBaseUrl,
@@ -37,10 +38,33 @@ import DraggablePopup from "../components/draggable-popup";
 import ModeSwitch from "../components/mode-switcher";
 import { Button } from "@/components/ui/button";
 import { ToolBar } from "../components/tool-bar";
+import { DownloadPackageButton } from "../components/download-package-button";
+import { QtiCitolabEditorPanel } from "../components/editor/qti-citolab-editor-panel";
 import { NavigationBar } from "./nav-list";
 import { AssessmentOverviewPage } from "./assessment-overview";
 import { AssessmentIntroScreen } from "./assessment-intro";
 import { ExtendedItemContext, ExtendedTestContext } from "@citolab/qti-api";
+import { useDebouncedCallback } from "use-debounce";
+import { LayoutModeSelect } from "../components/layout-mode-select";
+import {
+  AssessmentLayoutMode,
+  DEFAULT_LAYOUT_MODE,
+  parseLayoutMode,
+} from "../qti/layout-mode";
+import {
+  SectionGrouping,
+  flattenTestToSingleSection,
+  groupItemRefsBySharedStimulus,
+} from "../qti/test-layout-transforms";
+import {
+  bookletCss,
+  decorateQuestionBadges,
+  hoistSharedStimuli,
+  observeBookletScroll,
+  scrollToBookletItem,
+} from "../qti/booklet";
+import { itemKey, useStimulusRefs } from "../qti/use-stimulus-refs";
+import { VerticalNavigationPane } from "../components/vertical-navigation-pane";
 
 /* React */
 declare module "react" {
@@ -137,12 +161,23 @@ const mergeRestoredTestContext = (
   };
 };
 
+// The white player surface, and the toolbar that has to line up with its edges. `max-w-6xl` alone
+// left the panel a 1152px strip with ~1100px of dead page background either side of it on an
+// ultra-wide display. The steps widen the surface without touching the item column inside it,
+// which stays at `max-w-4xl`: that is a deliberate reading measure, and QTI items are authored
+// against it, so stretching it is not a safe way to use up the extra width.
+const PLAYER_SURFACE = "w-full max-w-6xl 2xl:max-w-[80rem] 3xl:max-w-[96rem]";
+
 export const AssessmentPage: React.FC = () => {
   const navigate = useNavigate();
   const qtiTestRef = useRef<IQtiTest>(null);
   const [qtiTestElement, setQtiTestElement] = useState<IQtiTest | null>(null);
   const hasRedirectedForMissingPackageCacheRef = useRef(false);
   const [queryParams, setQueryParams] = useSearchParams();
+  // The editor owns the qti-* names on the global registry, so the test player
+  // needs its own scope. See app/editor-first.ts.
+  const { registry: scopedRegistry, attachRef: attachScopedRegistry } =
+    useScopedQtiRegistry();
   const [showVariables, setShowVariables] = useState(false);
   const [currentItemIdentifier, setCurrentItemIdentifier] = useState("");
   const [currentItemRefIdentifier, setCurrentItemRefIdentifier] = useState("");
@@ -150,14 +185,39 @@ export const AssessmentPage: React.FC = () => {
   const [showIntro, setShowIntro] = useState(() => {
     const hasItemParam = !!queryParams.get("item");
     const overview = queryParams.get("overview") === "true";
-    return !hasItemParam && !overview;
+    // `start=1` means the layout was already picked on the way in (the package
+    // page starts the test in one), leaving the intro nothing to ask.
+    const startsImmediately = queryParams.get("start") === "1";
+    return !hasItemParam && !overview && !startsImmediately;
   });
+  /**
+   * Which layout the player is in. Lives in the URL so it survives a reload and
+   * can be linked to, and so the `<qti-test>` below can key off it: the two
+   * layouts are different section structures, so switching means reloading the
+   * test rather than restyling it.
+   */
+  const layoutMode = parseLayoutMode(queryParams.get("layout"));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [stampContext, setStampContext] = useState<any>(null);
+  /**
+   * Which question the reader is on in vertical mode. Everything is on screen
+   * at once there, so the runner has no active item to report and the scroll
+   * position is the only answer.
+   */
+  const [scrolledItemRefIdentifier, setScrolledItemRefIdentifier] =
+    useState("");
   const [bookmarkedItemRefIds, setBookmarkedItemRefIds] = useState<Set<string>>(
     () => new Set(),
   );
   const [zoomLevel, setZoomLevel] = useState(1);
+  /** The `<test-container>` element — the runner renders items into its shadow root. */
+  const testContainerRef = useRef<HTMLElement | null>(null);
+  /** The pane the booklet scrolls in, so "which question am I on" is answerable. */
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  /** A question asked for before the booklet had rendered it. */
+  const pendingScrollTargetRef = useRef<string | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editorSessionKey, setEditorSessionKey] = useState(0);
   const initialZoomRef = useRef<string>("");
 
   useEffect(() => {
@@ -194,6 +254,12 @@ export const AssessmentPage: React.FC = () => {
   const selectedAssessment = useStore((state) => state.selectedAssessment);
   const itemsPerAssessment = useStore((state) => state.itemsPerAssessment);
   const editItem = useStore((state) => state.editItem);
+  const saveEditedItem = useStore((state) => state.saveEditedItem);
+  const editorSourceXml = useStore((state) => state.qti3);
+  // The item's own package URL. Its asset paths are relative to it, not to this
+  // page, so the editor needs it to render the item's images.
+  const editorAssetBaseHref = useStore((state) => state.previewItemHref);
+  const setQti3 = useStore((state) => state.setQti3);
   const testContexts = useStore((state) => state.testContexts);
   const updateTestContext = useStore((state) => state.updateTestContext);
 
@@ -209,6 +275,38 @@ export const AssessmentPage: React.FC = () => {
     if (!assessment?.packageId) return null;
     return `${QTI_PKG_URL_PREFIX}/${encodeURIComponent(assessment.packageId)}`;
   }, [assessment?.packageId]);
+
+  const items = useMemo(
+    () =>
+      itemsPerAssessment.find((i) => i.assessmentId === assessmentId)?.items ||
+      [],
+    [assessmentId, itemsPerAssessment],
+  );
+
+  /**
+   * Which shared stimulus each item references, read from the item XML before
+   * anything renders. Drives both the shared-stimulus sections in classic mode
+   * and the source thumbnails in the overview.
+   */
+  const stimulusRefs = useStimulusRefs(items);
+
+  /** Layouts that put more than one question on a page, and so navigate by section. */
+  const isVerticalLayout = layoutMode === "vertical";
+  const groupsSharedStimuli =
+    !isVerticalLayout && stimulusRefs.sharedIds.size > 0;
+  const isBookletLayout = isVerticalLayout || groupsSharedStimuli;
+
+  /** 1-based question number per item-ref, info items excluded. */
+  const displayNumbers = useMemo(() => {
+    const map = new Map<string, number>();
+    let nr = 1;
+    for (const item of items) {
+      if (item.type === "info") continue;
+      map.set(itemKey(item), nr);
+      nr += 1;
+    }
+    return map;
+  }, [items]);
 
   const testContextsRef = useRef<AssessmentTestContext[]>([]);
   useEffect(() => {
@@ -469,6 +567,59 @@ export const AssessmentPage: React.FC = () => {
     [assessmentTestUrl, packageRootUrl],
   );
 
+  /**
+   * The section structure the layout transform produced, so navigation can go
+   * by section without re-reading the rendered document.
+   *
+   * Kept twice on purpose. The ref is the authority: it is written from inside
+   * the transform, which the runner drives, and read by event handlers that may
+   * fire in the same tick — `qti-assessment-test-connected` arrives before
+   * React has re-rendered. The state copy is what the chrome renders from.
+   */
+  const groupingRef = useRef<SectionGrouping | null>(null);
+  const [grouping, setGrouping] = useState<SectionGrouping | null>(null);
+
+  /**
+   * Restructure the test for the chosen layout: one section for the whole test
+   * in vertical mode, one section per shared stimulus in classic mode. Both
+   * make qti-components render several questions on one page — the only way it
+   * offers to do that is a section navigation.
+   */
+  const postLoadTestTransformCallback = useCallback(
+    (transformer: transformTestApi) => {
+      let next: SectionGrouping | null = null;
+      try {
+        if (isVerticalLayout) {
+          next = flattenTestToSingleSection(transformer);
+        } else if (groupsSharedStimuli) {
+          next = groupItemRefsBySharedStimulus(
+            transformer,
+            stimulusRefs.primaryStimulusByItem,
+            stimulusRefs.sharedIds,
+          );
+        }
+      } catch (error) {
+        // A test we cannot regroup still plays, one question at a time.
+        console.warn("Layout transform failed (falling back to items):", error);
+        next = null;
+      }
+      groupingRef.current = next;
+      setGrouping(next);
+      return transformer;
+    },
+    [
+      groupsSharedStimuli,
+      isVerticalLayout,
+      stimulusRefs.primaryStimulusByItem,
+      stimulusRefs.sharedIds,
+    ],
+  );
+
+  /** The section a question now lives in, or null when navigating by item. */
+  const sectionOf = useCallback((itemRefIdentifier: string) => {
+    return groupingRef.current?.sectionByItemRef.get(itemRefIdentifier) ?? null;
+  }, []);
+
   // Stable event handler for QTI item connection
   const handleItemConnected = useCallback((event: Event) => {
     const qtiAssessmentItem = (event as CustomEvent<QtiAssessmentItem>)?.detail;
@@ -532,12 +683,18 @@ export const AssessmentPage: React.FC = () => {
         qtiTestRef.current = element;
         setQtiTestElement(element);
         element.postLoadTransformCallback = postLoadTransformCallback;
+        // Both callbacks have to be in place before <test-container> reads
+        // them. They are: the container's load is async, so its first `await`
+        // yields to the microtask queue — which React's commit phase, and so
+        // this ref callback, has already run to completion by.
+        element.postLoadTestTransformCallback = postLoadTestTransformCallback;
+        if (isBookletLayout) element.navigate = "section";
       } else {
         qtiTestRef.current = null;
         setQtiTestElement(null);
       }
     },
-    [postLoadTransformCallback],
+    [isBookletLayout, postLoadTestTransformCallback, postLoadTransformCallback],
   );
 
   useEffect(() => {
@@ -557,7 +714,9 @@ export const AssessmentPage: React.FC = () => {
   useEffect(() => {
     if (!qtiTestRef.current) return;
     qtiTestRef.current.postLoadTransformCallback = postLoadTransformCallback;
-  }, [postLoadTransformCallback]);
+    qtiTestRef.current.postLoadTestTransformCallback =
+      postLoadTestTransformCallback;
+  }, [postLoadTestTransformCallback, postLoadTransformCallback]);
 
   useEffect(() => {
     if (!qtiTestElement) return;
@@ -618,59 +777,208 @@ export const AssessmentPage: React.FC = () => {
       );
   }, []);
 
+  /**
+   * Put the persisted answers back after the runner has wiped its own context.
+   *
+   * `qti-assessment-test-connected` makes qti-components assign
+   * `INITIAL_TEST_CONTEXT` unconditionally — the guard meant to preserve an
+   * existing context tests the value the line above it has just overwritten —
+   * so every `<test-container>` remount starts blank: an overview round trip, a
+   * layout switch, a re-entry from the item grid. The store still holds the
+   * answers, so they go back in here.
+   *
+   * Timing is the whole point of doing it in this handler. It runs during the
+   * same synchronous dispatch as the wipe (our listener is added later than the
+   * library's, so it runs after it), which is before any item has connected.
+   * The runner then replays the restored variables into each item itself, in
+   * `_updateItemInTestContext` — which only does so when the item context holds
+   * more than the one `completionStatus` variable a blank context has.
+   */
+  const restorePersistedTestContext = useCallback(() => {
+    const element = qtiTestRef.current;
+    const assessmentId = assessment?.id;
+    if (!element || !assessmentId) return;
+
+    const stored = testContextsRef.current.find(
+      (ctx) => ctx.assessmentId === assessmentId,
+    );
+    if (!stored?.items?.length) return;
+
+    const merged = mergeRestoredTestContext(
+      element.testContext as ExtendedTestContext | undefined,
+      stored,
+    );
+
+    // Cloned: the runtime element is an external DOM node and mutates what it
+    // is handed, so it must not be handed the store's own objects.
+    element.testContext = {
+      items: merged.items.map((item) => ({
+        ...item,
+        variables: item.variables?.map((variable) => ({ ...variable })),
+        state: item.state ? { ...item.state } : undefined,
+      })),
+      testOutcomeVariables: merged.testOutcomeVariables,
+    };
+
+    // The restore effect below would otherwise apply the same context a second
+    // time, after the items have connected -- too late to be replayed into them,
+    // and enough to trigger another round of context updates.
+    lastAppliedContextRef.current = stored;
+  }, [assessment?.id]);
+
   // QTI test setup effect
   useEffect(() => {
-    if (!qtiTestRef.current || !assessmentTestUrl) return;
+    // Keyed on the element, not on `qtiTestRef.current`: the player only mounts
+    // once the stimulus scan is ready, and a ref going from null to an element
+    // is not something an effect re-runs for.
+    if (!qtiTestElement || !assessmentTestUrl) return;
 
     const itemId = queryParams.get("item");
 
     const handleTestConnected = () => {
-      if (itemId && assessment.items) {
-        const matchingItem = assessment.items.find(
-          (i) => i.identifier === itemId,
-        );
-        if (qtiTestRef.current && matchingItem) {
-          qtiTestRef.current.navigateTo("item", matchingItem.itemRefIdentifier);
+      restorePersistedTestContext();
+
+      const target =
+        (itemId && assessment?.items?.find((i) => i.identifier === itemId)) ||
+        assessment?.items?.[0];
+      const targetItemRefId = target?.itemRefIdentifier;
+      if (!targetItemRefId) return;
+
+      // In a booklet layout the runner has already navigated to the first
+      // section by itself (`navigate = "section"`), so only a deep link into a
+      // later section needs a navigation of our own. An *item* navigation here
+      // would tear the page down to a single question.
+      if (isBookletLayout) {
+        const sectionId = sectionOf(targetItemRefId);
+        const firstSection = groupingRef.current?.sections[0];
+        if (sectionId && sectionId !== firstSection) {
+          qtiTestRef.current?.navigateTo("section", sectionId);
         }
-      } else if (assessment.items?.length) {
-        // Ensure the test starts by navigating to the first item when no explicit item is requested
-        qtiTestRef.current?.navigateTo(
-          "item",
-          assessment.items[0].itemRefIdentifier,
-        );
+        // Vertical mode renders the whole test at once, so a deep-linked
+        // question is a scroll away rather than a navigation. Only a deep link:
+        // scrolling to question 1 unprompted would push the booklet's first
+        // shared source off the top of the pane before it has been read.
+        if (isVerticalLayout && itemId) {
+          pendingScrollTargetRef.current = targetItemRefId;
+        }
+        return;
       }
+
+      qtiTestRef.current?.navigateTo("item", targetItemRefId);
     };
 
-    qtiTestRef.current.addEventListener(
+    qtiTestElement.addEventListener(
       "qti-assessment-test-connected",
       handleTestConnected,
     );
 
     return () => {
-      if (qtiTestRef.current) {
-        qtiTestRef.current.removeEventListener(
-          "qti-assessment-test-connected",
-          handleTestConnected,
-        );
-      }
+      qtiTestElement.removeEventListener(
+        "qti-assessment-test-connected",
+        handleTestConnected,
+      );
     };
-  }, [assessment?.content, assessment?.items, assessmentTestUrl, queryParams]);
-
-  const items =
-    itemsPerAssessment.find((i) => i.assessmentId === assessmentId)?.items ||
-    [];
+  }, [
+    assessment?.content,
+    assessment?.items,
+    assessmentTestUrl,
+    isBookletLayout,
+    isVerticalLayout,
+    qtiTestElement,
+    queryParams,
+    restorePersistedTestContext,
+    sectionOf,
+  ]);
 
   // Navigation handlers
-  const onEditItem = useCallback(async () => {
+  // Editing happens in place: the editor is rendered as an overlay on top of
+  // the item content, so the test itself stays mounted (and keeps its state).
+
+  // Which item the open editor belongs to. Read instead of `currentItemIdentifier` because a
+  // pending edit is flushed *after* the player has already moved on to another item, and the
+  // flush must still write to the file it was editing.
+  const editingItemIdentifierRef = useRef("");
+  const editingItemRefIdentifierRef = useRef("");
+  // The last write of the edited item to the package cache. `_loadItems` re-fetches
+  // `item.href` on every navigation, so the reload below has to wait for that write --
+  // otherwise the player races it and re-reads the pre-edit XML.
+  const pendingItemSaveRef = useRef<Promise<boolean>>(Promise.resolve(false));
+  const editedInSessionRef = useRef(false);
+
+  const pushEditorSource = useDebouncedCallback((nextXml: string) => {
+    void setQti3(nextXml);
+    const identifier = editingItemIdentifierRef.current;
+    if (!identifier) return;
+    editedInSessionRef.current = true;
+    pendingItemSaveRef.current = saveEditedItem(identifier, nextXml);
+  }, 1000);
+
+  // Gets every pending edit into the package cache. The editor flushes its own export
+  // debounce while it tears down, so the last keystrokes only reach `pushEditorSource`
+  // once it has unmounted -- hence the yield before flushing ours.
+  const flushPendingEdit = useCallback(async () => {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    pushEditorSource.flush();
+    await pendingItemSaveRef.current;
+  }, [pushEditorSource]);
+
+  const closeEditor = useCallback(async () => {
+    setIsEditorOpen(false);
+    await flushPendingEdit();
+    if (!editedInSessionRef.current) return;
+    editedInSessionRef.current = false;
+    // Reload the item so the player picks the edit up from the package cache. Navigating
+    // to the item it is already on is allowed even in linear mode.
+    const itemRefId = editingItemRefIdentifierRef.current;
+    if (itemRefId) {
+      qtiTestRef.current?.navigateTo("item", itemRefId);
+    }
+  }, [flushPendingEdit]);
+
+  const onToggleEditor = useCallback(async () => {
+    if (isEditorOpen) {
+      await closeEditor();
+      return;
+    }
     try {
       await editItem(currentItemIdentifier);
-      navigate(
-        `/preview?itemId=${encodeURIComponent(currentItemIdentifier || "")}`,
-      );
+      editingItemIdentifierRef.current = currentItemIdentifier;
+      editingItemRefIdentifierRef.current = currentItemRefIdentifier;
+      editedInSessionRef.current = false;
+      setEditorSessionKey((current) => current + 1);
+      setIsEditorOpen(true);
     } catch (error) {
       console.error("Edit item error:", error);
     }
-  }, [currentItemIdentifier, editItem, navigate]);
+  }, [
+    closeEditor,
+    currentItemIdentifier,
+    currentItemRefIdentifier,
+    editItem,
+    isEditorOpen,
+  ]);
+
+  // Navigating to another item closes the in-place editor. The pending edit still has to
+  // land in the package cache, so it is flushed rather than cancelled -- the item the
+  // player navigates to re-fetches its own XML anyway.
+  const editorItemIdentifierRef = useRef(currentItemIdentifier);
+  useEffect(() => {
+    if (editorItemIdentifierRef.current === currentItemIdentifier) return;
+    editorItemIdentifierRef.current = currentItemIdentifier;
+    setIsEditorOpen(false);
+    void flushPendingEdit().then(() => {
+      // No reload here: the player has already moved on, and the edited item re-fetches
+      // its own XML the next time it is navigated to.
+      editedInSessionRef.current = false;
+    });
+  }, [currentItemIdentifier, flushPendingEdit]);
+
+  // Leaving the page (back, exit) must not strand an edit in the debounce either.
+  useEffect(() => {
+    return () => {
+      pushEditorSource.flush();
+    };
+  }, [pushEditorSource]);
 
   const handleBackNavigation = useCallback(() => {
     navigate("/package");
@@ -695,6 +1003,22 @@ export const AssessmentPage: React.FC = () => {
       setQueryParams(next, { replace: true });
     },
     [queryParams, setQueryParams],
+  );
+
+  /**
+   * Switch layout. The two layouts are different section structures, so this
+   * reloads the test — the `key` on `<qti-test>` below makes that happen — and
+   * the mode lives in the URL so a reload or a shared link keeps it.
+   */
+  const setLayoutMode = useCallback(
+    (mode: AssessmentLayoutMode) => {
+      if (mode === layoutMode) return;
+      const next = new URLSearchParams(queryParams);
+      if (mode === DEFAULT_LAYOUT_MODE) next.delete("layout");
+      else next.set("layout", mode);
+      setQueryParams(next, { replace: true });
+    },
+    [layoutMode, queryParams, setQueryParams],
   );
 
   const redirectToPackageDueToMissingItemData = useCallback(
@@ -749,11 +1073,102 @@ export const AssessmentPage: React.FC = () => {
     handlePrevious();
   }, [handlePrevious]);
 
-  const handleNavigationBarClick = useCallback((id: string) => {
-    if (qtiTestRef.current) {
-      qtiTestRef.current.navigateTo("item", id);
-    }
-  }, []);
+  /**
+   * Go to a question — whatever "go" means in this layout: a scroll in vertical
+   * mode (everything is already rendered), a section navigation when questions
+   * are grouped onto one page, an item navigation otherwise.
+   */
+  const goToItem = useCallback(
+    (itemRefIdentifier: string | null) => {
+      if (!itemRefIdentifier) return;
+
+      if (isVerticalLayout) {
+        setScrolledItemRefIdentifier(itemRefIdentifier);
+        // The booklet may not be rendered yet (a deep link, or the intro still
+        // covering it); the load effect below picks the target up.
+        if (!scrollToBookletItem(testContainerRef.current, itemRefIdentifier)) {
+          pendingScrollTargetRef.current = itemRefIdentifier;
+        }
+        return;
+      }
+
+      const sectionId = sectionOf(itemRefIdentifier);
+      if (sectionId) {
+        qtiTestRef.current?.navigateTo("section", sectionId);
+        return;
+      }
+      qtiTestRef.current?.navigateTo("item", itemRefIdentifier);
+    },
+    [isVerticalLayout, sectionOf],
+  );
+
+  const handleNavigationBarClick = useCallback(
+    (id: string) => goToItem(id),
+    [goToItem],
+  );
+
+  /**
+   * Leave the intro for the layout the reader picked.
+   *
+   * One URL write for both the layout and the dismissed overview: two calls
+   * would each start from the same `queryParams` snapshot and the second would
+   * drop the first one's parameter.
+   */
+  const startAssessment = useCallback(
+    (mode: AssessmentLayoutMode) => {
+      setShowIntro(false);
+      const next = new URLSearchParams(queryParams);
+      next.delete("overview");
+      if (mode === DEFAULT_LAYOUT_MODE) next.delete("layout");
+      else next.set("layout", mode);
+      setQueryParams(next, { replace: true });
+
+      // A different layout remounts the player (see the `key` on `<qti-test>`),
+      // and it opens itself on the first question. Only staying put needs a
+      // navigation from here.
+      if (mode === layoutMode) {
+        goToItem(assessment?.items?.[0]?.itemRefIdentifier ?? null);
+      }
+    },
+    [assessment?.items, goToItem, layoutMode, queryParams, setQueryParams],
+  );
+
+
+  /** The section the runner is showing, when it is navigating by section. */
+  const activeSectionId: string | null =
+    stampContext?.activeSection?.identifier ?? null;
+
+  const activeSectionItemRefIds = useMemo(() => {
+    if (!isBookletLayout || !activeSectionId) return [] as string[];
+    return grouping?.itemRefsBySection.get(activeSectionId) ?? [];
+  }, [activeSectionId, grouping, isBookletLayout]);
+
+  /**
+   * Where the reader is, as a single item-ref.
+   *
+   * The runner can only answer this when it renders one question per screen. On
+   * a booklet page it reports a section and no active item, so vertical mode
+   * takes the scroll position and a grouped page takes its first question.
+   */
+  const currentPositionItemRefId = isVerticalLayout
+    ? scrolledItemRefIdentifier
+    : groupsSharedStimuli
+      ? (activeSectionItemRefIds[0] ?? "")
+      : currentItemRefIdentifier;
+
+  /**
+   * Whether vertical mode's left pane is on screen. Off on the intro and the
+   * overview, which both take the whole surface.
+   */
+  const showVerticalPane = isVerticalLayout && !showIntro && !isOverviewOpen;
+
+  /** Which questions the chrome should light up as "you are here". */
+  const activeItemRefIds = useMemo(() => {
+    if (groupsSharedStimuli) return new Set(activeSectionItemRefIds);
+    return new Set(
+      currentPositionItemRefId ? [currentPositionItemRefId] : [],
+    );
+  }, [activeSectionItemRefIds, currentPositionItemRefId, groupsSharedStimuli]);
 
   const responseStateByItemRefId = useMemo(() => {
     const map = new Map<string, "missing" | "incomplete" | "complete">();
@@ -780,8 +1195,10 @@ export const AssessmentPage: React.FC = () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((i: any) => i.identifier)
       .filter(Boolean);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const activeIndex = ctxItems.findIndex((i: any) => i.active);
+    const activeIndex = currentPositionItemRefId
+      ? ids.indexOf(currentPositionItemRefId)
+      : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ctxItems.findIndex((i: any) => i.active);
     return {
       activeIndex,
       prevId: activeIndex > 0 ? ids[activeIndex - 1] : null,
@@ -790,7 +1207,63 @@ export const AssessmentPage: React.FC = () => {
           ? ids[activeIndex + 1]
           : null,
     };
-  }, [stampContext]);
+  }, [currentPositionItemRefId, stampContext]);
+
+  /**
+   * The nav bar's copy of the context, with "you are here" set the way this
+   * layout decides it. The runner only marks an item active when it renders one
+   * per screen, so on a booklet page every question in view is marked instead.
+   */
+  const navStampContext = useMemo(() => {
+    const ctxItems = stampContext?.activeTestpart?.items;
+    if (!ctxItems) return stampContext;
+    return {
+      ...stampContext,
+      activeTestpart: {
+        ...stampContext.activeTestpart,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        items: ctxItems.map((item: any) => ({
+          ...item,
+          active: activeItemRefIds.has(item.identifier),
+        })),
+      },
+    };
+  }, [activeItemRefIds, stampContext]);
+
+  /**
+   * What prev/next mean on a booklet page: the neighbouring question in
+   * vertical mode, the neighbouring section when questions are grouped. Both
+   * are expressed as an item-ref so `goToItem` can do the right thing with it.
+   */
+  const pageNavTargets = useMemo(() => {
+    if (isVerticalLayout) {
+      const order = items.map(itemKey);
+      const index = order.indexOf(currentPositionItemRefId);
+      return {
+        prevId: index > 0 ? order[index - 1] : null,
+        nextId:
+          index >= 0 && index < order.length - 1 ? order[index + 1] : null,
+      };
+    }
+
+    const sections = grouping?.sections ?? [];
+    const index = activeSectionId ? sections.indexOf(activeSectionId) : -1;
+    const firstOf = (sectionId: string | undefined) =>
+      (sectionId && grouping?.itemRefsBySection.get(sectionId)?.[0]) || null;
+    return {
+      prevId: index > 0 ? firstOf(sections[index - 1]) : null,
+      nextId:
+        index >= 0 && index < sections.length - 1
+          ? firstOf(sections[index + 1])
+          : null,
+    };
+  }, [
+    activeSectionId,
+    currentPositionItemRefId,
+    grouping,
+    isVerticalLayout,
+    items,
+  ]);
 
   const closeOverview = useCallback(() => {
     setOverviewMode(false);
@@ -799,18 +1272,14 @@ export const AssessmentPage: React.FC = () => {
   const goToPrevFromOverview = useCallback(() => {
     const prevId = overviewNavTargets.prevId;
     closeOverview();
-    if (prevId) {
-      qtiTestRef.current?.navigateTo("item", prevId);
-    }
-  }, [closeOverview, overviewNavTargets.prevId]);
+    goToItem(prevId);
+  }, [closeOverview, goToItem, overviewNavTargets.prevId]);
 
   const goToNextFromOverview = useCallback(() => {
     const nextId = overviewNavTargets.nextId;
     closeOverview();
-    if (nextId) {
-      qtiTestRef.current?.navigateTo("item", nextId);
-    }
-  }, [closeOverview, overviewNavTargets.nextId]);
+    goToItem(nextId);
+  }, [closeOverview, goToItem, overviewNavTargets.nextId]);
 
   // Overview is URL-driven, so it can open without going through a handler here (deep link, back/
   // forward). Dismissing the intro during render instead of from an effect keeps that to a single
@@ -838,29 +1307,144 @@ export const AssessmentPage: React.FC = () => {
 
   const handleMarkCurrentItem = useCallback(
     (marked: boolean) => {
-      if (!currentItemRefIdentifier) return;
+      if (!currentPositionItemRefId) return;
       setBookmarkedItemRefIds((prev) => {
         const next = new Set(prev);
-        if (marked) next.add(currentItemRefIdentifier);
-        else next.delete(currentItemRefIdentifier);
+        if (marked) next.add(currentPositionItemRefId);
+        else next.delete(currentPositionItemRefId);
         return next;
       });
     },
-    [currentItemRefIdentifier],
+    [currentPositionItemRefId],
   );
 
-  // Stamp context handler with change detection to prevent unnecessary re-renders
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleStampContextUpdate = useCallback((e: any) => {
-    const newContext = e.detail;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setStampContext((prevContext: any) => {
-      if (JSON.stringify(prevContext) === JSON.stringify(newContext)) {
-        return prevContext;
-      }
-      return newContext;
-    });
+  /**
+   * Player context, from the runner's computed context rather than from
+   * `<test-stamp>`.
+   *
+   * `<test-stamp>` bails out unless there is an *active item*, and a section
+   * navigation deliberately has none — it sets `navItemRefId` to null and
+   * renders the whole section. So on a booklet page the stamp never fires
+   * again, and the chrome that reads it (nav bar, answered counts) freezes on
+   * whatever it last saw. The computed context has no such condition.
+   *
+   * Shaped like the stamp context so everything downstream is unchanged.
+   */
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const handleComputedContextUpdate = useCallback((event: Event) => {
+    const context = (event as CustomEvent<any>).detail;
+    const testParts: any[] = context?.testParts ?? [];
+    const testPart =
+      testParts.find((part: any) => part.active) ?? testParts[0];
+    const sections: any[] = testPart?.sections ?? [];
+    if (sections.length === 0) return;
+
+    const next = {
+      view: context?.view,
+      activeSection: sections.find((section: any) => section.active) ?? null,
+      activeTestpart: {
+        sections,
+        items: sections.flatMap((section: any) => section.items ?? []),
+      },
+    };
+
+    setStampContext((prevContext: any) =>
+      JSON.stringify(prevContext) === JSON.stringify(next) ? prevContext : next,
+    );
   }, []);
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+
+  useEffect(() => {
+    if (!qtiTestElement) return;
+    qtiTestElement.addEventListener(
+      "qti-computed-context-updated",
+      handleComputedContextUpdate,
+    );
+    return () => {
+      qtiTestElement.removeEventListener(
+        "qti-computed-context-updated",
+        handleComputedContextUpdate,
+      );
+    };
+  }, [handleComputedContextUpdate, qtiTestElement]);
+
+  const attachTestContainer = useCallback(
+    (element: HTMLElement | null) => {
+      testContainerRef.current = element;
+      attachScopedRegistry(element);
+    },
+    [attachScopedRegistry],
+  );
+
+  /**
+   * Keep the booklet page decorated: a number badge per question, and each
+   * shared source lifted into a block of its own above the questions that use
+   * it.
+   *
+   * Driven by a MutationObserver rather than by `qti-test-loaded` alone,
+   * because a stimulus can land in the page after the load has been reported
+   * and the runner re-renders items behind our back. The observer is
+   * disconnected while we work so our own edits cannot wake it — both
+   * functions are idempotent, but a self-triggering observer would still spin.
+   */
+  useEffect(() => {
+    if (!isBookletLayout) return;
+
+    const container = testContainerRef.current;
+    const root = container?.shadowRoot;
+    if (!container || !root) return;
+
+    let timer = 0;
+    let disposed = false;
+
+    const decorate = () => {
+      observer.disconnect();
+      try {
+        hoistSharedStimuli(container);
+        decorateQuestionBadges(container, displayNumbers);
+      } finally {
+        if (!disposed) {
+          observer.observe(root, { childList: true, subtree: true });
+        }
+      }
+
+      const pending = pendingScrollTargetRef.current;
+      if (pending && scrollToBookletItem(container, pending, "auto")) {
+        pendingScrollTargetRef.current = null;
+      }
+    };
+
+    const schedule = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(decorate, 50);
+    };
+
+    const observer = new MutationObserver(schedule);
+    decorate();
+
+    const onTestLoaded = () => schedule();
+    qtiTestElement?.addEventListener("qti-test-loaded", onTestLoaded);
+
+    return () => {
+      disposed = true;
+      window.clearTimeout(timer);
+      observer.disconnect();
+      qtiTestElement?.removeEventListener("qti-test-loaded", onTestLoaded);
+    };
+  }, [displayNumbers, isBookletLayout, qtiTestElement, showIntro, isOverviewOpen]);
+
+  /**
+   * Vertical mode only: the scroll position is what "the current question"
+   * means, so watch it and tell the chrome.
+   */
+  useEffect(() => {
+    if (!isVerticalLayout || showIntro || isOverviewOpen) return;
+    return observeBookletScroll(
+      testContainerRef.current,
+      scrollAreaRef.current,
+      setScrolledItemRefIdentifier,
+    );
+  }, [isOverviewOpen, isVerticalLayout, showIntro, stampContext]);
 
   useEffect(() => {
     initialZoomRef.current = document.documentElement.style.zoom || "";
@@ -930,10 +1514,6 @@ export const AssessmentPage: React.FC = () => {
           </h1>
         </div>
         <div className="flex items-center space-x-2">
-          <Button size="sm" onClick={onEditItem}>
-            <Edit className="sm:mr-1 h-4 w-4" />
-            <span className="hidden sm:inline">Edit QTI</span>
-          </Button>
           <Button
             size="sm"
             variant={showVariables ? "secondary" : "ghost"}
@@ -958,8 +1538,19 @@ export const AssessmentPage: React.FC = () => {
 
       {/* Main content area - takes remaining space */}
       <div className="flex-1 flex items-center justify-center px-4 py-4 min-h-0 overflow-hidden">
-        <div className="w-full max-w-6xl h-full flex flex-col bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className={`${PLAYER_SURFACE} h-full flex flex-col bg-white rounded-lg shadow-lg overflow-hidden`}>
+          {/* The layout is decided before the test loads, and the scan that
+              decides it (which items share a stimulus) reads the item XML. So
+              the player waits for it: `<test-container>` starts fetching the
+              test the moment it connects, and a transform that arrives after
+              that is a transform that never ran. */}
+          {!stimulusRefs.ready ? (
+            <div className="flex h-full items-center justify-center text-sm text-gray-500">
+              Preparing test...
+            </div>
+          ) : (
           <qti-test
+            key={layoutMode}
             ref={refCallback}
             cache-transform
             className="h-full min-h-0 flex flex-col"
@@ -975,17 +1566,26 @@ export const AssessmentPage: React.FC = () => {
               auto-score-items
               className="h-full min-h-0 flex flex-col"
             >
-              <test-stamp
-                class="h-full min-h-0 flex flex-col"
-                onqti-stamp-context-updated={handleStampContextUpdate}
-              >
+              <test-stamp class="h-full min-h-0 flex flex-col">
                 {/* Mode Switch - Fixed at top of content */}
                 <div className="flex-shrink-0 flex justify-center p-4 bg-gray-50 border-b">
-                  <div className="w-full max-w-4xl flex items-center justify-between gap-3">
-                    <ModeSwitch
-                      initialMode="candidate"
-                      onCheck={handleToggle}
-                    />
+                  {/* Spans the surface rather than the item measure, and wraps. Capped at `max-w-4xl` it was
+                        narrower than its own controls -- ModeSwitch plus the toolbar group plus Download, none
+                        of which can shrink -- so the row overflowed the panel and the panel's `overflow-hidden`
+                        clipped the Download button off the right edge where it could not be clicked. */}
+                  <div
+                    className={`${PLAYER_SURFACE} flex min-w-0 flex-wrap items-center justify-between gap-3`}
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <ModeSwitch
+                        initialMode="candidate"
+                        onCheck={handleToggle}
+                      />
+                      <LayoutModeSelect
+                        value={layoutMode}
+                        onChange={setLayoutMode}
+                      />
+                    </div>
 
                     <div
                       id="toolbar"
@@ -1000,25 +1600,53 @@ export const AssessmentPage: React.FC = () => {
                         onZoomOut={handleZoomOut}
                         onResetZoom={handleResetZoom}
                         zoomLevel={zoomLevel}
+                        editing={isEditorOpen}
+                        onToggleEdit={
+                          // The in-place editor edits "the current item", which
+                          // a page holding three of them cannot name. Hidden
+                          // there, as it already is on the intro and overview.
+                          showIntro || isOverviewOpen || isBookletLayout
+                            ? undefined
+                            : onToggleEditor
+                        }
+                      />
+                      <DownloadPackageButton
+                        label="Download"
+                        className="h-10 rounded-full border border-gray-200 bg-white px-3 text-gray-700 shadow-sm hover:border-gray-300 hover:bg-white hover:text-gray-900"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Scrollable content area */}
-                <div className="flex-1 min-h-0 overflow-auto">
+                {/* Content area. Vertical mode puts its navigation in a left
+                    pane instead of the footer bar, so this becomes a row. */}
+                <div
+                  className={`relative flex-1 min-h-0 ${
+                    showVerticalPane ? "flex flex-col lg:flex-row" : ""
+                  }`}
+                >
+                  {showVerticalPane && (
+                    <VerticalNavigationPane
+                      items={items}
+                      displayNumbers={displayNumbers}
+                      responseStateByItemRefId={responseStateByItemRefId}
+                      bookmarkedItemRefIds={bookmarkedItemRefIds}
+                      activeItemRefId={currentPositionItemRefId}
+                      onSelectItem={goToItem}
+                      isOverviewOpen={isOverviewOpen}
+                      onToggleOverview={() => setOverviewMode(!isOverviewOpen)}
+                    />
+                  )}
+                  <div
+                    ref={scrollAreaRef}
+                    className="h-full min-w-0 flex-1 overflow-auto"
+                    aria-hidden={isEditorOpen}
+                  >
                   {showIntro ? (
                     <AssessmentIntroScreen
                       assessmentName={selectedAssessmentData?.name}
                       itemCount={items.filter((i) => i.type !== "info").length}
-                      onStart={() => {
-                        setShowIntro(false);
-                        setOverviewMode(false);
-                        const first = assessment.items?.[0]?.itemRefIdentifier;
-                        if (first) {
-                          qtiTestRef.current?.navigateTo("item", first);
-                        }
-                      }}
+                      onStart={startAssessment}
                       onOpenOverview={() => {
                         setShowIntro(false);
                         setOverviewMode(true);
@@ -1029,32 +1657,80 @@ export const AssessmentPage: React.FC = () => {
                       items={items}
                       responseStateByItemRefId={responseStateByItemRefId}
                       bookmarkedItemRefIds={bookmarkedItemRefIds}
+                      primaryStimulusByItem={stimulusRefs.primaryStimulusByItem}
                       onOpenItem={(itemRefIdentifier) => {
                         setOverviewMode(false);
-                        qtiTestRef.current?.navigateTo(
-                          "item",
-                          itemRefIdentifier,
-                        );
+                        goToItem(itemRefIdentifier);
                       }}
                     />
                   ) : (
-                    <div className="flex justify-center p-6 min-h-full">
+                    <div
+                      className={
+                        isBookletLayout
+                          ? // A booklet reads at one column, and vertical mode
+                            // needs a viewport of slack below the last question
+                            // so it can still be scrolled to the top of the pane.
+                            `mx-auto w-full max-w-3xl px-4 pt-6 ${
+                              isVerticalLayout ? "pb-[70vh]" : "pb-6"
+                            }`
+                          : "flex justify-center p-6 min-h-full"
+                      }
+                    >
                       <test-container
-                        className="custom-qti-style cito-style w-full max-w-4xl"
+                        ref={attachTestContainer}
+                        customElementRegistry={scopedRegistry}
+                        className={
+                          isBookletLayout
+                            ? "custom-qti-style cito-style block w-full"
+                            : "custom-qti-style cito-style w-full max-w-4xl"
+                        }
                         testURL={assessment?.testUrl}
                       >
                         <template
                           dangerouslySetInnerHTML={{
-                            __html: `<style>${itemCss}</style>`,
+                            __html: `<style>${itemCss}</style>${
+                              isBookletLayout
+                                ? `<style>${bookletCss}</style>`
+                                : ""
+                            }`,
                           }}
                         ></template>
                       </test-container>
                     </div>
                   )}
+                  </div>
+
+                  {/* In-place editor: replaces the item content without
+                      unmounting the test underneath. */}
+                  {isEditorOpen && !showIntro && !isOverviewOpen && (
+                    <div className="absolute inset-0 z-20 flex flex-col bg-white">
+                      <div className="flex flex-shrink-0 items-center border-b border-gray-200 px-4 py-2">
+                        <span className="text-sm font-medium text-gray-700">
+                          Editing {currentItemIdentifier || "item"}
+                        </span>
+                      </div>
+                      <div className="min-h-0 flex-1 overflow-auto">
+                        {/* Same wrapper the test-container above gets, so the item keeps its
+                            column when the editor covers it. */}
+                        <QtiCitolabEditorPanel
+                          key={editorSessionKey}
+                          editorSessionKey={editorSessionKey}
+                          active
+                          sourceXml={editorSourceXml || ""}
+                          assetBaseHref={editorAssetBaseHref}
+                          onSourceChange={pushEditorSource}
+                          surfaceClassName="flex justify-center p-6"
+                          contentClassName="max-w-4xl"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Fixed Bottom navigation - Always visible */}
-                {!showIntro && (
+                {/* Fixed bottom navigation. Absent in vertical mode: the left
+                    pane is the navigation there, and a booklet has no pages to
+                    step through. */}
+                {!showIntro && !showVerticalPane && (
                   <div className="flex-shrink-0 border-t bg-white">
                     <nav className="flex items-center justify-between px-6 py-4 w-full min-w-0">
                       {isOverviewOpen ? (
@@ -1094,10 +1770,34 @@ export const AssessmentPage: React.FC = () => {
                       ) : (
                         <>
                           <div className="flex items-center gap-3 flex-shrink-0">
-                            <test-prev className="inline-flex items-center rounded-md bg-citolab-700 px-4 py-2 text-sm font-semibold text-white hover:bg-citolab-600 transition-colors shadow-sm">
-                              <ChevronLeft className="mr-1 h-4 w-4" />
-                              Previous
-                            </test-prev>
+                            {/* `test-prev`/`test-next` step by item and need an
+                                active one, which a section navigation
+                                deliberately does not have. On a booklet page
+                                prev/next therefore drive the page itself: the
+                                neighbouring question in vertical mode, the
+                                neighbouring section when questions are grouped. */}
+                            {isBookletLayout ? (
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  goToItem(pageNavTargets.prevId)
+                                }
+                                disabled={!pageNavTargets.prevId}
+                                title={
+                                  isVerticalLayout
+                                    ? "Previous question"
+                                    : "Previous page"
+                                }
+                              >
+                                <ChevronLeft className="mr-1 h-4 w-4" />
+                                Previous
+                              </Button>
+                            ) : (
+                              <test-prev className="inline-flex items-center rounded-md bg-citolab-700 px-4 py-2 text-sm font-semibold text-white hover:bg-citolab-600 transition-colors shadow-sm">
+                                <ChevronLeft className="mr-1 h-4 w-4" />
+                                Previous
+                              </test-prev>
+                            )}
                             <Button
                               size="sm"
                               variant="secondary"
@@ -1110,16 +1810,33 @@ export const AssessmentPage: React.FC = () => {
                           <div className="flex-1 min-w-0 flex justify-center">
                             <NavigationBar
                               onClick={handleNavigationBarClick}
-                              stampContext={stampContext}
+                              stampContext={navStampContext}
                               bookmarkedItemIds={Array.from(
                                 bookmarkedItemRefIds,
                               )}
                             />
                           </div>
-                          <test-next className="inline-flex items-center rounded-md bg-citolab-700 px-5 py-2 text-sm font-semibold text-white hover:bg-citolab-600 transition-colors shadow-sm flex-shrink-0">
-                            Next
-                            <ChevronRight className="ml-1 h-4 w-4" />
-                          </test-next>
+                          {isBookletLayout ? (
+                            <Button
+                              size="sm"
+                              className="flex-shrink-0"
+                              onClick={() => goToItem(pageNavTargets.nextId)}
+                              disabled={!pageNavTargets.nextId}
+                              title={
+                                isVerticalLayout
+                                  ? "Next question"
+                                  : "Next page"
+                              }
+                            >
+                              Next
+                              <ChevronRight className="ml-1 h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <test-next className="inline-flex items-center rounded-md bg-citolab-700 px-5 py-2 text-sm font-semibold text-white hover:bg-citolab-600 transition-colors shadow-sm flex-shrink-0">
+                              Next
+                              <ChevronRight className="ml-1 h-4 w-4" />
+                            </test-next>
+                          )}
                         </>
                       )}
                     </nav>
@@ -1139,6 +1856,7 @@ export const AssessmentPage: React.FC = () => {
               </DraggablePopup>
             </test-navigation>
           </qti-test>
+          )}
         </div>
       </div>
     </div>

@@ -11,6 +11,7 @@ If a failure reproduces here, first determine which layer owns it:
 - browser ZIP import/prep issue → `@citolab/qti-browser-import`
 - generic XML transform issue → `@citolab/qti-convert`
 - TAO legacy PCI conversion issue → `@citolab/qti-convert-tao-pci`
+- QTI → Word/PDF paper export → `@citolab/qti-convert-export`
 - renderer/spec runtime issue → `@citolab/qti-components`
 - app-only wiring/state issue → `qti-playground`
 

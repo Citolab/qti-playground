@@ -1,7 +1,28 @@
 import { StrictMode } from "react";
 import { BrowserRouter } from "react-router-dom";
 import * as ReactDOM from "react-dom/client";
-import "@citolab/qti-components";
+// Must precede the qti-components registration below: it hands the global
+// registry to the editor and records what the editor claimed, so the player can
+// be scoped to qti-components' own classes instead. See app/editor-first.ts.
+import "./app/editor-first";
+// The registration entry point, and it must be `/corrections` rather than the
+// package root. Since qti-components 9 that entry defines the WHOLE standard
+// element set, substituting the correction-capable subclass wherever one exists
+// (`qti-assessment-item` -> QtiAssessmentItemCorrection, `qti-simple-choice` ->
+// QtiSimpleChoiceCorrection, ...) and adding the correction-only controls
+// (`item-show-correct-response` and friends). The package root registers the
+// same tags with the correction-free classes, on which `showCorrectResponse()`
+// does not exist -- which is why the preview's "Set correct response" button
+// was inert. In 8.x this swap was impossible: `corrections` exported the
+// classes but registered nothing, so a consumer had to define every tag itself
+// ahead of the base entry. See app/scoped-registry.ts for the other half --
+// the player's scoped registry needs the same substitution applied to the tags
+// the editor owns globally.
+//
+// Value imports of the package root elsewhere (`QtiAssessmentItem`, `QtiItem`,
+// `qtiInteractionElements`) still pull in its registration side effect, but it
+// is guarded with `customElements.get(tag)` and runs after this, so it backs off.
+import "@citolab/qti-components/corrections";
 import { GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 import "./app/dep-tools-register";
 

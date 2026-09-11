@@ -29,20 +29,47 @@ import {
 import { PackageUploadZone } from "../components/package-upload-zone";
 
 import { itemCss } from "../itemCss";
-import { QtiProsemirrorEditor } from "../components/editor/qti-prosemirror-editor";
+import { QtiCitolabEditorPanel } from "../components/editor/qti-citolab-editor-panel";
+import { useScopedQtiRegistry } from "../use-scoped-registry";
 import { QtiAssessmentItem } from "@citolab/qti-components";
 
-const LANDING_CHOICE_ITEM_XML = `<qti-assessment-item xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" xsi:schema-location="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd" identifier="landing-choice-editor" title="Landing Choice Editor" adaptive="false" time-dependent="false">
+// Held in the editor's own serialisation, not hand-written QTI: the exporter rebuilds the item
+// from the ProseMirror document, so any other shape would be rewritten into this one the moment
+// the editor settled -- and the XML pane below sits right next to it. Note the exporter's own
+// opinions are baked in here as a result: it fills in SCORE/MAXSCORE and the match_correct
+// template, and it does not carry `min-choices` or `shuffle` through.
+const LANDING_CHOICE_ITEM_XML = `<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0p1_v1p0.xsd" identifier="landing-choice-editor" title="Landing Choice Editor" adaptive="false" time-dependent="false" xml:lang="en">
   <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="identifier"></qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>1</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
   <qti-item-body>
-    <qti-choice-interaction response-identifier="RESPONSE" shuffle="false" max-choices="1" min-choices="1">
-      <qti-prompt>What do you want to do?</qti-prompt>
-      <qti-simple-choice identifier="A">Create, edit and display items.</qti-simple-choice>
-      <qti-simple-choice identifier="B">Create and theme your own assessment player</qti-simple-choice>
-      <qti-simple-choice identifier="C">Convert QTI packages</qti-simple-choice>
-      <qti-simple-choice identifier="D">Build PCI's</qti-simple-choice>
+    <qti-choice-interaction max-choices="1" response-identifier="RESPONSE">
+      <qti-prompt>
+        <p>What do you want to do?</p>
+      </qti-prompt>
+      <qti-simple-choice identifier="A">
+        <p>Create, edit and display items.</p>
+      </qti-simple-choice>
+      <qti-simple-choice identifier="B">
+        <p>Create and theme your own assessment player</p>
+      </qti-simple-choice>
+      <qti-simple-choice identifier="C">
+        <p>Convert QTI packages</p>
+      </qti-simple-choice>
+      <qti-simple-choice identifier="D">
+        <p>Build PCI's</p>
+      </qti-simple-choice>
     </qti-choice-interaction>
   </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/match_correct"></qti-response-processing>
 </qti-assessment-item>`;
 
 const LANDING_PCI_ITEM_XML = `<qti-assessment-item xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" xsi:schema-location="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd" identifier="landing-pci" title="Landing PCI" adaptive="false" time-dependent="false">
@@ -63,100 +90,6 @@ const LANDING_PCI_ITEM_XML = `<qti-assessment-item xmlns:xsi="http://www.w3.org/
       </qti-portable-custom-interaction>
     </p>
   </qti-item-body>
-</qti-assessment-item>`;
-
-const LANDING_ITEM_FEATURES = `<qti-assessment-item xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
-	xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
-	identifier="choice" title="Unattended Luggage" adaptive="false" time-dependent="false">
-	<qti-item-body>
-		<qti-choice-interaction class="qti-input-control-hidden" response-identifier="RESPONSE" max-choices="0">
-			<p>Here some features of this webapplication in a multiple response item</p>
-			<qti-simple-choice identifier="A">
-				<div
-					class="flex items-start"><div class="flex-shrink-0"><div
-							class="flex items-center justify-center h-12 w-12 rounded-md bg-secondary">
-							<svg
-								xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-								viewBox="0 0 24 24" fill="none" stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round" stroke-linejoin="round"
-								class="lucide lucide-file-search h-6 w-6">
-								<path d="M14 2v4a2 2 0 0 0 2 2h4"></path>
-								<path
-									d="M4.268 21a2 2 0 0 0 1.727 1H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3"></path>
-								<path d="m9 18-1.5-1.5"></path>
-								<circle cx="5" cy="14" r="3"></circle>
-							</svg>
-						</div></div>
-					
-						<div
-						class="ml-4"><h3 class="text-lg font-medium text-gray-900">Preview QTI
-				assessments</h3><p
-							class="mt-2 text-base text-gray-500">Upload and instantly preview QTI
-				2.x or QTI 3 assessments directly in your browser without sending any data to a
-				server.</p></div></div>
-			</qti-simple-choice>
-			<qti-simple-choice identifier="B">
-				<div
-					class="flex items-start"><div class="flex-shrink-0"><div
-							class="flex items-center justify-center h-12 w-12 rounded-md bg-secondary"><svg
-								xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-								viewBox="0 0 24 24" fill="none" stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round" stroke-linejoin="round"
-								class="lucide lucide-repeat h-6 w-6">
-								<path d="m17 2 4 4-4 4"></path>
-								<path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
-								<path d="m7 22-4-4 4-4"></path>
-								<path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
-							</svg></div></div><div
-						class="ml-4"><h3 class="text-lg font-medium text-gray-900">Convert QTI 2.x
-				to QTI 3</h3><p
-							class="mt-2 text-base text-gray-500">Seamlessly convert between QTI
-				formats using our powerful client-side conversion engine, ensuring compatibility
-				across different assessment platforms.</p></div></div>
-			</qti-simple-choice>
-			<qti-simple-choice identifier="C">
-				<div class="flex items-start"><div
-						class="flex-shrink-0"><div
-							class="flex items-center justify-center h-12 w-12 rounded-md bg-secondary"><svg
-								xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-								viewBox="0 0 24 24" fill="none" stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round" stroke-linejoin="round"
-								class="lucide lucide-split h-6 w-6">
-								<path d="M16 3h5v5"></path>
-								<path d="M8 3H3v5"></path>
-								<path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"></path>
-								<path d="m15 9 6-6"></path>
-							</svg></div></div><div
-						class="ml-4"><h3 class="text-lg font-medium text-gray-900">Tools to remove
-				media and split packages</h3><p class="mt-2 text-base text-gray-500">Optimize your
-				QTI packages by removing unnecessary media files or splitting large packages into
-				manageable pieces, all processed locally on your device.</p></div></div>
-			</qti-simple-choice>
-			<qti-simple-choice identifier="D">
-				<div
-					class="flex items-start"><div
-						class="flex-shrink-0"><div
-							class="flex items-center justify-center h-12 w-12 rounded-md bg-secondary"><svg
-								xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-								viewBox="0 0 24 24" fill="none" stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round" stroke-linejoin="round"
-								class="lucide lucide-square-pen h-6 w-6">
-								<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-								<path
-									d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"></path>
-							</svg></div></div><div
-						class="ml-4"><h3 class="text-lg font-medium text-gray-900">Edit QTI items
-				with a live previewer</h3><p class="mt-2 text-base text-gray-500">Make changes to
-				your QTI items and see the results in real-time with our integrated editor and
-				previewer, all running in your browser for maximum privacy.</p></div></div>
-			</qti-simple-choice>
-		</qti-choice-interaction>
-	</qti-item-body>
 </qti-assessment-item>`;
 
 const PCI_BLOCKS_RESPONSE = {
@@ -532,6 +465,19 @@ function prettyPrintXml(xml: string): string {
   }
 }
 
+// One cap for every band on the page, so the hero, the library cards, the stats and the footer
+// stay on the same left and right edges. `max-w-7xl` alone left ~1000px of dead margin on either
+// side of a 3328px display while squeezing the editor into a 550px column, so the wider steps hand
+// that space back to the content; the text inside stays capped separately by its own `max-w-*`.
+// Each step stays comfortably under the width that activates it, so the page never ends up capped
+// at exactly the viewport with its margins collapsed to nothing.
+const PAGE_CONTAINER =
+  "mx-auto w-full max-w-7xl 2xl:max-w-[90rem] 3xl:max-w-[128rem]";
+
+// The editor reads `sourceXml` once per session key and then owns the document. Landing's XML
+// only ever flows outwards -- into the read-only Monaco below it -- so the key never has to change.
+const LANDING_EDITOR_SESSION_KEY = 0;
+
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const [landingChoiceXml, setLandingChoiceXml] = useState(
@@ -541,6 +487,11 @@ export const LandingPage: React.FC = () => {
     () => prettyPrintXml(landingChoiceXml),
     [landingChoiceXml],
   );
+
+  // The editor owns the contested qti-* names globally, so every player surface needs its own
+  // scope -- this page renders one next to the editor. See app/editor-first.ts.
+  const { registry: scopedRegistry, attachRef: attachScopedRegistry } =
+    useScopedQtiRegistry();
 
   const restoreResponses = useCallback(
     (
@@ -574,10 +525,16 @@ export const LandingPage: React.FC = () => {
     <TooltipProvider>
       <div className="min-h-screen bg-linear-to-br from-slate-50 via-citolab-50/20 to-citolab-teal-50/20">
         {/* Hero Section with Side-by-Side Layout on Large Screens */}
-        <div className="pt-16 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-          <div className="lg:flex lg:items-center lg:gap-12">
+        <div className={`pt-16 pb-12 px-4 sm:px-6 lg:px-8 ${PAGE_CONTAINER}`}>
+          {/* Grid, not flex: two `w-1/2` flex children plus `gap-12` sum to 100% + 48px, and
+              because flex items are `min-width:auto` the row could not shrink back to fit -- the
+              Monaco pane's intrinsic width held it open and pushed the whole hero off the right
+              edge. Grid tracks are sized after the gap is taken out, so the arithmetic holds at
+              any width. `min-w-0` on each column keeps that true regardless of what the editor
+              and Monaco report as their intrinsic widths. */}
+          <div className="lg:grid lg:grid-cols-2 lg:items-center lg:gap-12 2xl:grid-cols-[5fr_6fr]">
             {/* Text Content */}
-            <div className="lg:w-1/2">
+            <div className="min-w-0">
               <div className="animate-fade-in-up">
                 <Badge
                   variant="outline"
@@ -625,14 +582,25 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* Editor preview */}
-            <div className="mt-8 lg:mt-0 lg:w-1/2">
+            <div className="mt-8 min-w-0 lg:mt-0">
               <div className="mt-4 bg-gray-100 rounded-lg p-4">
-                <div className="h-[24rem] overflow-auto">
-                  <QtiProsemirrorEditor
+                {/* Fixed box, no `overflow-auto`: the editor scrolls its own body, so a second
+                    scroller here would put the toolbar out of reach on a long item. */}
+                <div className="relative h-[24rem]">
+                  {/* The other two entry points hang this label off the button that opens the
+                      editor; landing has no such button, so it goes on the editor itself -- in the
+                      empty right end of its toolbar. Same chip as tool-bar.tsx and preview.tsx. */}
+                  <span className="pointer-events-none absolute top-5 right-3 z-10 rounded bg-citolab-600/90 px-1 py-px text-[7px] leading-none font-semibold tracking-wide text-white uppercase">
+                    Beta
+                  </span>
+                  <QtiCitolabEditorPanel
+                    active
+                    editorSessionKey={LANDING_EDITOR_SESSION_KEY}
                     sourceXml={landingChoiceXml}
-                    onSourceChange={(nextXml) => setLandingChoiceXml(nextXml)}
-                    className="h-full rounded border border-gray-200 bg-white p-4"
-                    showToolbar={true}
+                    onSourceChange={setLandingChoiceXml}
+                    heightClassName="h-full"
+                    className="overflow-hidden rounded border border-gray-200 bg-white"
+                    normalizeOnLoad
                   />
                 </div>
               </div>
@@ -660,7 +628,7 @@ export const LandingPage: React.FC = () => {
 
         {/* Libraries Section */}
         <div className="py-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className={`px-4 sm:px-6 lg:px-8 ${PAGE_CONTAINER}`}>
             <div className="text-center">
               <h2 className="text-base font-semibold text-citolab-600 tracking-wide uppercase">
                 Open Source Libraries
@@ -675,7 +643,7 @@ export const LandingPage: React.FC = () => {
               <Card className="sm:col-span-2 overflow-hidden hover:shadow-md transition-shadow duration-200">
                 <div className="grid grid-cols-1 sm:grid-cols-2">
                   {/* Left: text content */}
-                  <div className="relative flex flex-col gap-4 p-8">
+                  <div className="flex flex-col gap-4 p-8">
                     <div className="flex items-center gap-3">
                       <span className="inline-flex items-center justify-center p-3 bg-citolab-yellow-500 rounded-md shadow-sm">
                         <Play className="h-6 w-6" />
@@ -698,51 +666,57 @@ export const LandingPage: React.FC = () => {
                         QTI player.
                       </p>
                     </div>
-                    <div className="flex items-center gap-5">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <a
-                            href="https://github.com/Citolab/qti-player"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                          >
-                            <GitCommit className="h-4 w-4 mr-1.5" />
-                            GitHub
-                          </a>
-                        </TooltipTrigger>
-                        <TooltipContent>View on GitHub</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <a
-                            href="https://stackblitz.com/~/github.com/Citolab/qti-player?file=index.html"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                          >
-                            <Book className="h-4 w-4 mr-1.5" />
-                            Stackblitz
-                          </a>
-                        </TooltipTrigger>
-                        <TooltipContent>Open in Stackblitz</TooltipContent>
-                      </Tooltip>
+                    <div className="flex items-end justify-between gap-4 pt-2">
+                      <div className="flex flex-wrap items-center gap-5">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <a
+                              href="https://github.com/Citolab/qti-player"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
+                            >
+                              <GitCommit className="h-4 w-4 mr-1.5" />
+                              GitHub
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent>View on GitHub</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <a
+                              href="https://stackblitz.com/~/github.com/Citolab/qti-player?file=index.html"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
+                            >
+                              <Book className="h-4 w-4 mr-1.5" />
+                              Stackblitz
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent>Open in Stackblitz</TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <a
+                        href="https://site.imsglobal.org/certifications/cito/cito-qti-player"
+                        className="shrink-0"
+                      >
+                        <img
+                          src="/1edtech_trusted-apps-certified.svg"
+                          alt="1EdTech Trusted Apps Certified"
+                          className="block h-16 w-[4.5rem] max-w-[4.5rem] object-contain"
+                        />
+                      </a>
                     </div>
-                    <a
-                      href="https://site.imsglobal.org/certifications/cito/cito-qti-player"
-                      className="absolute bottom-3 right-3"
-                    >
-                      <img
-                        src="/1edtech_trusted-apps-certified.svg"
-                        alt="1EdTech Trusted Apps Certified"
-                        className="w-20"
-                      />
-                    </a>
                   </div>
                   {/* Right: PCI preview */}
                   <div className="bg-gray-50 border-t sm:border-t-0 sm:border-l border-gray-200 flex flex-col items-center justify-center p-4 gap-3">
                     <qti-item onqti-assessment-item-connected={onConnected}>
-                      <item-container itemXML={LANDING_PCI_ITEM_XML}>
+                      <item-container
+                        ref={attachScopedRegistry}
+                        customElementRegistry={scopedRegistry}
+                        itemXML={LANDING_PCI_ITEM_XML}
+                      >
                         <template
                           dangerouslySetInnerHTML={{
                             __html: `<style>${itemCss}</style>`,
@@ -1022,7 +996,7 @@ export const LandingPage: React.FC = () => {
 
         {/* Enhanced Features Section */}
         <div className="py-16 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className={`px-4 sm:px-6 lg:px-8 ${PAGE_CONTAINER}`}>
             <div className="text-center">
               <h2 className="text-base font-semibold text-citolab-600 tracking-wide uppercase">
                 Features
@@ -1038,27 +1012,12 @@ export const LandingPage: React.FC = () => {
                 <span className="font-medium">Client-side Processing</span>
               </div>
             </div>
-
-            {/* Feature List */}
-            <div className="mt-12 max-w-3xl mx-auto">
-              <div className="bg-gray-100 rounded-lg p-4 pr-8">
-                <qti-item>
-                  <item-container itemXML={LANDING_ITEM_FEATURES}>
-                    <template
-                      dangerouslySetInnerHTML={{
-                        __html: `<style>${itemCss}</style>`,
-                      }}
-                    ></template>
-                  </item-container>
-                </qti-item>
-              </div>
-            </div>
           </div>
         </div>
 
         {/* Contact */}
         <div className="bg-gray-50">
-          <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:py-16 lg:px-8">
+          <div className={`py-12 px-4 sm:px-6 lg:py-16 lg:px-8 ${PAGE_CONTAINER}`}>
             <div className="lg:grid lg:grid-cols-3 lg:gap-8 lg:items-center">
               <div className="bg-linear-to-br from-citolab-700 to-citolab-teal-700 rounded-xl p-6">
                 <h2 className="text-3xl font-extrabold text-white sm:text-4xl">
@@ -1124,11 +1083,14 @@ export const LandingPage: React.FC = () => {
                 </div>
               </div>
 
-              <a href="https://site.imsglobal.org/certifications/cito/cito-qti-player">
+              <a
+                href="https://site.imsglobal.org/certifications/cito/cito-qti-player"
+                className="shrink-0"
+              >
                 <img
                   src="/1edtech_trusted-apps-certified.svg"
                   alt="1EdTech Trusted Apps Certified"
-                  className="m-12 w-auto"
+                  className="m-12 block h-24 w-[6.75rem] max-w-[6.75rem] object-contain"
                 />
               </a>
             </div>
@@ -1137,7 +1099,7 @@ export const LandingPage: React.FC = () => {
 
         {/* Footer with improved padding for smaller screens */}
         <footer className="bg-gray-50">
-          <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:py-12 lg:px-8">
+          <div className={`py-8 px-4 sm:px-6 lg:py-12 lg:px-8 ${PAGE_CONTAINER}`}>
             <div className="pb-6 border-b border-gray-200">
               <p className="text-center text-base text-gray-400">
                 &copy; {new Date().getFullYear()} CitoLab. All rights reserved.

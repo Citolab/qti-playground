@@ -1,4 +1,4 @@
-import { Bookmark, BookmarkCheck } from "lucide-react";
+import { Bookmark, BookmarkCheck, Pencil } from "lucide-react";
 import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,8 @@ export function ToolBar({
   onZoomOut,
   onResetZoom,
   zoomLevel,
+  editing,
+  onToggleEdit,
 }: {
   marked: boolean;
   onMarkCurrentItem: (marked: boolean) => void;
@@ -17,6 +19,8 @@ export function ToolBar({
   onZoomOut: () => void;
   onResetZoom: () => void;
   zoomLevel: number;
+  editing?: boolean;
+  onToggleEdit?: () => void;
 }) {
   const handleMark = useCallback(() => {
     onMarkCurrentItem(!marked);
@@ -80,6 +84,34 @@ export function ToolBar({
           +
         </Button>
       </div>
+
+      {onToggleEdit ? (
+        <Button
+          type="button"
+          size="sm"
+          onClick={onToggleEdit}
+          aria-pressed={editing ?? false}
+          title={
+            editing
+              ? "Close the QTI editor and go back to the item"
+              : "Edit this item in the QTI editor (beta)"
+          }
+          className={cn(
+            "h-10 rounded-full border shadow-sm px-3",
+            editing
+              ? "bg-citolab-700 text-white border-citolab-700 hover:bg-citolab-600"
+              : "bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:text-gray-900 hover:bg-white"
+          )}
+        >
+          <Pencil className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">
+            {editing ? "Close editor" : "Edit"}
+          </span>
+          <span className="ml-1 rounded bg-citolab-600/90 px-1 py-px text-[7px] font-semibold uppercase leading-none tracking-wide text-white">
+            Beta
+          </span>
+        </Button>
+      ) : null}
     </div>
   );
 }
