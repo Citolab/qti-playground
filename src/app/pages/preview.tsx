@@ -48,6 +48,18 @@ type PreviewVariable = {
   mapping?: unknown;
 };
 
+/**
+ * The item events that can change a variable. They bubble and are composed, so a
+ * listener on an ancestor of the player sees all of them -- which is what lets
+ * the panel survive `item-container` swapping its item.
+ */
+const VARIABLE_EVENT_TYPES = [
+  "qti-item-context-updated",
+  "qti-interaction-changed",
+  "qti-outcome-changed",
+  "qti-interaction-response",
+] as const;
+
 /* React */
 declare module "react" {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -319,6 +331,26 @@ export const PreviewPage = () => {
     };
   }, [preview, previewItemDoc, scopedRegistry]);
 
+  // Keeps the Item Variable panel in step with the item on screen.
+  //
+  // Two things make this harder than "add a listener to the item":
+  //
+  //  1. `item-container` REUSES itself across items. Switching example swaps the
+  //     `qti-assessment-item` inside its shadow root while the container keeps its
+  //     identity, and the swap happens after this effect re-runs. Listeners bound
+  //     to the item element therefore landed on the outgoing one and nothing was
+  //     ever bound to its replacement, so the panel froze on the previous item's
+  //     values -- and stayed frozen through every later interaction, which is why
+  //     dragging appeared not to update anything. These events bubble and are
+  //     composed, so binding to the wrapper (which React owns and never replaces)
+  //     survives the swap.
+  //
+  //  2. Loading an item fires NONE of these events. The variables are simply
+  //     there once it has initialised. So a swap has to be observed rather than
+  //     awaited: the MutationObserver below watches the container's shadow root
+  //     and refreshes as the new item renders. `refreshPreviewVariables` compares
+  //     a signature before touching state, so repeated calls are cheap and only a
+  //     real change re-renders.
   useEffect(() => {
     let cancelled = false;
     let cleanup: (() => void) | undefined;
@@ -326,55 +358,42 @@ export const PreviewPage = () => {
     let attempts = 0;
     const maxAttempts = 20;
 
+    const handleUpdate = () => {
+      // Avoid re-rendering the whole preview pane unless the output popup is open
+      if (!showVariablesRef.current) return;
+      refreshPreviewVariables();
+    };
+
     const attach = () => {
       if (cancelled) return;
-      const assessmentItem = getAssessmentItemElement();
-      if (!assessmentItem) {
+      const host = qtiItemRef.current;
+      const container = host?.querySelector("item-container");
+      // The container's shadow root is what actually holds the item; without it
+      // there is nothing to observe yet.
+      if (!host || !container?.shadowRoot) {
         attempts += 1;
         if (attempts < maxAttempts) {
           timeoutId = window.setTimeout(attach, 100);
         }
         return;
       }
-      const handleUpdate = () => {
-        // Avoid re-rendering the whole preview pane unless the output popup is open
-        if (!showVariablesRef.current) return;
-        refreshPreviewVariables();
-      };
-      assessmentItem.addEventListener(
-        "qti-item-context-updated",
-        handleUpdate as EventListener,
-      );
-      assessmentItem.addEventListener(
-        "qti-interaction-changed",
-        handleUpdate as EventListener,
-      );
-      assessmentItem.addEventListener(
-        "qti-outcome-changed",
-        handleUpdate as EventListener,
-      );
-      assessmentItem.addEventListener(
-        "qti-interaction-response",
-        handleUpdate as EventListener,
-      );
-      if (showVariablesRef.current) refreshPreviewVariables();
+
+      for (const type of VARIABLE_EVENT_TYPES) {
+        host.addEventListener(type, handleUpdate as EventListener);
+      }
+
+      const observer = new MutationObserver(handleUpdate);
+      observer.observe(container.shadowRoot, { childList: true, subtree: true });
+
+      // The item for this render may already be in place, in which case no
+      // mutation is coming.
+      handleUpdate();
+
       cleanup = () => {
-        assessmentItem.removeEventListener(
-          "qti-item-context-updated",
-          handleUpdate as EventListener,
-        );
-        assessmentItem.removeEventListener(
-          "qti-interaction-changed",
-          handleUpdate as EventListener,
-        );
-        assessmentItem.removeEventListener(
-          "qti-outcome-changed",
-          handleUpdate as EventListener,
-        );
-        assessmentItem.removeEventListener(
-          "qti-interaction-response",
-          handleUpdate as EventListener,
-        );
+        observer.disconnect();
+        for (const type of VARIABLE_EVENT_TYPES) {
+          host.removeEventListener(type, handleUpdate as EventListener);
+        }
       };
     };
 
