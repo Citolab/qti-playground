@@ -1,4 +1,5 @@
-import { LayoutGrid, Play } from "lucide-react";
+import { Bookmark, LayoutGrid, Play } from "lucide-react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -59,6 +60,39 @@ function StartLayoutButton({
   );
 }
 
+/**
+ * The tools this screen promises, each shown as the control the player actually
+ * has.
+ *
+ * The icon is the point: a magnifying glass next to "zoom" reads as a control
+ * to hunt for, and the player has no such button -- zooming is a
+ * minus/percentage/plus pill. So the icon *is* that pill, and the bookmark is
+ * the same glyph the question header carries.
+ */
+const TOOLS: { key: string; title: string; description: string; icon: ReactNode }[] =
+  [
+    {
+      key: "zoom",
+      title: "Zoom",
+      description:
+        "Use the plus and minus buttons to zoom in and out, or click the percentage to reset to 100%.",
+      icon: (
+        <span className="flex items-center gap-1 text-[11px] font-semibold text-citolab-700">
+          <span aria-hidden="true">&minus;</span>
+          <span>100%</span>
+          <span aria-hidden="true">+</span>
+        </span>
+      ),
+    },
+    {
+      key: "bookmark",
+      title: "Bookmark",
+      description:
+        "Flag a question to come back to it later. Bookmarked questions are marked in the question list and the overview.",
+      icon: <Bookmark className="h-5 w-5 text-citolab-700" />,
+    },
+  ];
+
 export function AssessmentIntroScreen({
   assessmentName,
   itemCount,
@@ -106,20 +140,32 @@ export function AssessmentIntroScreen({
           </dl>
 
           <div className="flex flex-col gap-4">
-            <div className="space-y-2 text-sm text-gray-700">
+            <div className="space-y-3 text-sm text-gray-700">
               <p>
                 This assessment contains {itemCount}{" "}
                 {itemCount === 1 ? "question" : "questions"}. Below are the
                 tools you can use.
               </p>
               <h2 className="text-lg font-semibold text-gray-900">Tools</h2>
-              <ul className="space-y-2">
-                <li>
-                  You can zoom in/out or use the bookmark to flag a question.
-                </li>
-                <li>
-                  You can highlight text and insert symbols via the toolbar.
-                </li>
+              <ul className="space-y-3">
+                {TOOLS.map((tool) => (
+                  <li key={tool.key} className="flex items-start gap-3">
+                    {/* Width grows with the content rather than being a fixed
+                        circle: the zoom "icon" is a three-part pill, not a
+                        glyph, and a 2.5rem circle would clip it. */}
+                    <span className="mt-0.5 flex h-10 w-auto min-w-10 shrink-0 items-center justify-center rounded-full bg-citolab-50 px-2 text-citolab-700">
+                      {tool.icon}
+                    </span>
+                    <span>
+                      <span className="block font-semibold text-gray-900">
+                        {tool.title}
+                      </span>
+                      <span className="block text-gray-600">
+                        {tool.description}
+                      </span>
+                    </span>
+                  </li>
+                ))}
               </ul>
             </div>
 

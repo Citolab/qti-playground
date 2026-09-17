@@ -35,9 +35,10 @@ qti-assessment-item-ref[identifier] {
   scroll-margin-top: 1rem;
 }
 
-/* Question header: sequence number in the top-left corner, what it is worth in
-   the top-right. Spanning the card and pushing the two apart keeps each pinned
-   to its own corner however wide the labels get. */
+/* Question header: sequence number and bookmark toggle in the top-left corner,
+   what it is worth in the top-right. Spanning the card and pushing the two
+   groups apart keeps each pinned to its own corner however wide the labels
+   get. */
 [data-question-header] {
   position: absolute;
   top: 0.875rem;
@@ -76,6 +77,57 @@ qti-assessment-item-ref[identifier] {
   border: 1px solid #d1d5db;
   color: #4b5563;
   font-weight: 600;
+}
+
+/* The bookmark sits beside the number; an auto right margin takes the slack the
+   header's space-between would otherwise put between them, so the two stay a
+   pair and the score badge keeps the right-hand corner to itself. */
+[data-question-bookmark] {
+  margin-right: auto;
+  /* The header itself is click-through so it cannot shadow the question. */
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Same 1.5rem box as the two badges, so all three sit on one line. */
+  height: 1.5rem;
+  width: 1.5rem;
+  padding: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 9999px;
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+[data-question-bookmark] svg {
+  height: 0.875rem;
+  width: 0.875rem;
+}
+
+[data-question-bookmark]:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+  color: #374151;
+}
+
+[data-question-bookmark]:focus-visible {
+  outline: 2px solid var(--color-citolab-600, #00a748);
+  outline-offset: 1px;
+}
+
+[data-question-bookmark][aria-pressed="true"] {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #f59e0b;
+}
+
+[data-question-bookmark][aria-pressed="true"]:hover {
+  border-color: #d97706;
+  background: #fef3c7;
+  color: #d97706;
 }
 
 /* The question the reader is on, so the nav bar and the page agree. */

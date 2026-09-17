@@ -48,19 +48,121 @@ const readRenderedMaxScore = (itemRef: Element): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+/** Lucide's `bookmark` glyph, inlined — the header is built without React. */
+const BOOKMARK_PATH = "M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z";
+
+const BOOKMARK_LABEL = {
+  on: "This question is bookmarked - click to remove bookmark",
+  off: "Bookmark this question to find it later",
+};
+
+export interface BookletBookmarkOptions {
+  /** Item-ref identifiers of the questions currently bookmarked. */
+  bookmarkedIds: ReadonlySet<string>;
+  /** Toggle handler; `bookmarked` is the state the click asks for. */
+  onToggle: (itemRefIdentifier: string, bookmarked: boolean) => void;
+}
+
 /**
- * The booklet question header: the sequence number and what the question is
- * worth, as two badges in the card's top corners.
+ * Paint one bookmark button to match `bookmarked`.
  *
- * Real elements rather than CSS pseudo-elements because a question needs two
- * independent badges and `::before`/`::after` are already spoken for (the
- * section heading uses one). An existing header is updated in place.
+ * Kept apart from the rest of the header so a bookmark click can repaint the
+ * buttons on its own, without rebuilding badges or re-hoisting stimuli.
+ */
+const paintBookmarkButton = (button: Element, bookmarked: boolean): void => {
+  const label = bookmarked ? BOOKMARK_LABEL.on : BOOKMARK_LABEL.off;
+  button.setAttribute("aria-pressed", String(bookmarked));
+  button.setAttribute("title", label);
+  button.setAttribute("aria-label", label);
+  button
+    .querySelector("path")
+    ?.setAttribute("fill", bookmarked ? "currentColor" : "none");
+};
+
+/**
+ * The header's bookmark toggle, created once per question and kept in place.
+ *
+ * The click handler is assigned rather than added, so re-decorating a question
+ * replaces the handler instead of stacking another one on top of it.
+ */
+const ensureBookmarkButton = (
+  header: Element,
+  doc: Document,
+  itemRefIdentifier: string,
+  bookmarks: BookletBookmarkOptions,
+): Element => {
+  let button = header.querySelector("[data-question-bookmark]");
+  if (!button) {
+    button = doc.createElement("button");
+    button.setAttribute("type", "button");
+    const svg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "2");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    const path = doc.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", BOOKMARK_PATH);
+    path.setAttribute("fill", "none");
+    svg.appendChild(path);
+    button.appendChild(svg);
+    header.appendChild(button);
+  }
+
+  button.setAttribute("data-question-bookmark", itemRefIdentifier);
+  paintBookmarkButton(button, bookmarks.bookmarkedIds.has(itemRefIdentifier));
+
+  (button as HTMLButtonElement).onclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const next = button?.getAttribute("aria-pressed") !== "true";
+    // Repaint straight away: the player's state round-trips through React and
+    // a booklet this long should not wait a render to acknowledge a click.
+    if (button) paintBookmarkButton(button, next);
+    bookmarks.onToggle(itemRefIdentifier, next);
+  };
+
+  return button;
+};
+
+/**
+ * Re-paint the booklet's bookmark buttons from the player's state.
+ *
+ * The side pane, the overview and these buttons all read the same set, so a
+ * bookmark made anywhere has to show up on the question's own button — which
+ * is plain DOM in a shadow root and so does not re-render with the chrome.
+ */
+export const syncBookmarkButtons = (
+  testContainer: HTMLElement | null,
+  bookmarkedIds: ReadonlySet<string>,
+): void => {
+  const root = bookletRoot(testContainer);
+  root?.querySelectorAll("[data-question-bookmark]").forEach((button) => {
+    paintBookmarkButton(
+      button,
+      bookmarkedIds.has(button.getAttribute("data-question-bookmark") ?? ""),
+    );
+  });
+};
+
+/**
+ * The booklet question header: the sequence number and a bookmark toggle in the
+ * card's top-left corner, what the question is worth in the top-right.
+ *
+ * Real elements rather than CSS pseudo-elements because a question needs
+ * several independent badges and `::before`/`::after` are already spoken for
+ * (the section heading uses one). An existing header is updated in place.
  *
  * `displayNumbers` maps an item-ref identifier to its 1-based question number.
+ * `bookmarks` is optional: without it the header is number and score only, the
+ * way it was before every card carried its own bookmark.
  */
 export const decorateQuestionBadges = (
   testContainer: HTMLElement | null,
   displayNumbers: ReadonlyMap<string, number>,
+  bookmarks?: BookletBookmarkOptions,
 ): void => {
   const root = bookletRoot(testContainer);
   if (!root) return;
@@ -92,16 +194,35 @@ export const decorateQuestionBadges = (
     numberBadge.setAttribute("data-question-number-badge", "");
     numberBadge.textContent = String(number);
 
-    const scoreBadge = header.querySelector("[data-question-score-badge]");
+    const bookmarkButton = bookmarks
+      ? ensureBookmarkButton(
+          header,
+          itemRef.ownerDocument,
+          id,
+          bookmarks,
+        )
+      : null;
+    if (!bookmarks) header.querySelector("[data-question-bookmark]")?.remove();
+
+    const existingScore = header.querySelector("[data-question-score-badge]");
+    let scoreBadge: Element | null = null;
     if (scoreText) {
-      const badge =
-        scoreBadge ??
+      scoreBadge =
+        existingScore ??
         header.appendChild(itemRef.ownerDocument.createElement("span"));
-      badge.setAttribute("data-question-score-badge", "");
-      badge.textContent = scoreText;
+      scoreBadge.setAttribute("data-question-score-badge", "");
+      scoreBadge.textContent = scoreText;
     } else {
-      scoreBadge?.remove();
+      existingScore?.remove();
     }
+
+    // `append` moves nodes that are already children, so this fixes the order
+    // whichever of the three the previous run happened to create.
+    header.append(
+      ...[numberBadge, bookmarkButton, scoreBadge].filter(
+        (node): node is Element => node !== null,
+      ),
+    );
   });
 };
 

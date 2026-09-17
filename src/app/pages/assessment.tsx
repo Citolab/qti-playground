@@ -19,6 +19,7 @@ import {
 import type { TestContext } from "@citolab/qti-components";
 // import { QtiTest } from "@citolab/qti-components";
 import {
+  Check,
   ChevronLeft,
   Code,
   ChevronRight,
@@ -61,6 +62,7 @@ import {
   decorateQuestionBadges,
   hoistSharedStimuli,
   observeBookletScroll,
+  syncBookmarkButtons,
   scrollToBookletItem,
 } from "../qti/booklet";
 import { itemKey, useStimulusRefs } from "../qti/use-stimulus-refs";
@@ -1305,18 +1307,37 @@ export const AssessmentPage: React.FC = () => {
     setZoomLevel(1);
   }, []);
 
-  const handleMarkCurrentItem = useCallback(
-    (marked: boolean) => {
-      if (!currentPositionItemRefId) return;
+  /** Bookmark a named question — any question, not only the one in view. */
+  const toggleBookmark = useCallback(
+    (itemRefIdentifier: string, marked: boolean) => {
+      if (!itemRefIdentifier) return;
       setBookmarkedItemRefIds((prev) => {
         const next = new Set(prev);
-        if (marked) next.add(currentPositionItemRefId);
-        else next.delete(currentPositionItemRefId);
+        if (marked) next.add(itemRefIdentifier);
+        else next.delete(itemRefIdentifier);
         return next;
       });
     },
-    [currentPositionItemRefId],
+    [],
   );
+
+  /** The toolbar's bookmark always aims at whichever question is current. */
+  const handleMarkCurrentItem = useCallback(
+    (marked: boolean) => {
+      toggleBookmark(currentPositionItemRefId, marked);
+    },
+    [currentPositionItemRefId, toggleBookmark],
+  );
+
+  /**
+   * Stable handle for the booklet's own bookmark buttons. They are plain DOM
+   * inside <test-container>'s shadow root, wired up from a decoration pass
+   * rather than from a render, so the state they read has to come from a ref.
+   */
+  const bookmarkedItemRefIdsRef = useRef(bookmarkedItemRefIds);
+  useEffect(() => {
+    bookmarkedItemRefIdsRef.current = bookmarkedItemRefIds;
+  }, [bookmarkedItemRefIds]);
 
   /**
    * Player context, from the runner's computed context rather than from
@@ -1401,7 +1422,10 @@ export const AssessmentPage: React.FC = () => {
       observer.disconnect();
       try {
         hoistSharedStimuli(container);
-        decorateQuestionBadges(container, displayNumbers);
+        decorateQuestionBadges(container, displayNumbers, {
+          bookmarkedIds: bookmarkedItemRefIdsRef.current,
+          onToggle: toggleBookmark,
+        });
       } finally {
         if (!disposed) {
           observer.observe(root, { childList: true, subtree: true });
@@ -1431,7 +1455,23 @@ export const AssessmentPage: React.FC = () => {
       observer.disconnect();
       qtiTestElement?.removeEventListener("qti-test-loaded", onTestLoaded);
     };
-  }, [displayNumbers, isBookletLayout, qtiTestElement, showIntro, isOverviewOpen]);
+  }, [
+    displayNumbers,
+    isBookletLayout,
+    qtiTestElement,
+    showIntro,
+    isOverviewOpen,
+    toggleBookmark,
+  ]);
+
+  /**
+   * The booklet's bookmark buttons are plain DOM, so they do not re-render with
+   * the side pane and the overview. Repaint them whenever the set changes.
+   */
+  useEffect(() => {
+    if (!isBookletLayout) return;
+    syncBookmarkButtons(testContainerRef.current, bookmarkedItemRefIds);
+  }, [bookmarkedItemRefIds, isBookletLayout]);
 
   /**
    * Vertical mode only: the scroll position is what "the current question"
@@ -1596,6 +1636,12 @@ export const AssessmentPage: React.FC = () => {
                           currentItemRefIdentifier,
                         )}
                         onMarkCurrentItem={handleMarkCurrentItem}
+                        // A booklet page carries a bookmark on every question
+                        // it shows, so the toolbar's own -- which can only ever
+                        // mean "the one in view" -- would be a second, vaguer
+                        // way to do the same thing. Paged mode keeps it: there
+                        // the question in view is the only one there is.
+                        showBookmark={!isBookletLayout}
                         onZoomIn={handleZoomIn}
                         onZoomOut={handleZoomOut}
                         onResetZoom={handleResetZoom}
@@ -1696,6 +1742,24 @@ export const AssessmentPage: React.FC = () => {
                           }}
                         ></template>
                       </test-container>
+                      {/* The end of the booklet. Vertical mode has no footer
+                          bar, so the way on from the last question has to live
+                          on the page -- and reaching it costs a scroll past
+                          every question, which is the point. The playground has
+                          no hand-in, so "done" means the overview. */}
+                      {isVerticalLayout && (
+                        <div className="mt-6 flex justify-end border-t border-gray-200 pt-4">
+                          <Button
+                            size="sm"
+                            data-vertical-finish
+                            onClick={() => setOverviewMode(true)}
+                            title="Finished - review your answers in the overview"
+                          >
+                            <Check className="mr-1 h-4 w-4" />
+                            Finish
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
                   </div>

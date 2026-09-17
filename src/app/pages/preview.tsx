@@ -203,7 +203,11 @@ export const PreviewPage = () => {
   const hasLoadedItemFromQuery = useRef(false);
   const lastVariablesSignatureRef = useRef("");
   const showVariablesRef = useRef(showVariables);
-  showVariablesRef.current = showVariables;
+  // Mirrored into a ref so the observer effect below can read the current value
+  // without re-subscribing every time the panel is toggled.
+  useEffect(() => {
+    showVariablesRef.current = showVariables;
+  }, [showVariables]);
 
   // Zustand store - use selectors for optimal re-renders
   const qti3 = useStore((state) => state.qti3);

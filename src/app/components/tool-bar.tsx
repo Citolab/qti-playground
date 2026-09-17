@@ -12,6 +12,7 @@ export function ToolBar({
   zoomLevel,
   editing,
   onToggleEdit,
+  showBookmark = true,
 }: {
   marked: boolean;
   onMarkCurrentItem: (marked: boolean) => void;
@@ -21,6 +22,11 @@ export function ToolBar({
   zoomLevel: number;
   editing?: boolean;
   onToggleEdit?: () => void;
+  /**
+   * Whether the toolbar owns a bookmark button at all. Off on a booklet page:
+   * every question there carries its own, next to its number.
+   */
+  showBookmark?: boolean;
 }) {
   const handleMark = useCallback(() => {
     onMarkCurrentItem(!marked);
@@ -31,26 +37,28 @@ export function ToolBar({
 
   return (
     <div className="toolbar relative flex flex-row items-center gap-2 rounded p-1">
-      <Button
-        type="button"
-        size="icon"
-        title={
-          marked
-            ? "This question is bookmarked - click to remove bookmark"
-            : "Bookmark this question to find it later"
-        }
-        onClick={handleMark}
-        className={cn(
-          "rounded-full w-10 h-10 border shadow-sm",
-          marked
-            ? "bg-citolab-yellow-500 text-white border-citolab-yellow-500 hover:bg-citolab-yellow-600"
-            : "bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:text-gray-900 hover:bg-white"
-        )}
-      >
-        <BookmarkIcon
-          className={cn("w-4 h-4", marked ? "fill-white text-white" : "text-gray-700")}
-        />
-      </Button>
+      {showBookmark ? (
+        <Button
+          type="button"
+          size="icon"
+          title={
+            marked
+              ? "This question is bookmarked - click to remove bookmark"
+              : "Bookmark this question to find it later"
+          }
+          onClick={handleMark}
+          className={cn(
+            "rounded-full w-10 h-10 border shadow-sm",
+            marked
+              ? "bg-citolab-yellow-500 text-white border-citolab-yellow-500 hover:bg-citolab-yellow-600"
+              : "bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:text-gray-900 hover:bg-white"
+          )}
+        >
+          <BookmarkIcon
+            className={cn("w-4 h-4", marked ? "fill-white text-white" : "text-gray-700")}
+          />
+        </Button>
+      ) : null}
 
       <div className="flex items-center gap-1 bg-white text-gray-800 rounded-full border border-gray-200 shadow-sm px-2 py-1">
         <Button
