@@ -60,8 +60,19 @@ const VARIABLE_EVENT_TYPES = [
   "qti-interaction-response",
 ] as const;
 
-/** The part of qti-components' `Interaction` base class this page relies on. */
-type ResettableInteraction = Element & { reset: () => void };
+/**
+ * The part of qti-components' `Interaction` base class this page relies on.
+ *
+ * `correctResponse` comes from the corrections build (`CorrectResponseMixin`),
+ * which is what `src/main.tsx` registers, and reads the answer key off the item's
+ * own response variable -- so it is available even though `assessmentItem.variables`
+ * does not carry `correctResponse` through its getter.
+ */
+type ResettableInteraction = Element & {
+  reset: () => void;
+  responseIdentifier: string;
+  correctResponse?: string | string[] | null;
+};
 
 /**
  * Every interaction inside an item.
@@ -76,6 +87,47 @@ function collectInteractions(root: Element): ResettableInteraction[] {
     (element): element is ResettableInteraction =>
       typeof (element as Partial<ResettableInteraction>).reset === "function" &&
       "responseIdentifier" in element,
+  );
+}
+
+/**
+ * Answers the item with the key, as if the candidate had given it.
+ *
+ * `showCorrectResponse()` alone does not do this: it *marks* the answer, by
+ * adding the `show-correct-response` state that the theme styles on the choices
+ * that are already there. A drag-and-drop interaction (order, match, gap match)
+ * starts with nothing in its drop zones, so there is nothing to mark -- the
+ * button appeared to do nothing and "Simulate end attempt" then scored 0 on an
+ * item whose answer was supposedly filled in.
+ *
+ * Assigning `variables` is what fills it in. qti-components' setter pushes each
+ * response value into the matching interaction's `response`, which is the path
+ * that actually places the chips, and records the value in the item context in
+ * the same pass -- so response processing sees it.
+ *
+ * The answer key is read per interaction rather than from the variables, because
+ * `QtiAssessmentItem`'s `variables` getter projects each variable down to
+ * identifier/value/type and drops `correctResponse`.
+ */
+function fillCorrectResponses(assessmentItem: QtiAssessmentItem): void {
+  const correctByIdentifier = new Map<string, string | string[]>();
+
+  for (const interaction of collectInteractions(assessmentItem)) {
+    const correctResponse = interaction.correctResponse;
+    if (correctResponse === null || correctResponse === undefined) continue;
+    if (Array.isArray(correctResponse) && correctResponse.length === 0) continue;
+    correctByIdentifier.set(
+      interaction.responseIdentifier,
+      Array.isArray(correctResponse) ? [...correctResponse] : correctResponse,
+    );
+  }
+
+  if (correctByIdentifier.size === 0) return;
+
+  assessmentItem.variables = assessmentItem.variables.map((variable) =>
+    correctByIdentifier.has(variable.identifier)
+      ? { ...variable, value: correctByIdentifier.get(variable.identifier)! }
+      : variable,
   );
 }
 
@@ -636,18 +688,23 @@ export const PreviewPage = () => {
               tooltip="Fill in the correct answer"
               disabled={!qti3}
               onClick={() => {
-                const container =
-                  qtiItemRef.current?.querySelector("item-container");
-                const assessmentItem = container?.shadowRoot?.querySelector(
-                  "qti-assessment-item",
-                ) as QtiAssessmentItemCorrection | null;
+                const assessmentItem =
+                  getAssessmentItemElement() as QtiAssessmentItemCorrection | null;
+                if (!assessmentItem) return;
+                // Answer the item first, then mark it. Marking alone leaves a
+                // drag-and-drop item empty and scoring 0 -- see
+                // `fillCorrectResponses`.
+                fillCorrectResponses(assessmentItem);
                 // Unconditional now. The `?.()` this used to carry was not
                 // defensiveness, it was papering over the method being absent:
                 // `showCorrectResponse` lives on QtiAssessmentItemCorrection,
                 // and until the qti-components 9 upgrade this app registered
                 // the correction-free QtiAssessmentItem, so the button silently
                 // did nothing. See src/main.tsx.
-                assessmentItem?.showCorrectResponse(true);
+                assessmentItem.showCorrectResponse(true);
+                // The `variables` setter writes the context directly and fires
+                // none of the events the panel listens on, so refresh it here.
+                refreshPreviewVariables();
               }}
             >
               <CheckCheck className="h-4 w-4" aria-hidden="true" />
