@@ -1,5 +1,16 @@
 import type { WebLlmSettings } from "@citolab/qti-convert-local-ai";
 import type { ChatCompletionRequestNonStreaming } from "@mlc-ai/web-llm";
+import { GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
+
+/**
+ * @citolab/qti-convert-local-ai reads PDFs through pdfjs-dist and defaults its
+ * worker to a path inside node_modules, so the playground points it at the copy
+ * vite.config.ts stages in `public/`. It lives here rather than in main.tsx
+ * because pdfjs is ~680 kB: importing it from the entry put it in the chunk
+ * every visitor downloads, while this module is only reached from the lazily
+ * loaded AI converter page -- the sole consumer of pdfjs in the app.
+ */
+GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL}pdf.worker.mjs`;
 
 /**
  * Overrides DEFAULT_WEB_LLM_MODEL from @citolab/qti-convert-local-ai

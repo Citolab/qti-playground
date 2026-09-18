@@ -23,12 +23,9 @@ import "./app/editor-first";
 // `qtiInteractionElements`) still pull in its registration side effect, but it
 // is guarded with `customElements.get(tag)` and runs after this, so it backs off.
 import "@citolab/qti-components/corrections";
-import { GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 import "./app/dep-tools-register";
 
 import App from "./app/app";
-
-GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL}pdf.worker.mjs`;
 
 // qti-components test navigation initializes QTI_CONTEXT.environmentIdentifier with "default".
 // In assessment mode this can override item-level qti-context-declaration defaults (e.g. CONFORMANCE),

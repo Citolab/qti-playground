@@ -146,6 +146,33 @@ function ensurePdfWorkerAsset(): void {
   }
 }
 
+const taoPciSpecifier = "@citolab/qti-convert-tao-pci";
+const taoPciLazyShim = path.resolve(dirname, "src/lib/tao-pci-lazy.ts");
+
+/**
+ * Keeps the ~3.2 MB TAO PCI converter out of the entry chunk.
+ *
+ * `@citolab/qti-browser-import` imports it at module scope, and that module is
+ * reachable from the landing page through the store, so the converter was part
+ * of the payload every visitor downloaded. Redirecting the specifier to
+ * `src/lib/tao-pci-lazy.ts` leaves a single `import()` edge to the real package,
+ * which rolldown can then emit as an on-demand chunk. The shim's own import is
+ * let through, otherwise it would resolve to itself.
+ */
+function lazyTaoPciConversion(): Plugin {
+  return {
+    name: "qti-playground-lazy-tao-pci",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (source !== taoPciSpecifier) return null;
+      if (importer && path.resolve(importer.split("?")[0]!) === taoPciLazyShim) {
+        return null;
+      }
+      return taoPciLazyShim;
+    },
+  };
+}
+
 function spaHtmlFallbackForPackageRoute(): Plugin {
   // In dev, `GET /package` can sometimes be served as `package.json` (Vite JSON-as-ESM),
   // which breaks React Router hard reloads/back navigations.
@@ -229,6 +256,7 @@ export default defineConfig(({ mode }) => {
         },
       },
       qtiTypeScriptTransform(),
+      lazyTaoPciConversion(),
       spaHtmlFallbackForPackageRoute(),
       localQtiComponentsAssets(),
       react(),
@@ -254,6 +282,20 @@ export default defineConfig(({ mode }) => {
       // override stays until lightningcss supports `:state()` after `::part()`.
       cssMinify: "esbuild",
       reportCompressedSize: true,
+      // The default 500 kB budget is meant to catch an oversized initial
+      // payload, and after the route-level splitting in app/app.tsx the only
+      // chunks the landing page pulls are `index` (~650 kB, mostly react-dom)
+      // and `scoped-registry` (~780 kB of @citolab/qti-components, registered
+      // eagerly in main.tsx because registration order matters). Everything
+      // above the budget is fetched on demand and is a single prebundled vendor
+      // file that cannot be split further:
+      //   @mlc-ai/web-llm            ~6.0 MB  local AI engine, one module
+      //   @citolab/qti-convert-tao-pci ~3.2 MB  TAO PCI conversion, one module
+      //   ai-convert page            ~1.9 MB  + exceljs, pdfjs, local-ai
+      //   modify-package page        ~840 kB  + docx, pdf-lib
+      // The limit is therefore calibrated to the largest of those. Lower it
+      // again if @mlc-ai/web-llm ever leaves the dependency list.
+      chunkSizeWarningLimit: 6500,
       commonjsOptions: {
         transformMixedEsModules: true,
         exclude: [/@citolab\/prose-qti/, /@citolab\/prose-extensions/, /@qti-components\//],
@@ -297,6 +339,8 @@ export default defineConfig(({ mode }) => {
         ...qtiEditorOptimizeDepsInclude,
       ],
       exclude: [
+        "@citolab/qti-browser-import",
+        "@citolab/qti-convert-tao-pci",
         "@citolab/qti-components",
         "@citolab/qti-extended",
         "@citolab/qti-convert",
