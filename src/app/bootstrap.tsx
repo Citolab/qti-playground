@@ -1,0 +1,327 @@
+import { StrictMode } from "react";
+import { BrowserRouter } from "react-router-dom";
+import * as ReactDOM from "react-dom/client";
+// The registration entry point, and it must be `/corrections` rather than the
+// package root. Since qti-components 9 that entry defines the WHOLE standard
+// element set, substituting the correction-capable subclass wherever one exists
+// (`qti-assessment-item` -> QtiAssessmentItemCorrection, `qti-simple-choice` ->
+// QtiSimpleChoiceCorrection, ...) and adding the correction-only controls
+// (`item-show-correct-response` and friends). The package root registers the
+// same tags with the correction-free classes, on which `showCorrectResponse()`
+// does not exist -- which is why the preview's "Set correct response" button
+// was inert. In 8.x this swap was impossible: `corrections` exported the
+// classes but registered nothing, so a consumer had to define every tag itself
+// ahead of the base entry. See app/scoped-registry.ts for the other half --
+// the player's scoped registry needs the same substitution applied to the tags
+// the editor owns globally.
+//
+// Value imports of the package root elsewhere (`QtiAssessmentItem`, `QtiItem`,
+// `qtiInteractionElements`) still pull in its registration side effect, but it
+// is guarded with `customElements.get(tag)` and runs after this, so it backs off.
+//
+// Nothing here may be imported from `src/main.tsx` statically: this whole module
+// has to stay behind the dynamic import that separates it from app/editor-first.ts.
+import "@citolab/qti-components/corrections";
+import "./dep-tools-register";
+
+import App from "./app";
+
+// qti-components test navigation initializes QTI_CONTEXT.environmentIdentifier with "default".
+// In assessment mode this can override item-level qti-context-declaration defaults (e.g. CONFORMANCE),
+// while item preview mode still uses the declaration defaults correctly.
+// Patch PCI context record building so a concrete item default environmentIdentifier wins over runtime "default".
+try {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ctor: any = window.customElements?.get(
+    "qti-portable-custom-interaction",
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const proto: any = ctor?.prototype;
+  if (proto && !proto.__qtiPlaygroundPatchedQtiContextEnvironment) {
+    const originalGetQtiContextRecord = proto.getQtiContextRecord;
+    proto.getQtiContextRecord = function patchedGetQtiContextRecord() {
+      try {
+        const defaults =
+          typeof this.getQtiContextDefaultsFromItem === "function"
+            ? this.getQtiContextDefaultsFromItem()
+            : {};
+        const runtime = this.qtiContext?.QTI_CONTEXT || {};
+
+        const merged = { ...defaults, ...runtime };
+        if (
+          runtime.environmentIdentifier === "default" &&
+          typeof defaults.environmentIdentifier === "string" &&
+          defaults.environmentIdentifier.length > 0 &&
+          defaults.environmentIdentifier !== "default"
+        ) {
+          merged.environmentIdentifier = defaults.environmentIdentifier;
+        }
+
+        if (!Object.keys(merged).length) return null;
+        const normalized = {
+          candidateIdentifier: merged.candidateIdentifier ?? "",
+          testIdentifier: merged.testIdentifier ?? "",
+          environmentIdentifier: merged.environmentIdentifier ?? "",
+          ...merged,
+        };
+
+        if (typeof this.recordToQtiVariableJSON === "function") {
+          return this.recordToQtiVariableJSON(normalized);
+        }
+      } catch {
+        // ignore and fall back
+      }
+      if (typeof originalGetQtiContextRecord === "function") {
+        return originalGetQtiContextRecord.call(this);
+      }
+      return null;
+    };
+    proto.__qtiPlaygroundPatchedQtiContextEnvironment = true;
+  }
+} catch {
+  // ignore
+}
+
+// Optional debug patch for legacy `qti-custom-interaction` (CES) issues.
+// Enable via: `localStorage.__qti_debug_custom_interaction__ = "1"` (then reload).
+try {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ctor: any = window.customElements?.get("qti-custom-interaction");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const proto: any = ctor?.prototype;
+  if (proto && !proto.__qtiPlaygroundPatchedCustomInteractionDebug) {
+    const originalConnectedCallback = proto.connectedCallback;
+    const originalSetupCES = proto.setupCES;
+
+    const isEnabled = () => {
+      try {
+        return (
+          typeof window !== "undefined" &&
+          window.localStorage?.getItem("__qti_debug_custom_interaction__") ===
+            "1"
+        );
+      } catch {
+        return false;
+      }
+    };
+
+    const normalizeDoubleSlashes = (value: string) =>
+      value
+        .replace(/([^:]\/)\/+/g, "$1")
+        .replace(/\/\//g, "/")
+        .replace("http:/", "http://")
+        .replace("https:/", "https://");
+
+    proto.connectedCallback =
+      function patchedCustomInteractionConnectedCallback() {
+        if (isEnabled()) {
+          try {
+            const data = (
+              this.data ||
+              this.getAttribute?.("data") ||
+              ""
+            ).toString();
+            const baseItemUrl = (
+              this.baseItemUrl ||
+              this.getAttribute?.("data-base-item") ||
+              ""
+            ).toString();
+            const baseRefUrl = (
+              this.baseRefUrl ||
+              this.getAttribute?.("data-base-ref") ||
+              ""
+            ).toString();
+
+            const manifestUrl =
+              data.startsWith("http") || data.startsWith("blob")
+                ? data
+                : normalizeDoubleSlashes(`${baseItemUrl}/${data}`);
+
+            console.debug("[custom-interaction]", {
+              responseIdentifier: this.getAttribute?.("response-identifier"),
+              data,
+              baseItemUrl,
+              baseRefUrl,
+              manifestUrl,
+            });
+          } catch {
+            // ignore
+          }
+        }
+        if (typeof originalConnectedCallback === "function") {
+          return originalConnectedCallback.call(this);
+        }
+      };
+
+    proto.setupCES = function patchedCustomInteractionSetupCES() {
+      if (isEnabled()) {
+        try {
+          const manifest = this.manifest;
+          const baseRefUrl = (
+            this.baseRefUrl ||
+            this.getAttribute?.("data-base-ref") ||
+            ""
+          ).toString();
+          const style0 = manifest?.style?.[0] || "";
+          const script0 = manifest?.script?.[0] || "";
+          const styleUrl =
+            style0.startsWith("http") || style0.startsWith("blob")
+              ? style0
+              : normalizeDoubleSlashes(`${baseRefUrl}/${style0}`);
+          const scriptUrl =
+            script0.startsWith("http") || script0.startsWith("blob")
+              ? script0
+              : normalizeDoubleSlashes(`${baseRefUrl}/${script0}`);
+
+          console.debug("[custom-interaction] manifest", {
+            responseIdentifier: this.getAttribute?.("response-identifier"),
+            baseRefUrl,
+            style0,
+            script0,
+            styleUrl,
+            scriptUrl,
+            media: Array.isArray(manifest?.media) ? manifest.media : null,
+          });
+        } catch {
+          // ignore
+        }
+      }
+      if (typeof originalSetupCES === "function") {
+        return originalSetupCES.call(this);
+      }
+    };
+
+    proto.__qtiPlaygroundPatchedCustomInteractionDebug = true;
+  }
+} catch {
+  // ignore
+}
+
+if (import.meta.env.DEV) {
+  // Optional debugging aid for PCI/RequireJS script loading issues.
+  // Enable via: `localStorage.__qti_debug_requirejs__ = "1"` (then reload).
+  try {
+    const enabled =
+      typeof window !== "undefined" &&
+      window.localStorage?.getItem("__qti_debug_requirejs__") === "1";
+    if (enabled) {
+      window.addEventListener(
+        "error",
+        (event) => {
+          const target = (event as ErrorEvent & { target?: unknown }).target;
+          if (target instanceof HTMLScriptElement && target.src) {
+            if (
+              target.src.includes("/__qti_pkg__/") ||
+              target.src.includes("/modules/") ||
+              target.src.toLowerCase().includes("graph")
+            )
+              console.error("[RequireJS/PCI] Script load failed:", target.src);
+          }
+        },
+        true,
+      );
+
+      const patchRequireJs = () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const r = (window as any).requirejs;
+        if (!r || typeof r !== "function") return;
+
+        // Re-wrap if qti-components replaces onError.
+        const current = r.onError;
+        if (current && current.__qtiWrapped) return;
+
+        const wrapped = (err: unknown) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const e = err as any;
+          const src = e?.originalError?.target?.src;
+          console.error("[RequireJS/PCI] requirejs.onError", {
+            requireType: e?.requireType,
+            requireModules: e?.requireModules,
+            message: e?.message,
+            src,
+          });
+          if (typeof current === "function") return current(err);
+          throw err;
+        };
+        wrapped.__qtiWrapped = true;
+        r.onError = wrapped;
+      };
+
+      // Keep patching until RequireJS is present and stays wrapped.
+      patchRequireJs();
+      window.setInterval(patchRequireJs, 250);
+    }
+  } catch {
+    // ignore
+  }
+
+  // Optional debugging aid for PCI layout issues (iframe exists but isn't visible).
+  // Enable via: `localStorage.__qti_debug_pci_layout__ = "1"` (then reload).
+  try {
+    const enabled =
+      typeof window !== "undefined" &&
+      window.localStorage?.getItem("__qti_debug_pci_layout__") === "1";
+    if (enabled) {
+      window.setInterval(() => {
+        const hosts = Array.from(
+          document.querySelectorAll("qti-portable-custom-interaction"),
+        );
+        for (const host of hosts) {
+          (host as HTMLElement).style.outline = "2px dashed #d946ef";
+          const iframe = host.querySelector("iframe");
+          if (iframe) {
+            iframe.style.outline = "2px solid #22c55e";
+            const rect = iframe.getBoundingClientRect();
+            if (rect.width < 20 || rect.height < 20) {
+              console.warn("[PCI layout] iframe has tiny rect", {
+                width: rect.width,
+                height: rect.height,
+                host: host.getAttribute("response-identifier"),
+              });
+            }
+          } else {
+            console.warn("[PCI layout] no iframe found for host", {
+              host: host.getAttribute("response-identifier"),
+              useIframe: host.getAttribute("data-use-iframe"),
+            });
+          }
+        }
+      }, 1000);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/" })
+      .then(() => navigator.serviceWorker.ready)
+      .then(() => {
+        // On first install, the page is not controlled until the next navigation.
+        // We rely on the SW for `/__qti_pkg__/...` requests, so reload once.
+        if (!navigator.serviceWorker.controller) {
+          const key = "qti_sw_reloaded_once";
+          if (!sessionStorage.getItem(key)) {
+            sessionStorage.setItem(key, "1");
+            window.location.reload();
+          }
+        }
+      })
+      .catch((error) =>
+        console.error("Service worker registration failed:", error),
+      );
+  });
+}
+
+const root = ReactDOM.createRoot(
+  document.getElementById("root") as HTMLElement,
+);
+root.render(
+  <StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </StrictMode>,
+);
