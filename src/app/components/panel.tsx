@@ -89,12 +89,12 @@ export function Panel({
   }, [title, actionComponents.length, pinnedActions.length]);
 
   return (
-    <div className="h-full w-full relative p-4">
-      <Card className="h-full overflow-hidden">
+    <div className="h-full w-full relative">
+      <Card className="h-full overflow-hidden border-gray-200 shadow-sm">
         <CardHeader
           ref={headerRef}
           className={cn(
-            "relative flex-row items-center gap-2 space-y-0 p-0 px-3 py-2.5 min-h-11",
+            "relative flex-row items-center gap-2 space-y-0 p-0 px-3 py-2.5 min-h-11 border-b border-gray-100",
           )}
         >
           <CardTitle
@@ -157,7 +157,7 @@ export function Panel({
             )}
           </div>
         </CardHeader>
-        <CardContent className="relative mt-2 px-3 pt-0">{children}</CardContent>
+        <CardContent className="relative px-0 pt-3 pb-0">{children}</CardContent>
       </Card>
     </div>
   );

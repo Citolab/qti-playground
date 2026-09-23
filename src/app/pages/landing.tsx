@@ -32,6 +32,7 @@ import { itemCss } from "../itemCss";
 import { QtiCitolabEditorPanel } from "../components/editor/qti-citolab-editor-panel";
 import { useScopedQtiRegistry } from "../use-scoped-registry";
 import { QtiAssessmentItem } from "@citolab/qti-components";
+import { PAGE_CONTAINER } from "../components/page-shell";
 
 // Held in the editor's own serialisation, not hand-written QTI: the exporter rebuilds the item
 // from the ProseMirror document, so any other shape would be rewritten into this one the moment
@@ -464,15 +465,6 @@ function prettyPrintXml(xml: string): string {
     return xml;
   }
 }
-
-// One cap for every band on the page, so the hero, the library cards, the stats and the footer
-// stay on the same left and right edges. `max-w-7xl` alone left ~1000px of dead margin on either
-// side of a 3328px display while squeezing the editor into a 550px column, so the wider steps hand
-// that space back to the content; the text inside stays capped separately by its own `max-w-*`.
-// Each step stays comfortably under the width that activates it, so the page never ends up capped
-// at exactly the viewport with its margins collapsed to nothing.
-const PAGE_CONTAINER =
-  "mx-auto w-full max-w-7xl 2xl:max-w-[90rem] 3xl:max-w-[128rem]";
 
 // The editor reads `sourceXml` once per session key and then owns the document. Landing's XML
 // only ever flows outwards -- into the read-only Monaco below it -- so the key never has to change.

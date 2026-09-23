@@ -4,6 +4,7 @@ import { NavLink, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { CitolabLogo } from "./components/citolab-logo";
+import { PAGE_CONTAINER, PAGE_GUTTER } from "./components/page-shell";
 
 type NavItem = {
   name: string;
@@ -106,10 +107,10 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
   const fullScreen = searchParams.get("full")?.toLocaleLowerCase() === "true";
 
   return (
-    <div className="bg-gray-100 flex flex-col h-full">
+    <div className="bg-gray-50 flex flex-col h-full">
       {!fullScreen ? (
         <nav className="w-full bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm sticky top-0 z-50">
-          <div className="flex h-14 w-full items-center gap-3 px-4 sm:gap-4 sm:px-6 lg:px-8">
+          <div className={cn(PAGE_CONTAINER, PAGE_GUTTER, "flex h-14 items-center gap-3 sm:gap-4")}>
             <BrandLogo onClick={() => navigate("/")} />
 
             <div className="hidden md:block h-6 w-px bg-gray-200 shrink-0" />

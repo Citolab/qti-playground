@@ -8,11 +8,12 @@ import {
   type Qti21Warning,
 } from "@citolab/qti-convert/qti-downgrader";
 import { useStore } from "../store/store";
-import { AlertTriangle, ArrowLeftRight, Clipboard } from "lucide-react";
+import { AlertTriangle, ArrowLeftRight, Clipboard, Repeat } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dropdown } from "../components/dropdown";
 import { iconActionClassName, Panel } from "../components/panel";
 import { Button } from "@/components/ui/button";
+import { PageShell, WORKSPACE_EDITOR_HEIGHT } from "../components/page-shell";
 
 type Direction = "upgrade" | "downgrade";
 
@@ -162,133 +163,144 @@ export const ConvertPage = () => {
   const showWarnings = direction === "downgrade" && warnings.length > 0;
 
   return (
-    <div className="grid md:grid-cols-2 gap-4 bg-gray-200">
-      <Panel
-        title={sourceTitle}
-        pinnedActions={[
-          <TooltipProvider key="swap">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className={iconActionClassName}
-                  aria-label={SWITCH_LABELS[direction]}
-                  onClick={swapDirection}
-                >
-                  <ArrowLeftRight className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{SWITCH_LABELS[direction]}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>,
-        ]}
-        actionComponents={[
-          <Dropdown
-            key={`examples-${direction}`}
-            name="Examples"
-            items={examples}
-            onMenuClick={(name) => void loadExample(name)}
-          />,
-        ]}
-      >
-        <div className="p-3 pt-0">
-          <div className="rounded-lg overflow-hidden">
-            <Editor
-              width="100%"
-              height="75vh"
-              options={config}
-              onMount={(editor) => {
-                sourceEditor.current = editor;
-                if (fillSource) {
-                  sourceEditor.current?.setValue(qtiInput || "");
-                }
-              }}
-              onChange={(value) => {
-                debouncedConvert(value || "");
-              }}
-              defaultLanguage="xml"
-              theme="vs-dark"
-            />
-          </div>
-        </div>
-      </Panel>
-      <Panel
-        title={resultTitle}
-        actionComponents={[
-          <TooltipProvider key="copy">
-            <Tooltip open={openTooltip}>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  disabled={!result}
-                  onClick={() => {
-                    navigator.clipboard.writeText(result);
-                    setOpenTooltip(true);
-                    setTimeout(() => setOpenTooltip(false), 2000);
-                  }}
-                >
-                  <Clipboard className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>QTI copied to clipboard!</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>,
-        ]}
-      >
-        <div className="p-3 pt-0 space-y-3">
-          <div className="rounded-lg overflow-hidden">
-            <Editor
-              options={{
-                readOnly: true,
-                minimap: { enabled: false },
-                autoIndent: "full",
-                formatOnPaste: true,
-                formatOnType: true,
-              }}
-              onMount={(editor) => {
-                resultEditor.current = editor;
-              }}
-              width="100%"
-              height={showWarnings ? "58vh" : "75vh"}
-              value={result}
-              defaultLanguage="xml"
-              defaultValue=""
-              theme="vs-dark"
-            />
-          </div>
-          {showWarnings ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-              <p className="flex items-center gap-2 font-medium">
-                <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden="true" />
-                Changes made for QTI 2.1
-              </p>
-              <ul className="mt-1 list-disc pl-6 space-y-0.5 max-h-[12vh] overflow-y-auto">
-                {warnings.map((warning) => (
-                  <li key={`${warning.code}-${warning.message}`}>
-                    {warning.code === "shared-vocabulary-stylesheet" ? (
-                      <>
-                        QTI 3 shared vocabulary classes (qti-*) are styled by{" "}
-                        <a
-                          href={SHARED_VOCABULARY_STYLESHEET_URL}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="underline"
-                        >
-                          {QTI3_SHARED_VOCABULARY_CSS_PATH}
-                        </a>
-                        , which the item refers to. Include that file when you use the item in a package.
-                      </>
-                    ) : (
-                      warning.message
-                    )}
-                  </li>
-                ))}
-              </ul>
+    <PageShell
+      variant="workspace"
+      icon={Repeat}
+      title="Convert item"
+      description="Paste a single item and convert it between QTI 2.x and QTI 3, in either direction."
+    >
+      <div className="grid gap-4 md:grid-cols-2">
+        <Panel
+          title={sourceTitle}
+          pinnedActions={[
+            <TooltipProvider key="swap">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={iconActionClassName}
+                    aria-label={SWITCH_LABELS[direction]}
+                    onClick={swapDirection}
+                  >
+                    <ArrowLeftRight className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{SWITCH_LABELS[direction]}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>,
+          ]}
+          actionComponents={[
+            <Dropdown
+              key={`examples-${direction}`}
+              name="Examples"
+              items={examples}
+              onMenuClick={(name) => void loadExample(name)}
+            />,
+          ]}
+        >
+          <div className="p-3 pt-0">
+            <div className="rounded-lg overflow-hidden">
+              <Editor
+                width="100%"
+                height={WORKSPACE_EDITOR_HEIGHT}
+                options={config}
+                onMount={(editor) => {
+                  sourceEditor.current = editor;
+                  if (fillSource) {
+                    sourceEditor.current?.setValue(qtiInput || "");
+                  }
+                }}
+                onChange={(value) => {
+                  debouncedConvert(value || "");
+                }}
+                defaultLanguage="xml"
+                theme="vs-dark"
+              />
             </div>
-          ) : null}
-        </div>
-      </Panel>
-    </div>
+          </div>
+        </Panel>
+        <Panel
+          title={resultTitle}
+          actionComponents={[
+            <TooltipProvider key="copy">
+              <Tooltip open={openTooltip}>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    disabled={!result}
+                    onClick={() => {
+                      navigator.clipboard.writeText(result);
+                      setOpenTooltip(true);
+                      setTimeout(() => setOpenTooltip(false), 2000);
+                    }}
+                  >
+                    <Clipboard className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>QTI copied to clipboard!</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>,
+          ]}
+        >
+          <div className="p-3 pt-0 space-y-3">
+            <div className="rounded-lg overflow-hidden">
+              <Editor
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  autoIndent: "full",
+                  formatOnPaste: true,
+                  formatOnType: true,
+                }}
+                onMount={(editor) => {
+                  resultEditor.current = editor;
+                }}
+                width="100%"
+                height={
+                  showWarnings
+                    ? `calc(${WORKSPACE_EDITOR_HEIGHT} - 16vh)`
+                    : WORKSPACE_EDITOR_HEIGHT
+                }
+                value={result}
+                defaultLanguage="xml"
+                defaultValue=""
+                theme="vs-dark"
+              />
+            </div>
+            {showWarnings ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                <p className="flex items-center gap-2 font-medium">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden="true" />
+                  Changes made for QTI 2.1
+                </p>
+                <ul className="mt-1 list-disc pl-6 space-y-0.5 max-h-[12vh] overflow-y-auto">
+                  {warnings.map((warning) => (
+                    <li key={`${warning.code}-${warning.message}`}>
+                      {warning.code === "shared-vocabulary-stylesheet" ? (
+                        <>
+                          QTI 3 shared vocabulary classes (qti-*) are styled by{" "}
+                          <a
+                            href={SHARED_VOCABULARY_STYLESHEET_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="underline"
+                          >
+                            {QTI3_SHARED_VOCABULARY_CSS_PATH}
+                          </a>
+                          , which the item refers to. Include that file when you use the item in a package.
+                        </>
+                      ) : (
+                        warning.message
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        </Panel>
+      </div>
+    </PageShell>
   );
 };

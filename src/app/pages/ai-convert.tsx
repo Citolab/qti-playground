@@ -25,6 +25,7 @@ import {
   ScanText,
 } from "lucide-react";
 import { Terms } from "../components/terms";
+import { PageCard, PageShell } from "../components/page-shell";
 import { useStore } from "../store/store";
 import {
   DEFAULT_LOCAL_AI_MODEL,
@@ -532,135 +533,120 @@ export const AiConvertPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 via-citolab-50/20 to-citolab-teal-50/20 px-4 py-6 lg:px-8 lg:py-10">
-      <div
-        className="mx-auto w-full max-w-6xl overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.14)]"
-        style={{ minHeight: "80vh" }}
-      >
-        <div className="bg-linear-to-r from-citolab-700 via-citolab-700 to-citolab-teal-700 px-6 py-7 text-white lg:px-10 lg:py-9">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-3xl">
-              <div className="mb-2 inline-flex items-center rounded-full bg-white/12 px-3 py-1 text-xs font-medium tracking-wide text-citolab-50">
-                Experimental Local Conversion
+    <PageShell
+      icon={Sparkles}
+      title="Experimental convert"
+      description="Best-effort conversion from files or links into downloadable QTI 3 packages, processed locally in your browser."
+      actions={
+        <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+          <DialogTrigger asChild>
+            <Button
+              variant="outline"
+              className="border-citolab-200 text-citolab-700 hover:bg-citolab-50 hover:border-citolab-400"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Import settings</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="ai-model-name">
+                  Local WebLLM model name
+                </Label>
+                <Input
+                  id="ai-model-name"
+                  value={modelName}
+                  onChange={(event) => setModelName(event.target.value)}
+                  placeholder={DEFAULT_LOCAL_AI_MODEL}
+                />
               </div>
-              <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
-                <Sparkles className="h-6 w-6" />
-                Convert
-              </h1>
-              <p className="mt-3 text-base leading-7 text-citolab-100 lg:text-xl">
-                Best-effort experimental conversion from files or links into
-                downloadable QTI3 packages, processed locally in your browser.
+              <div className="space-y-2">
+                <Label htmlFor="ai-extra-instructions">
+                  Extra import instructions
+                </Label>
+                <textarea
+                  id="ai-extra-instructions"
+                  value={extraInstructions}
+                  onChange={(event) =>
+                    setExtraInstructions(event.target.value)
+                  }
+                  className="min-h-32 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  placeholder="Help the model detect questions by describing the format. For example:&#10;• 'This document contains N questions numbered 1 to N'&#10;• 'Questions start with a number followed by a period'&#10;• 'Each question is preceded by point values like 2p or 3p'"
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                File imports use these settings when local WebLLM inference
+                is needed. Google Forms URL import does not use the local
+                LLM.
               </p>
-              {navigationState.redirectReason ? (
-                <p className="mt-4 inline-flex rounded-full bg-white/12 px-3 py-1 text-xs text-citolab-50">
-                  {navigationState.redirectReason === "zip-contained-source"
-                    ? `A source file was detected inside ${navigationState.originalFileName || "the uploaded ZIP"} and sent here for AI conversion.`
-                    : "A non-QTI source file was detected and sent here for AI conversion."}
-                </p>
-              ) : null}
-            </div>
-            <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="secondary"
-                  className="self-start border-white/20 bg-white/10 text-white hover:bg-white/20"
-                >
-                  <Settings className="h-4 w-4 mr-2" />
-                  Settings
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Import settings</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="ai-model-name">
-                      Local WebLLM model name
+              <p className="text-xs text-gray-500">
+                Imported source content stays in the browser during
+                conversion and is not sent to our server.
+              </p>
+              <Alert className="border-amber-200 bg-amber-50">
+                <AlertCircle className="h-4 w-4 text-amber-600" />
+                <AlertTitle className="text-amber-900">
+                  Local AI model performance
+                </AlertTitle>
+                <AlertDescription className="text-amber-800 text-xs">
+                  Running AI models locally in your browser is
+                  resource-intensive and may significantly impact your
+                  computer's performance. Processing files like PDFs or DOCX
+                  documents can take several minutes and will utilize
+                  substantial CPU and memory resources.
+                </AlertDescription>
+              </Alert>
+              <div className="border-t border-gray-200 pt-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="use-public-proxy"
+                    checked={usePublicProxy}
+                    onCheckedChange={(checked) =>
+                      setUsePublicProxy(checked === true)
+                    }
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="use-public-proxy">
+                      Experimental public proxy for Google Forms
                     </Label>
-                    <Input
-                      id="ai-model-name"
-                      value={modelName}
-                      onChange={(event) => setModelName(event.target.value)}
-                      placeholder={DEFAULT_LOCAL_AI_MODEL}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ai-extra-instructions">
-                      Extra import instructions
-                    </Label>
-                    <textarea
-                      id="ai-extra-instructions"
-                      value={extraInstructions}
-                      onChange={(event) =>
-                        setExtraInstructions(event.target.value)
-                      }
-                      className="min-h-32 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                      placeholder="Help the model detect questions by describing the format. For example:&#10;• 'This document contains N questions numbered 1 to N'&#10;• 'Questions start with a number followed by a period'&#10;• 'Each question is preceded by point values like 2p or 3p'"
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    File imports use these settings when local WebLLM inference
-                    is needed. Google Forms URL import does not use the local
-                    LLM.
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Imported source content stays in the browser during
-                    conversion and is not sent to our server.
-                  </p>
-                  <Alert className="border-amber-200 bg-amber-50">
-                    <AlertCircle className="h-4 w-4 text-amber-600" />
-                    <AlertTitle className="text-amber-900">
-                      Local AI model performance
-                    </AlertTitle>
-                    <AlertDescription className="text-amber-800 text-xs">
-                      Running AI models locally in your browser is
-                      resource-intensive and may significantly impact your
-                      computer's performance. Processing files like PDFs or DOCX
-                      documents can take several minutes and will utilize
-                      substantial CPU and memory resources.
-                    </AlertDescription>
-                  </Alert>
-                  <div className="border-t border-gray-200 pt-4 space-y-3">
-                    <div className="flex items-start gap-3">
-                      <Checkbox
-                        id="use-public-proxy"
-                        checked={usePublicProxy}
-                        onCheckedChange={(checked) =>
-                          setUsePublicProxy(checked === true)
-                        }
-                      />
-                      <div className="space-y-1">
-                        <Label htmlFor="use-public-proxy">
-                          Experimental public proxy for Google Forms
-                        </Label>
-                        <p className="text-xs text-gray-500">
-                          Uses a third-party CORS proxy for public Google Forms
-                          fetches. This is for testing only and may be blocked
-                          or unreliable.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="public-proxy-url">Proxy base URL</Label>
-                      <Input
-                        id="public-proxy-url"
-                        value={proxyBaseUrl}
-                        onChange={(event) =>
-                          setProxyBaseUrl(event.target.value)
-                        }
-                        placeholder="https://corsproxy.io/?url="
-                        disabled={!usePublicProxy}
-                      />
-                    </div>
+                    <p className="text-xs text-gray-500">
+                      Uses a third-party CORS proxy for public Google Forms
+                      fetches. This is for testing only and may be blocked
+                      or unreliable.
+                    </p>
                   </div>
                 </div>
-              </DialogContent>
-            </Dialog>
+                <div className="space-y-2">
+                  <Label htmlFor="public-proxy-url">Proxy base URL</Label>
+                  <Input
+                    id="public-proxy-url"
+                    value={proxyBaseUrl}
+                    onChange={(event) =>
+                      setProxyBaseUrl(event.target.value)
+                    }
+                    placeholder="https://corsproxy.io/?url="
+                    disabled={!usePublicProxy}
+                  />
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      }
+    >
+      <PageCard>
+        {navigationState.redirectReason ? (
+          <div className="border-b border-citolab-100 bg-citolab-50 px-6 py-3 text-sm text-citolab-800 lg:px-8">
+            {navigationState.redirectReason === "zip-contained-source"
+              ? `A source file was detected inside ${navigationState.originalFileName || "the uploaded ZIP"} and sent here for AI conversion.`
+              : "A non-QTI source file was detected and sent here for AI conversion."}
           </div>
-        </div>
-
-        <div className="space-y-8 px-6 py-6 lg:px-10 lg:py-8">
+        ) : null}
+        <div className="space-y-8 px-6 py-6 lg:px-8 lg:py-8">
           <Tabs
             value={sourceMode}
             onValueChange={(value) => {
@@ -1188,7 +1174,7 @@ export const AiConvertPage: React.FC = () => {
         <div className="px-6 pb-2">
           <Terms />
         </div>
-      </div>
-    </div>
+      </PageCard>
+    </PageShell>
   );
 };

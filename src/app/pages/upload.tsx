@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../store/store";
-import { Upload, AlertTriangle } from "lucide-react";
+import { Upload, AlertTriangle, Package } from "lucide-react";
 import { forceMemoryCleanup } from "@citolab/qti-convert/qti-helper";
 import { ItemPreview } from "../components/item-preview";
 import { PackageUploadZone } from "../components/package-upload-zone";
@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useState } from "react";
+import { PageCard, PageShell } from "../components/page-shell";
 
 /**
  * Start the test straight into one layout, skipping the intro screen that
@@ -70,6 +71,12 @@ export const UploadPage: React.FC = () => {
     [itemsPerAssessment]
   );
 
+  const packageSummary = `${items.length} ${items.length === 1 ? "item" : "items"} in ${
+    assessments.length === 1
+      ? assessments[0].name
+      : `${assessments.length} tests`
+  }`;
+
   /**
    * The layout is chosen here, so the player's intro screen has nothing left
    * to ask: `start=1` tells it to open the test straight away.
@@ -85,8 +92,12 @@ export const UploadPage: React.FC = () => {
 
   if (assessments.length > 0) {
     return (
-      <div className="h-full w-full flex flex-col">
-        <div className="bg-white/95 backdrop-blur-sm z-10 border-b border-gray-100 shadow-sm px-4 py-2.5 flex items-center justify-between gap-3 shrink-0">
+      <PageShell
+        icon={Package}
+        title="Preview package"
+        description={packageSummary}
+        actions={
+          <>
           <Button
             variant="outline"
             onClick={() => {
@@ -109,10 +120,8 @@ export const UploadPage: React.FC = () => {
             className="border-citolab-200 text-citolab-700 hover:bg-citolab-50 hover:border-citolab-400"
           >
             <Upload className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">Select New Package</span>
+            <span className="hidden sm:inline">Select new package</span>
           </Button>
-
-          <div className="flex items-center gap-2 flex-wrap justify-end">
             <DownloadPackageButton className="border-citolab-200 text-citolab-700 hover:bg-citolab-50 hover:border-citolab-400" />
 
             {assessments?.map((assessment) => (
@@ -135,12 +144,11 @@ export const UploadPage: React.FC = () => {
                 ))}
               </div>
             ))}
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
+          </>
+        }
+      >
           {validationErrors.length > 0 && (
-            <div className="mx-6 mt-4">
+            <div className="mb-6">
               <Alert variant="warning">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle className="flex items-center justify-between">
@@ -175,8 +183,10 @@ export const UploadPage: React.FC = () => {
             </div>
           )}
 
-          <div className="p-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">Items</h2>
+          <div>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
+              Items
+            </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {items.map((item, index) => (
                 <ItemPreview
@@ -187,24 +197,19 @@ export const UploadPage: React.FC = () => {
               ))}
             </div>
           </div>
-        </div>
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="flex flex-col items-center min-h-screen bg-linear-to-br from-slate-50 via-citolab-50/20 to-citolab-teal-50/20 p-4">
-      <div className="max-w-2xl w-full bg-white rounded-xl shadow-md overflow-hidden">
-        <div className="bg-linear-to-r from-citolab-700 to-citolab-teal-700 text-white p-6">
-          <h1 className="text-2xl font-bold">QTI Package Viewer</h1>
-          <p className="text-citolab-100 mt-1">
-            Preview, convert and display the items in your package
-          </p>
-        </div>
-        <div className="p-6">
-          <PackageUploadZone />
-        </div>
-      </div>
-    </div>
+    <PageShell
+      icon={Package}
+      title="Preview package"
+      description="Open a QTI package to preview its items, play its tests and download it as QTI 3."
+    >
+      <PageCard className="p-6">
+        <PackageUploadZone />
+      </PageCard>
+    </PageShell>
   );
 };

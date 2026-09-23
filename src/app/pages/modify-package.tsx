@@ -23,12 +23,14 @@ import {
   FileDown,
   FileText,
   List,
+  PackageCheck,
   Settings,
   Trash2,
   Upload,
   X,
 } from "lucide-react";
 import { Terms } from "../components/terms";
+import { PageCard, PageShell } from "../components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -305,19 +307,12 @@ export const ModifyPackagePage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center min-h-screen bg-linear-to-br from-slate-50 via-citolab-50/20 to-citolab-teal-50/20 p-4">
-      <div
-        className="max-w-3xl w-full bg-white rounded-xl shadow-md overflow-hidden"
-        style={{ minHeight: "80vh" }}
-      >
-        <div className="bg-linear-to-r from-citolab-700 to-citolab-teal-700 text-white p-6">
-          <h1 className="text-2xl font-bold">QTI Package Modifier</h1>
-          <p className="text-citolab-100 mt-1">
-            Upgrade or modify your QTI packages. QTI2x to QTI3, QTI3 back to
-            QTI 2.1, reduce file size, select items, or export to Word / PDF
-            for paper use.
-          </p>
-        </div>
+    <PageShell
+      icon={PackageCheck}
+      title="Convert / modify package"
+      description="Upgrade to QTI 3, downgrade to QTI 2.1, strip media, pick items, or export to Word / PDF for paper use."
+    >
+      <PageCard>
 
         <Tabs
           value={activeTab}
@@ -919,7 +914,7 @@ export const ModifyPackagePage: React.FC = () => {
             <Terms />
           </div>
         </Tabs>
-      </div>
-    </div>
+      </PageCard>
+    </PageShell>
   );
 };

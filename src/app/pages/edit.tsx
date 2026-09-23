@@ -1,7 +1,7 @@
 import { Editor } from "@monaco-editor/react";
 import { useDebouncedCallback } from "use-debounce";
 import { useEffect, useRef, useState } from "react";
-import { Clipboard, Eye, FilePlus2, Share2 } from "lucide-react";
+import { Clipboard, Eye, FilePlus2, PenLine, Share2 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +13,7 @@ import {
 import { useStore } from "../store/store";
 import { Dropdown } from "../components/dropdown";
 import { iconActionClassName, Panel } from "../components/panel";
+import { PageShell, WORKSPACE_EDITOR_HEIGHT } from "../components/page-shell";
 import { QtiCitolabEditorPanel } from "../components/editor/qti-citolab-editor-panel";
 import { DownloadItemPackageButton } from "../components/download-package-button";
 import { useEditorExamples } from "../components/editor/use-editor-examples";
@@ -115,165 +116,163 @@ export const EditPage = () => {
   };
 
   return (
-    <div className="relative flex flex-col gap-4 bg-gray-200 md:flex-row">
-      {sharePopupOpen ? (
-        <div className="fixed top-4 right-4 z-50 rounded-md bg-citolab-700 px-4 py-2 text-white shadow-lg">
-          Shareable URL copied to clipboard
-        </div>
-      ) : null}
+    <PageShell
+      variant="workspace"
+      icon={PenLine}
+      title="Edit item"
+      badge="Beta"
+      description="Build a QTI 3 item visually — the XML on the right is generated as you type."
+    >
+      <div className="relative grid gap-4 md:grid-cols-2">
+        {sharePopupOpen ? (
+          <div className="fixed top-4 right-4 z-50 rounded-md bg-citolab-700 px-4 py-2 text-white shadow-lg">
+            Shareable URL copied to clipboard
+          </div>
+        ) : null}
 
-      <div className="min-h-0 min-w-0 flex-1 md:max-w-[calc(50%-0.5rem)]">
-        <Panel
-          title="QTI Editor"
-          pinnedActions={[
-            // The nav only marks this page as new; "beta" is stated here, on
-            // the page itself, where it is a caveat about the editor.
-            <span
-              key="beta-badge"
-              className="rounded-full bg-citolab-600/90 px-2 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wide text-white"
-            >
-              Beta
-            </span>,
-          ]}
-          // Icon-only, apart from Examples: the labels repeat what the glyphs
-          // already say and cost the panel the width it needs for the title.
-          actionComponents={[
-            <Button
-              key="new-item"
-              variant="outline"
-              size="sm"
-              className={iconActionClassName}
-              onClick={() => void startNewItem()}
-              title="Start a new, blank item"
-              aria-label="Start a new, blank item"
-            >
-              <FilePlus2 className="h-4 w-4" aria-hidden="true" />
-            </Button>,
-            <Dropdown
-              key="examples"
-              name="Examples"
-              items={[{ name: "choice", items: exampleItems }]}
-              onMenuClick={(name) => {
-                const example = exampleItems.find((i) => i.name === name);
-                if (!example) return;
-                loadQti3(`${EXAMPLE_BASE_PATH}${example.href}`);
-              }}
-            />,
-            <div key="actions" className="flex gap-2">
+        <div className="min-h-0 min-w-0">
+          <Panel
+            title="QTI Editor"
+            // Icon-only, apart from Examples: the labels repeat what the glyphs
+            // already say and cost the panel the width it needs for the title.
+            actionComponents={[
               <Button
-                size="sm"
+                key="new-item"
                 variant="outline"
+                size="sm"
                 className={iconActionClassName}
-                disabled={!qti3}
-                onClick={() => navigate("/preview")}
-                title="Open this item in the preview player"
-                aria-label="Open this item in the preview player"
+                onClick={() => void startNewItem()}
+                title="Start a new, blank item"
+                aria-label="Start a new, blank item"
               >
-                <Eye className="h-4 w-4" aria-hidden="true" />
-              </Button>
-              <TooltipProvider>
-                <Tooltip open={shareTooltipOpen}>
+                <FilePlus2 className="h-4 w-4" aria-hidden="true" />
+              </Button>,
+              <Dropdown
+                key="examples"
+                name="Examples"
+                items={[{ name: "choice", items: exampleItems }]}
+                onMenuClick={(name) => {
+                  const example = exampleItems.find((i) => i.name === name);
+                  if (!example) return;
+                  loadQti3(`${EXAMPLE_BASE_PATH}${example.href}`);
+                }}
+              />,
+              <div key="actions" className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={iconActionClassName}
+                  disabled={!qti3}
+                  onClick={() => navigate("/preview")}
+                  title="Open this item in the preview player"
+                  aria-label="Open this item in the preview player"
+                >
+                  <Eye className="h-4 w-4" aria-hidden="true" />
+                </Button>
+                <TooltipProvider>
+                  <Tooltip open={shareTooltipOpen}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        className={iconActionClassName}
+                        disabled={!qti3}
+                        onClick={copyShareUrl}
+                        title="Copy a shareable link to this item"
+                        aria-label="Copy a shareable link to this item"
+                      >
+                        <Share2 className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Shareable link copied!</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <DownloadItemPackageButton
+                  size="sm"
+                  iconOnly
+                  className={iconActionClassName}
+                />
+              </div>,
+            ]}
+          >
+            {isConverting ? (
+              <div className="absolute top-0 left-0 w-full h-full bg-gray-200 bg-opacity-50 flex justify-center items-center">
+                <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-gray-900"></div>
+              </div>
+            ) : null}
+
+            <QtiCitolabEditorPanel
+              key={sessionKey}
+              editorSessionKey={sessionKey}
+              active
+              sourceXml={qti3 || ""}
+              assetBaseHref={itemHref}
+              onSourceChange={(nextXml) => debouncedSource(nextXml)}
+              normalizeOnLoad
+            />
+          </Panel>
+        </div>
+
+        <div className="min-h-0 min-w-0">
+          <Panel
+            title="QTI 3 XML"
+            actionComponents={[
+              <span key="readonly-hint" className="text-xs text-gray-500">
+                Read-only — generated from the editor
+              </span>,
+              <TooltipProvider key="copy">
+                <Tooltip open={copyTooltipOpen}>
                   <TooltipTrigger asChild>
                     <Button
                       size="sm"
                       className={iconActionClassName}
                       disabled={!qti3}
-                      onClick={copyShareUrl}
-                      title="Copy a shareable link to this item"
-                      aria-label="Copy a shareable link to this item"
+                      onClick={() => {
+                        navigator.clipboard.writeText(qti3 || "");
+                        setCopyTooltipOpen(true);
+                        setTimeout(() => setCopyTooltipOpen(false), 2000);
+                      }}
+                      title="Copy the QTI 3 source"
+                      aria-label="Copy the QTI 3 source"
                     >
-                      <Share2 className="h-4 w-4" aria-hidden="true" />
+                      <Clipboard className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Shareable link copied!</TooltipContent>
+                  <TooltipContent>QTI copied to clipboard!</TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
-              <DownloadItemPackageButton
-                size="sm"
-                iconOnly
-                className={iconActionClassName}
-              />
-            </div>,
-          ]}
-        >
-          {isConverting ? (
-            <div className="absolute top-0 left-0 w-full h-full bg-gray-200 bg-opacity-50 flex justify-center items-center">
-              <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-gray-900"></div>
-            </div>
-          ) : null}
-
-          <QtiCitolabEditorPanel
-            key={sessionKey}
-            editorSessionKey={sessionKey}
-            active
-            sourceXml={qti3 || ""}
-            assetBaseHref={itemHref}
-            onSourceChange={(nextXml) => debouncedSource(nextXml)}
-            normalizeOnLoad
-          />
-        </Panel>
-      </div>
-
-      <div className="min-h-0 min-w-0 w-full flex-1 md:max-w-[calc(50%-0.5rem)]">
-        <Panel
-          title="QTI 3 XML"
-          actionComponents={[
-            <span key="readonly-hint" className="text-xs text-gray-500">
-              Read-only — generated from the editor
-            </span>,
-            <TooltipProvider key="copy">
-              <Tooltip open={copyTooltipOpen}>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    className={iconActionClassName}
-                    disabled={!qti3}
-                    onClick={() => {
-                      navigator.clipboard.writeText(qti3 || "");
-                      setCopyTooltipOpen(true);
-                      setTimeout(() => setCopyTooltipOpen(false), 2000);
-                    }}
-                    title="Copy the QTI 3 source"
-                    aria-label="Copy the QTI 3 source"
-                  >
-                    <Clipboard className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>QTI copied to clipboard!</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>,
-          ]}
-        >
-          <div className="p-3 pt-0">
-            <div className="rounded-lg overflow-hidden">
-              <Editor
-                options={{
-                  minimap: { enabled: false },
-                  readOnly: true,
-                  domReadOnly: true,
-                  autoIndent: "full" as const,
-                  formatOnPaste: false,
-                  formatOnType: false,
-                }}
-                width="100%"
-                height="75vh"
-                value={qti3 || ""}
-                defaultLanguage="xml"
-                language="xml"
-                theme="vs-dark"
-              />
-            </div>
-          </div>
-          {errorMessage ? (
-            <div className="w-full bg-red-200 bg-opacity-50 flex justify-center items-center p-2">
-              <div className="text-red-900">
-                Oops, an error occurred: {errorMessage}
+              </TooltipProvider>,
+            ]}
+          >
+            <div className="p-3 pt-0">
+              <div className="rounded-lg overflow-hidden">
+                <Editor
+                  options={{
+                    minimap: { enabled: false },
+                    readOnly: true,
+                    domReadOnly: true,
+                    autoIndent: "full" as const,
+                    formatOnPaste: false,
+                    formatOnType: false,
+                  }}
+                  width="100%"
+                  height={WORKSPACE_EDITOR_HEIGHT}
+                  value={qti3 || ""}
+                  defaultLanguage="xml"
+                  language="xml"
+                  theme="vs-dark"
+                />
               </div>
             </div>
-          ) : null}
-        </Panel>
+            {errorMessage ? (
+              <div className="w-full bg-red-200 bg-opacity-50 flex justify-center items-center p-2">
+                <div className="text-red-900">
+                  Oops, an error occurred: {errorMessage}
+                </div>
+              </div>
+            ) : null}
+          </Panel>
+        </div>
       </div>
-    </div>
+    </PageShell>
   );
 };
 

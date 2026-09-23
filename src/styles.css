@@ -159,6 +159,14 @@ qti-item {
 }
 
 @layer base {
+  /* Tailwind 4 defaults a bare `border` to currentColor, which drew black frames around every Card
+     and panel. Resting borders take the neutral theme token instead. */
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-border);
+  }
+
   .all-unset {
     all: unset;
   }

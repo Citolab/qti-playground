@@ -8,6 +8,7 @@ import {
   CheckCheck,
   Clipboard,
   Code,
+  Eye,
   FilePlus2,
   Info,
   Pencil,
@@ -19,6 +20,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dropdown } from "../components/dropdown";
 import { iconActionClassName, Panel } from "../components/panel";
+import { PageShell, WORKSPACE_EDITOR_HEIGHT } from "../components/page-shell";
 import { qtiTransformItem } from "@citolab/qti-components/qti-transformers";
 import { QtiAssessmentItem, QtiItem } from "@citolab/qti-components";
 import type { QtiAssessmentItemCorrection } from "@citolab/qti-components/corrections";
@@ -544,329 +546,336 @@ export const PreviewPage = () => {
   }, [qti3ForPreview]);
 
   return (
-    <div className="relative flex flex-col gap-4 bg-gray-200 md:flex-row">
-      {sharePopupOpen ? (
-        <div className="fixed top-4 right-4 z-50 rounded-md bg-citolab-700 px-4 py-2 text-white shadow-lg">
-          Shareable URL copied to clipboard
-        </div>
-      ) : null}
-      <div className="min-h-0 min-w-0 flex-1 md:max-w-[calc(50%-0.5rem)]">
-      <Panel
-        title="QTI 3"
-        pinnedActions={[
-          // Mirrors the Preview button on /edit: each page points at the other
-          // with one icon. Pinned rather than in the actions below so it never
-          // collapses into the overflow menu.
-          <Button
-            key="qti-editor-link"
-            variant="outline"
-            size="sm"
-            className={cn(
-              iconActionClassName,
-              "border-citolab-600/70 text-citolab-700 hover:bg-citolab-50",
-            )}
-            onClick={() => navigate("/edit")}
-            title="Open this item in the QTI editor (beta)"
-            aria-label="Open this item in the QTI editor (beta)"
-          >
-            <Pencil className="h-4 w-4" aria-hidden="true" />
-          </Button>,
-        ]}
-        // Icon-only, apart from Examples -- same toolbar as /edit.
-        actionComponents={[
-          <Button
-            key="new-item"
-            variant="outline"
-            size="sm"
-            className={iconActionClassName}
-            onClick={() => void startNewItem()}
-            title="Start a new, blank item"
-            aria-label="Start a new, blank item"
-          >
-            <FilePlus2 className="h-4 w-4" aria-hidden="true" />
-          </Button>,
-          <Dropdown
-            key="examples"
-            name="Examples"
-            items={[
-              {
-                name: "choice",
-                items: ALL_EXAMPLE_ITEMS,
-              },
-            ]}
-            onMenuClick={(name) => {
-              const i = ALL_EXAMPLE_ITEMS.find((i) => i.name === name);
-              loadQti3(`/3${i?.href || ""}`);
-            }}
-          />,
-          <div key="actions" className="flex gap-2">
-            <TooltipProvider>
-              <Tooltip open={openTooltip}>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    className={iconActionClassName}
-                    disabled={qti3 === ""}
-                    onClick={() => {
-                      navigator.clipboard.writeText(qti3 || "");
-                      setOpenTooltip(true);
-                      setTimeout(() => setOpenTooltip(false), 2000);
-                    }}
-                    title="Copy the QTI 3 source"
-                    aria-label="Copy the QTI 3 source"
-                  >
-                    <Clipboard className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>QTI copied to clipboard!</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip open={shareTooltipOpen}>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    className={iconActionClassName}
-                    disabled={!qti3}
-                    onClick={copyShareUrl}
-                    title="Copy a shareable link to this item"
-                    aria-label="Copy a shareable link to this item"
-                  >
-                    <Share2 className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Shareable link copied!</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <DownloadItemPackageButton
-              size="sm"
-              iconOnly
-              className={iconActionClassName}
-            />
-          </div>,
-        ]}
-      >
-        {isConverting ? (
-          <div className="absolute top-0 left-0 w-full h-full bg-gray-200 bg-opacity-50 flex justify-center items-center">
-            <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-gray-900"></div>
+    <PageShell
+      variant="workspace"
+      icon={Eye}
+      title="Preview item"
+      description="Write or paste QTI 3 XML and try the item out in the player."
+    >
+      <div className="relative grid gap-4 md:grid-cols-2">
+        {sharePopupOpen ? (
+          <div className="fixed top-4 right-4 z-50 rounded-md bg-citolab-700 px-4 py-2 text-white shadow-lg">
+            Shareable URL copied to clipboard
           </div>
-        ) : (
-          <div></div>
-        )}
-
-        <div className="p-3 pt-0">
-            <div className="rounded-lg overflow-hidden">
-              <Editor
-                options={editorOptions}
-                onMount={(editor) => {
-                  sourceEditor.current = editor;
-                  setIsEditorReady(true);
-                }}
-                onChange={(value) => {
-                  debouncedPreview(value || "");
-                }}
-                width="100%"
-                height="75vh"
-                value={qti3 || ""}
-                defaultLanguage="xml"
-                language="xml"
-                defaultValue=""
-                theme="vs-dark"
-              />
-            </div>
-        </div>
-      </Panel>
-      </div>
-      <div className="min-h-0 min-w-0 w-full flex-1 md:max-w-[calc(50%-0.5rem)]">
-      <Panel
-        title="QTI Preview"
-        actionComponents={[
-          // One provider for the row rather than one per button, so the group
-          // shares a hover timer: moving along it shows each tooltip at once
-          // instead of waiting out the delay again at every button.
-          <TooltipProvider key="actions" delayDuration={200}>
-            <div className="flex gap-2">
-            <IconAction
-              id="correct-button"
-              label="Set correct response"
-              tooltip="Fill in the correct answer"
-              disabled={!qti3}
-              onClick={() => {
-                const assessmentItem =
-                  getAssessmentItemElement() as QtiAssessmentItemCorrection | null;
-                if (!assessmentItem) return;
-                // Answer the item first, then mark it. Marking alone leaves a
-                // drag-and-drop item empty and scoring 0 -- see
-                // `fillCorrectResponses`.
-                fillCorrectResponses(assessmentItem);
-                // Unconditional now. The `?.()` this used to carry was not
-                // defensiveness, it was papering over the method being absent:
-                // `showCorrectResponse` lives on QtiAssessmentItemCorrection,
-                // and until the qti-components 9 upgrade this app registered
-                // the correction-free QtiAssessmentItem, so the button silently
-                // did nothing. See src/main.tsx.
-                assessmentItem.showCorrectResponse(true);
-                // The `variables` setter writes the context directly and fires
-                // none of the events the panel listens on, so refresh it here.
-                refreshPreviewVariables();
-              }}
-            >
-              <CheckCheck className="h-4 w-4" aria-hidden="true" />
-            </IconAction>
-            <IconAction
-              label="Simulate end attempt"
-              tooltip="Score the item as if the candidate submitted it"
-              disabled={!qti3}
-              onClick={() => {
-                const assessmentItem = getAssessmentItemElement();
-                assessmentItem?.processResponse(true, true);
-                refreshPreviewVariables();
-              }}
-            >
-              <Play className="h-4 w-4" aria-hidden="true" />
-            </IconAction>
-            <IconAction
-              label={showVariables ? "Hide item variables" : "Show item variables"}
-              tooltip={
-                showVariables
-                  ? "Hide the item's variable values"
-                  : "Show the item's variable values"
-              }
-              disabled={!qti3}
-              variant={showVariables ? "secondary" : "default"}
-              aria-pressed={showVariables}
-              onClick={() => {
-                setShowVariables((current) => {
-                  const next = !current;
-                  if (next) {
-                    // Snapshot once when opening — avoid continuous re-renders while closed
-                    queueMicrotask(() => refreshPreviewVariables());
-                  }
-                  return next;
-                });
-              }}
-              className={
-                showVariables
-                  ? "bg-green-700 text-white hover:bg-green-800"
-                  : "bg-green-600 hover:bg-green-700"
-              }
-            >
-              <Code className="h-4 w-4" aria-hidden="true" />
-            </IconAction>
-            <IconAction
-              id="refresh-button"
-              label="Reset"
-              tooltip="Reset the item to its initial state"
-              disabled={!qti3}
-              onClick={() => {
-                resetPreviewItem();
-              }}
-            >
-              <RefreshCw className="h-4 w-4" aria-hidden="true" />
-            </IconAction>
-            <IconAction
-              label="About the preview player"
-              tooltip="Preview generated by @citolab/qti-components"
-              disabled={!qti3}
-              onClick={() => {
-                window.open(
-                  "https://github.com/citolab/qti-components",
-                  "_blank",
-                );
-              }}
-            >
-              <Info className="h-4 w-4" aria-hidden="true" />
-            </IconAction>
-            </div>
-          </TooltipProvider>,
-        ]}
-      >
-        <>
-          {qti3ForPreview ? (
-            <qti-item ref={qtiItemRef}>
-              <item-container
-                ref={attachScopedObserver}
-                itemDoc={previewItemDoc ?? undefined}
-                customElementRegistry={scopedRegistry}
-              >
-                <template
-                  dangerouslySetInnerHTML={{
-                    __html: `<style>${itemCss}</style>`,
-                  }}
-                ></template>
-              </item-container>
-            </qti-item>
-          ) : (
-            <div className="ml-6">Valid QTI will be previewed here.</div>
-          )}
-          {errorMessage ? (
-            <div className="w-full h-full bg-red-200 bg-opacity-50 flex justify-center items-center">
-              <div className="text-red-900">
-                Oops, an error occurred: {errorMessage}
-              </div>
-            </div>
-          ) : null}
-          <DraggablePopup
-            isOpen={showVariables}
-            onClose={() => setShowVariables(false)}
-            setIsOpen={setShowVariables}
-            title="Item Variable"
-            storageKey="previewOutputPopupState"
-          >
-            <div className="bg-gray-50 p-3 rounded">
-              {previewVariables.length > 0 ? (
-                <div className="overflow-auto">
-                  <Table className="text-sm">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Identifier</TableHead>
-                        <TableHead>Value</TableHead>
-                        <TableHead>Cardinality</TableHead>
-                        <TableHead>Base Type</TableHead>
-                        <TableHead>Correct / Mapping</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {previewVariables.map((variable) => (
-                        <TableRow key={variable.identifier}>
-                          <TableCell className="align-top font-mono">
-                            {variable.identifier}
-                          </TableCell>
-                          <TableCell className="align-top">
-                            <pre className="whitespace-pre-wrap break-words">
-                              {JSON.stringify(variable.value ?? null, null, 2)}
-                            </pre>
-                          </TableCell>
-                          <TableCell className="align-top">
-                            {variable.cardinality || "-"}
-                          </TableCell>
-                          <TableCell className="align-top">
-                            {variable.baseType || "-"}
-                          </TableCell>
-                          <TableCell className="align-top">
-                            <pre className="whitespace-pre-wrap break-words">
-                              {JSON.stringify(
-                                variable.correctResponse ?? variable.mapping ?? null,
-                                null,
-                                2,
-                              )}
-                            </pre>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="text-sm text-gray-600">
-                  No item variables available yet.
-                </div>
+        ) : null}
+        <div className="min-h-0 min-w-0">
+        <Panel
+          title="QTI 3"
+          pinnedActions={[
+            // Mirrors the Preview button on /edit: each page points at the other
+            // with one icon. Pinned rather than in the actions below so it never
+            // collapses into the overflow menu.
+            <Button
+              key="qti-editor-link"
+              variant="outline"
+              size="sm"
+              className={cn(
+                iconActionClassName,
+                "border-citolab-600/70 text-citolab-700 hover:bg-citolab-50",
               )}
+              onClick={() => navigate("/edit")}
+              title="Open this item in the QTI editor (beta)"
+              aria-label="Open this item in the QTI editor (beta)"
+            >
+              <Pencil className="h-4 w-4" aria-hidden="true" />
+            </Button>,
+          ]}
+          // Icon-only, apart from Examples -- same toolbar as /edit.
+          actionComponents={[
+            <Button
+              key="new-item"
+              variant="outline"
+              size="sm"
+              className={iconActionClassName}
+              onClick={() => void startNewItem()}
+              title="Start a new, blank item"
+              aria-label="Start a new, blank item"
+            >
+              <FilePlus2 className="h-4 w-4" aria-hidden="true" />
+            </Button>,
+            <Dropdown
+              key="examples"
+              name="Examples"
+              items={[
+                {
+                  name: "choice",
+                  items: ALL_EXAMPLE_ITEMS,
+                },
+              ]}
+              onMenuClick={(name) => {
+                const i = ALL_EXAMPLE_ITEMS.find((i) => i.name === name);
+                loadQti3(`/3${i?.href || ""}`);
+              }}
+            />,
+            <div key="actions" className="flex gap-2">
+              <TooltipProvider>
+                <Tooltip open={openTooltip}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="sm"
+                      className={iconActionClassName}
+                      disabled={qti3 === ""}
+                      onClick={() => {
+                        navigator.clipboard.writeText(qti3 || "");
+                        setOpenTooltip(true);
+                        setTimeout(() => setOpenTooltip(false), 2000);
+                      }}
+                      title="Copy the QTI 3 source"
+                      aria-label="Copy the QTI 3 source"
+                    >
+                      <Clipboard className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>QTI copied to clipboard!</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip open={shareTooltipOpen}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="sm"
+                      className={iconActionClassName}
+                      disabled={!qti3}
+                      onClick={copyShareUrl}
+                      title="Copy a shareable link to this item"
+                      aria-label="Copy a shareable link to this item"
+                    >
+                      <Share2 className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Shareable link copied!</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <DownloadItemPackageButton
+                size="sm"
+                iconOnly
+                className={iconActionClassName}
+              />
+            </div>,
+          ]}
+        >
+          {isConverting ? (
+            <div className="absolute top-0 left-0 w-full h-full bg-gray-200 bg-opacity-50 flex justify-center items-center">
+              <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-gray-900"></div>
             </div>
-          </DraggablePopup>
-        </>
-      </Panel>
+          ) : (
+            <div></div>
+          )}
+
+          <div className="p-3 pt-0">
+              <div className="rounded-lg overflow-hidden">
+                <Editor
+                  options={editorOptions}
+                  onMount={(editor) => {
+                    sourceEditor.current = editor;
+                    setIsEditorReady(true);
+                  }}
+                  onChange={(value) => {
+                    debouncedPreview(value || "");
+                  }}
+                  width="100%"
+                  height={WORKSPACE_EDITOR_HEIGHT}
+                  value={qti3 || ""}
+                  defaultLanguage="xml"
+                  language="xml"
+                  defaultValue=""
+                  theme="vs-dark"
+                />
+              </div>
+          </div>
+        </Panel>
+        </div>
+        <div className="min-h-0 min-w-0">
+        <Panel
+          title="QTI Preview"
+          actionComponents={[
+            // One provider for the row rather than one per button, so the group
+            // shares a hover timer: moving along it shows each tooltip at once
+            // instead of waiting out the delay again at every button.
+            <TooltipProvider key="actions" delayDuration={200}>
+              <div className="flex gap-2">
+              <IconAction
+                id="correct-button"
+                label="Set correct response"
+                tooltip="Fill in the correct answer"
+                disabled={!qti3}
+                onClick={() => {
+                  const assessmentItem =
+                    getAssessmentItemElement() as QtiAssessmentItemCorrection | null;
+                  if (!assessmentItem) return;
+                  // Answer the item first, then mark it. Marking alone leaves a
+                  // drag-and-drop item empty and scoring 0 -- see
+                  // `fillCorrectResponses`.
+                  fillCorrectResponses(assessmentItem);
+                  // Unconditional now. The `?.()` this used to carry was not
+                  // defensiveness, it was papering over the method being absent:
+                  // `showCorrectResponse` lives on QtiAssessmentItemCorrection,
+                  // and until the qti-components 9 upgrade this app registered
+                  // the correction-free QtiAssessmentItem, so the button silently
+                  // did nothing. See src/main.tsx.
+                  assessmentItem.showCorrectResponse(true);
+                  // The `variables` setter writes the context directly and fires
+                  // none of the events the panel listens on, so refresh it here.
+                  refreshPreviewVariables();
+                }}
+              >
+                <CheckCheck className="h-4 w-4" aria-hidden="true" />
+              </IconAction>
+              <IconAction
+                label="Simulate end attempt"
+                tooltip="Score the item as if the candidate submitted it"
+                disabled={!qti3}
+                onClick={() => {
+                  const assessmentItem = getAssessmentItemElement();
+                  assessmentItem?.processResponse(true, true);
+                  refreshPreviewVariables();
+                }}
+              >
+                <Play className="h-4 w-4" aria-hidden="true" />
+              </IconAction>
+              <IconAction
+                label={showVariables ? "Hide item variables" : "Show item variables"}
+                tooltip={
+                  showVariables
+                    ? "Hide the item's variable values"
+                    : "Show the item's variable values"
+                }
+                disabled={!qti3}
+                variant={showVariables ? "secondary" : "default"}
+                aria-pressed={showVariables}
+                onClick={() => {
+                  setShowVariables((current) => {
+                    const next = !current;
+                    if (next) {
+                      // Snapshot once when opening — avoid continuous re-renders while closed
+                      queueMicrotask(() => refreshPreviewVariables());
+                    }
+                    return next;
+                  });
+                }}
+                className={
+                  showVariables
+                    ? "bg-green-700 text-white hover:bg-green-800"
+                    : "bg-green-600 hover:bg-green-700"
+                }
+              >
+                <Code className="h-4 w-4" aria-hidden="true" />
+              </IconAction>
+              <IconAction
+                id="refresh-button"
+                label="Reset"
+                tooltip="Reset the item to its initial state"
+                disabled={!qti3}
+                onClick={() => {
+                  resetPreviewItem();
+                }}
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              </IconAction>
+              <IconAction
+                label="About the preview player"
+                tooltip="Preview generated by @citolab/qti-components"
+                disabled={!qti3}
+                onClick={() => {
+                  window.open(
+                    "https://github.com/citolab/qti-components",
+                    "_blank",
+                  );
+                }}
+              >
+                <Info className="h-4 w-4" aria-hidden="true" />
+              </IconAction>
+              </div>
+            </TooltipProvider>,
+          ]}
+        >
+          <>
+            {qti3ForPreview ? (
+              <qti-item ref={qtiItemRef}>
+                <item-container
+                  ref={attachScopedObserver}
+                  itemDoc={previewItemDoc ?? undefined}
+                  customElementRegistry={scopedRegistry}
+                >
+                  <template
+                    dangerouslySetInnerHTML={{
+                      __html: `<style>${itemCss}</style>`,
+                    }}
+                  ></template>
+                </item-container>
+              </qti-item>
+            ) : (
+              <div className="ml-6">Valid QTI will be previewed here.</div>
+            )}
+            {errorMessage ? (
+              <div className="w-full h-full bg-red-200 bg-opacity-50 flex justify-center items-center">
+                <div className="text-red-900">
+                  Oops, an error occurred: {errorMessage}
+                </div>
+              </div>
+            ) : null}
+            <DraggablePopup
+              isOpen={showVariables}
+              onClose={() => setShowVariables(false)}
+              setIsOpen={setShowVariables}
+              title="Item Variable"
+              storageKey="previewOutputPopupState"
+            >
+              <div className="bg-gray-50 p-3 rounded">
+                {previewVariables.length > 0 ? (
+                  <div className="overflow-auto">
+                    <Table className="text-sm">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Identifier</TableHead>
+                          <TableHead>Value</TableHead>
+                          <TableHead>Cardinality</TableHead>
+                          <TableHead>Base Type</TableHead>
+                          <TableHead>Correct / Mapping</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {previewVariables.map((variable) => (
+                          <TableRow key={variable.identifier}>
+                            <TableCell className="align-top font-mono">
+                              {variable.identifier}
+                            </TableCell>
+                            <TableCell className="align-top">
+                              <pre className="whitespace-pre-wrap break-words">
+                                {JSON.stringify(variable.value ?? null, null, 2)}
+                              </pre>
+                            </TableCell>
+                            <TableCell className="align-top">
+                              {variable.cardinality || "-"}
+                            </TableCell>
+                            <TableCell className="align-top">
+                              {variable.baseType || "-"}
+                            </TableCell>
+                            <TableCell className="align-top">
+                              <pre className="whitespace-pre-wrap break-words">
+                                {JSON.stringify(
+                                  variable.correctResponse ?? variable.mapping ?? null,
+                                  null,
+                                  2,
+                                )}
+                              </pre>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-600">
+                    No item variables available yet.
+                  </div>
+                )}
+              </div>
+            </DraggablePopup>
+          </>
+        </Panel>
+        </div>
       </div>
-    </div>
+    </PageShell>
   );
 };
