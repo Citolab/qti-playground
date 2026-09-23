@@ -6,11 +6,17 @@ import {
 } from "@citolab/qti-convert/qti-helper";
 import { convertPackage } from "@citolab/qti-convert/qti-convert";
 import {
+  convertPackageToQti21,
+  type Qti21Warning,
+} from "@citolab/qti-convert/qti-downgrader";
+import {
   convertPackageToDocx,
   convertPackageToPdf,
 } from "@citolab/qti-convert-export";
 import {
   AlertCircle,
+  AlertTriangle,
+  ArrowDown,
   ArrowUp,
   BookOpen,
   CheckCircle,
@@ -31,7 +37,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-type TabType = "upgrade" | "media" | "items" | "export";
+type TabType = "upgrade" | "downgrade" | "media" | "items" | "export";
 type ExportFormat = "docx" | "pdf";
 type ExportLocale = "en" | "nl";
 
@@ -62,6 +68,17 @@ const packageBaseName = (fileName: string) => {
     base = next;
   }
   return base.trim() || "assessment";
+};
+
+/** Groups identical downgrade warnings across files: message -> files it occurred in. */
+const groupWarnings = (warnings: Qti21Warning[]) => {
+  const groups = new Map<string, { message: string; files: string[] }>();
+  for (const warning of warnings) {
+    const group = groups.get(warning.message) ?? { message: warning.message, files: [] };
+    if (warning.file && !group.files.includes(warning.file)) group.files.push(warning.file);
+    groups.set(warning.message, group);
+  }
+  return [...groups.values()];
 };
 
 async function zipExportBundle(
@@ -102,6 +119,7 @@ export const ModifyPackagePage: React.FC = () => {
   const [correctionInDocument, setCorrectionInDocument] = useState(false);
   const [correctionSeparate, setCorrectionSeparate] = useState(true);
   const [exportItemCount, setExportItemCount] = useState<number | null>(null);
+  const [downgradeWarnings, setDowngradeWarnings] = useState<Qti21Warning[]>([]);
 
   const validateFile = (file: File | null) => {
     if (!file) return false;
@@ -176,6 +194,7 @@ export const ModifyPackagePage: React.FC = () => {
     setRemovedItems([]);
     setRemovedWebcontent(0);
     setExportItemCount(null);
+    setDowngradeWarnings([]);
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -244,6 +263,11 @@ export const ModifyPackagePage: React.FC = () => {
           });
           newZipName = paperName;
         }
+      } else if (activeTab === "downgrade") {
+        const result = await convertPackageToQti21(selectedFile, "blob");
+        blob = result.zip;
+        setDowngradeWarnings(result.warnings);
+        newZipName = `${newName}-qti21.zip`;
       } else if (activeTab === "media") {
         const selectedFilters = Object.keys(filters).filter(
           (key) => filters[key as keyof typeof filters],
@@ -261,10 +285,7 @@ export const ModifyPackagePage: React.FC = () => {
         setRemovedWebcontent(result.removedResources || 0);
         newZipName = `${newName}-items-${startIndex}-${endIndex}.zip`;
       } else {
-        blob = await convertPackage(
-          selectedFile,
-          "https://raw.githubusercontent.com/citolab/qti30Upgrader/refs/heads/main/qti2xTo30.sef.json",
-        );
+        blob = await convertPackage(selectedFile);
         newZipName = `${newName}-qti3.zip`;
       }
 
@@ -292,8 +313,9 @@ export const ModifyPackagePage: React.FC = () => {
         <div className="bg-linear-to-r from-citolab-700 to-citolab-teal-700 text-white p-6">
           <h1 className="text-2xl font-bold">QTI Package Modifier</h1>
           <p className="text-citolab-100 mt-1">
-            Upgrade or modify your QTI packages. QTI2x to QTI3, reduce file
-            size, select items, or export to Word / PDF for paper use.
+            Upgrade or modify your QTI packages. QTI2x to QTI3, QTI3 back to
+            QTI 2.1, reduce file size, select items, or export to Word / PDF
+            for paper use.
           </p>
         </div>
 
@@ -311,13 +333,20 @@ export const ModifyPackagePage: React.FC = () => {
           className="flex flex-col flex-1"
         >
           <div className="border-b border-gray-200 px-2 pt-2">
-            <TabsList className="bg-transparent h-auto gap-1 rounded-none p-0">
+            <TabsList className="bg-transparent h-auto gap-1 rounded-none p-0 flex-wrap justify-start">
               <TabsTrigger
                 value="upgrade"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-citolab-600 data-[state=active]:text-citolab-600 data-[state=active]:shadow-none data-[state=active]:bg-transparent px-5 py-3 gap-2"
               >
                 <ArrowUp size={16} />
                 Upgrade QTI2 &gt; QTI3
+              </TabsTrigger>
+              <TabsTrigger
+                value="downgrade"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-citolab-600 data-[state=active]:text-citolab-600 data-[state=active]:shadow-none data-[state=active]:bg-transparent px-5 py-3 gap-2"
+              >
+                <ArrowDown size={16} />
+                Downgrade QTI3 &gt; QTI2.1
               </TabsTrigger>
               <TabsTrigger
                 value="media"
@@ -356,7 +385,9 @@ export const ModifyPackagePage: React.FC = () => {
                       ? "Processing Items"
                       : activeTab === "export"
                         ? "Exporting document"
-                        : "Converting QTI2 to QTI3"}
+                        : activeTab === "downgrade"
+                          ? "Converting QTI3 to QTI 2.1"
+                          : "Converting QTI2 to QTI3"}
                 </h3>
                 <p className="text-sm text-gray-500 mb-6">
                   {activeTab === "media"
@@ -367,7 +398,9 @@ export const ModifyPackagePage: React.FC = () => {
                         : "Analyzing package to count available items..."
                       : activeTab === "export"
                         ? `Building a paper-friendly ${exportFormat === "pdf" ? "PDF" : "Word"} document from your QTI package...`
-                        : "Please wait while we convert your QTI2 package to QTI3 format..."}
+                        : activeTab === "downgrade"
+                          ? "Please wait while we convert your QTI3 package to QTI 2.1 format..."
+                          : "Please wait while we convert your QTI2 package to QTI3 format..."}
                 </p>
                 <Progress
                   value={uploadProgress}
@@ -660,6 +693,61 @@ export const ModifyPackagePage: React.FC = () => {
                       ) : null}
                     </div>
                   </div>
+                ) : activeTab === "downgrade" ? (
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <div className="flex items-center gap-2 mb-4">
+                      <ArrowDown className="text-citolab-600" size={20} />
+                      <h2 className="text-lg font-semibold text-gray-800">
+                        QTI3 to QTI 2.1 Downgrade
+                      </h2>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Select a QTI3 package to convert it to QTI 2.1, for
+                      systems that don't support QTI3 yet. Shared stimuli are
+                      copied into the items that use them. Anything QTI 2.1
+                      can't express is converted or removed and listed below.
+                    </p>
+                    {processComplete ? (
+                      <div className="space-y-3">
+                        <Alert variant="success">
+                          <CheckCircle className="h-4 w-4" />
+                          <AlertTitle>Successfully converted package</AlertTitle>
+                          <AlertDescription className="text-sm space-y-1">
+                            <p>
+                              Your QTI3 package has been converted to QTI 2.1
+                              format
+                            </p>
+                            <p className="font-medium">
+                              New QTI 2.1 package has been downloaded
+                            </p>
+                          </AlertDescription>
+                        </Alert>
+                        {downgradeWarnings.length > 0 ? (
+                          <Alert variant="warning">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>Changes made for QTI 2.1</AlertTitle>
+                            <AlertDescription className="text-sm">
+                              <ul className="list-disc pl-4 space-y-1 max-h-64 overflow-y-auto">
+                                {groupWarnings(downgradeWarnings).map((group) => (
+                                  <li key={group.message} title={group.files.join("\n")}>
+                                    {group.message}
+                                    {group.files.length > 0 ? (
+                                      <span className="text-amber-700/80">
+                                        {" "}
+                                        ({group.files.length === 1
+                                          ? group.files[0]
+                                          : `${group.files.length} files`})
+                                      </span>
+                                    ) : null}
+                                  </li>
+                                ))}
+                              </ul>
+                            </AlertDescription>
+                          </Alert>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
                 ) : (
                   <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <div className="flex items-center gap-2 mb-4">
@@ -732,7 +820,7 @@ export const ModifyPackagePage: React.FC = () => {
                           onClick={() => void processFile()}
                           disabled={!!error || (activeTab === "items" && !itemsLoaded)}
                         >
-                          {activeTab === "upgrade"
+                          {activeTab === "upgrade" || activeTab === "downgrade"
                             ? "Convert Package"
                             : activeTab === "export"
                               ? correctionSeparate
@@ -800,7 +888,7 @@ export const ModifyPackagePage: React.FC = () => {
                         <h3 className="mb-2 text-xl font-semibold text-gray-700">
                           {isDragging
                             ? "Drop to preview"
-                            : `Select QTI ${activeTab === "upgrade" ? "2" : ""} Package`}
+                            : `Select QTI ${activeTab === "upgrade" ? "2" : activeTab === "downgrade" ? "3" : ""} Package`}
                         </h3>
                         <p className="mb-4 text-sm text-gray-500">
                           <span className="font-medium">Click to browse</span>{" "}
@@ -809,7 +897,9 @@ export const ModifyPackagePage: React.FC = () => {
                         <p className="text-xs text-gray-400">
                           {activeTab === "upgrade"
                             ? "QTI 2.x ZIP files are supported"
-                            : activeTab === "export"
+                            : activeTab === "downgrade"
+                              ? "QTI 3 ZIP files are supported"
+                              : activeTab === "export"
                               ? "QTI 3 ZIP packages work best for paper export"
                               : "QTI 2.x and 3 ZIP files are supported"}
                         </p>

@@ -11,7 +11,6 @@ import {
 import { Assessment, ExtendedTestContext, ItemInfo } from "@citolab/qti-api";
 import { convertQti2toQti3 } from "@citolab/qti-convert/qti-convert";
 import { itemBlobManager } from "./item-blob-manager";
-import { getUpgraderStylesheetBlobUrl } from "./qti-upgrader";
 import {
   deletePackageCache,
   prepareQtiPackage,
@@ -542,8 +541,7 @@ export const useStore = create<Store>()(
             });
             return;
           }
-          const xsltJsonUrl = await getUpgraderStylesheetBlobUrl();
-          let qti3 = await convertQti2toQti3(qti, xsltJsonUrl);
+          let qti3 = await convertQti2toQti3(qti);
           qti3 = await qtiConversionFixes(qti3, "");
           set({
             qti3,
