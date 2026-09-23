@@ -14,9 +14,9 @@ type NavItem = {
 };
 
 const packageNavigation: NavItem[] = [
-  { name: "Preview package", href: "/upload" },
-  { name: "Convert", href: "/ai-convert", icon: Sparkles },
-  { name: "Modify packages", href: "/modify" },
+  { name: "Preview package", href: "/package" },
+  { name: "Convert/Modify", href: "/modify" },
+  { name: "Experimental convert", href: "/ai-convert", icon: Sparkles },
 ];
 
 const itemNavigation: NavItem[] = [
