@@ -7,6 +7,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 import { playwright } from "@vitest/browser-playwright";
+import {
+  QTI3_SHARED_VOCABULARY_CSS,
+  QTI3_SHARED_VOCABULARY_CSS_PATH,
+} from "@citolab/qti-convert/qti-downgrader";
 
 // https://vite.dev/config/
 const dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -146,6 +150,19 @@ function ensurePdfWorkerAsset(): void {
   }
 }
 
+/**
+ * Serves the QTI 3 shared vocabulary stylesheet at /qti3-shared-vocabulary.css. Items converted to QTI 2.1 on the
+ * item convert page refer to it by URL. Written from @citolab/qti-convert, so it is always the stylesheet the
+ * package conversion injects.
+ */
+function ensureSharedVocabularyStylesheetAsset(): void {
+  const target = path.join(dirname, "public", QTI3_SHARED_VOCABULARY_CSS_PATH);
+  const current = fs.existsSync(target) ? fs.readFileSync(target, "utf8") : null;
+  if (current !== QTI3_SHARED_VOCABULARY_CSS) {
+    fs.writeFileSync(target, QTI3_SHARED_VOCABULARY_CSS);
+  }
+}
+
 const taoPciSpecifier = "@citolab/qti-convert-tao-pci";
 const taoPciLazyShim = path.resolve(dirname, "src/lib/tao-pci-lazy.ts");
 
@@ -253,6 +270,15 @@ export default defineConfig(({ mode }) => {
         },
         configureServer() {
           ensurePdfWorkerAsset();
+        },
+      },
+      {
+        name: "qti-playground-shared-vocabulary-stylesheet",
+        buildStart() {
+          ensureSharedVocabularyStylesheetAsset();
+        },
+        configureServer() {
+          ensureSharedVocabularyStylesheetAsset();
         },
       },
       qtiTypeScriptTransform(),

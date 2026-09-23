@@ -704,8 +704,10 @@ export const ModifyPackagePage: React.FC = () => {
                     <p className="text-sm text-gray-600 mb-4">
                       Select a QTI3 package to convert it to QTI 2.1, for
                       systems that don't support QTI3 yet. Shared stimuli are
-                      copied into the items that use them. Anything QTI 2.1
-                      can't express is converted or removed and listed below.
+                      copied into the items that use them, and a stylesheet for
+                      the QTI 3 shared vocabulary classes (qti-*) is added for
+                      the items that use them. Anything QTI 2.1 can't express is
+                      converted or removed and listed below.
                     </p>
                     {processComplete ? (
                       <div className="space-y-3">

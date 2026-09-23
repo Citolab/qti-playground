@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import {
   convertQti3toQti21,
+  QTI3_SHARED_VOCABULARY_CSS_PATH,
   type Qti21Warning,
 } from "@citolab/qti-convert/qti-downgrader";
 import { useStore } from "../store/store";
@@ -14,6 +15,13 @@ import { iconActionClassName, Panel } from "../components/panel";
 import { Button } from "@/components/ui/button";
 
 type Direction = "upgrade" | "downgrade";
+
+/**
+ * QTI 2.1 players don't know the QTI 3 shared vocabulary classes (qti-layout-row, ...). A downgraded item that uses
+ * them refers to the stylesheet for those classes that this app serves (see vite.config.ts), by absolute URL so the
+ * copied XML still works elsewhere. Package conversions add the file to the package instead.
+ */
+const SHARED_VOCABULARY_STYLESHEET_URL = `${window.location.origin}/${QTI3_SHARED_VOCABULARY_CSS_PATH}`;
 
 const example = (name: string, href: string) => ({ name, href, current: false });
 
@@ -56,6 +64,7 @@ const QTI3_ITEMS = [
       example("select point", "/select_point.xml"),
       example("text entry", "/text_entry.xml"),
       example("adaptive", "/adaptive.xml"),
+      example("two-column layout (qti-* classes)", "/two_column_layout.xml"),
     ],
   },
 ];
@@ -105,7 +114,9 @@ export const ConvertPage = () => {
       setWarnings([]);
       return;
     }
-    const converted = convertQti3toQti21(qti);
+    const converted = convertQti3toQti21(qti, {
+      sharedVocabularyStylesheetHref: SHARED_VOCABULARY_STYLESHEET_URL,
+    });
     setQti21(converted.xml);
     setWarnings(converted.warnings);
   };
@@ -254,7 +265,24 @@ export const ConvertPage = () => {
               </p>
               <ul className="mt-1 list-disc pl-6 space-y-0.5 max-h-[12vh] overflow-y-auto">
                 {warnings.map((warning) => (
-                  <li key={`${warning.code}-${warning.message}`}>{warning.message}</li>
+                  <li key={`${warning.code}-${warning.message}`}>
+                    {warning.code === "shared-vocabulary-stylesheet" ? (
+                      <>
+                        QTI 3 shared vocabulary classes (qti-*) are styled by{" "}
+                        <a
+                          href={SHARED_VOCABULARY_STYLESHEET_URL}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline"
+                        >
+                          {QTI3_SHARED_VOCABULARY_CSS_PATH}
+                        </a>
+                        , which the item refers to. Include that file when you use the item in a package.
+                      </>
+                    ) : (
+                      warning.message
+                    )}
+                  </li>
                 ))}
               </ul>
             </div>
