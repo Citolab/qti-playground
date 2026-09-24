@@ -10,12 +10,27 @@ import {
 interface NavigationBarProps {
   stampContext: any;
   bookmarkedItemIds?: string[];
+  /**
+   * The screen an item is shown on, when several share one (classic mode's
+   * shared-stimulus sections). Consecutive items on the same screen collapse
+   * into one pill labelled with their range, e.g. "3-4".
+   */
+  groupOf?: (identifier: string) => string | null | undefined;
   onClick: (identifier: string) => void;
 }
+
+/** A group is as far along as its least-finished question. */
+const aggregateResponseState = (states: ResponseState[]): ResponseState =>
+  states.every((state) => state === "complete")
+    ? "complete"
+    : states.some((state) => state !== "missing")
+      ? "incomplete"
+      : "missing";
 
 export function NavigationBar({
   stampContext,
   bookmarkedItemIds = [],
+  groupOf,
   onClick,
 }: NavigationBarProps) {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -34,7 +49,6 @@ export function NavigationBar({
   }
 
   const items = stampContext.activeTestpart.items;
-  const activeIndex = items.findIndex((item: any) => item.active);
 
   // Create display items with proper numbering
   const displayItems = items.map((item: any, index: number) => {
@@ -80,6 +94,47 @@ export function NavigationBar({
     };
   });
 
+  // One pill per screen: items that share a screen merge into a single pill
+  // whose label spans their numbers, and which opens on the first of them.
+  const groups: any[][] = [];
+  let lastKey: string | null = null;
+  for (const item of displayItems) {
+    const key = groupOf?.(item.identifier) || `item:${item.identifier}`;
+    if (groups.length > 0 && key === lastKey) {
+      groups[groups.length - 1].push(item);
+    } else {
+      groups.push([item]);
+    }
+    lastKey = key;
+  }
+
+  const pills = groups.map((members, index) => {
+    if (members.length === 1) return members[0];
+    const numbers = members
+      .filter((member) => !member.isInfo)
+      .map((member) => member.displayNumber as number);
+    const displayNumber =
+      numbers.length === 0
+        ? "i"
+        : numbers.length === 1
+          ? numbers[0]
+          : `${numbers[0]}-${numbers[numbers.length - 1]}`;
+    return {
+      identifier: members[0].identifier,
+      originalIndex: index,
+      displayNumber,
+      label: `Items ${displayNumber}`,
+      isInfo: numbers.length === 0,
+      isGroup: numbers.length > 1,
+      isActive: members.some((member) => member.isActive),
+      isMarked: members.some((member) => member.isMarked),
+      responseState: aggregateResponseState(
+        members.map((member) => member.responseState),
+      ),
+    };
+  });
+  const activeIndex = pills.findIndex((pill: any) => pill.isActive);
+
   // Calculate available space more accurately
   // The navigation is in a flex justify-between layout with prev/next buttons
   // Use a more conservative estimate to prevent overflow
@@ -89,21 +144,22 @@ export function NavigationBar({
   const availableWidth =
     maxContainerWidth - prevNextButtonsWidth - containerPadding;
 
-  // Each item: w-10 (40px) + gap-1 (4px) = 44px per item
-  const itemWidth = 44;
+  // Each item: w-10 (40px) + gap-1 (4px) = 44px per item; a range pill ("3-4")
+  // is w-14 (56px), so budget every pill at that once there is one.
+  const itemWidth = pills.some((pill: any) => pill.isGroup) ? 60 : 44;
 
   const maxVisibleItems = Math.max(1, Math.floor(availableWidth / itemWidth));
 
-  const shouldShowAll = displayItems.length <= maxVisibleItems;
+  const shouldShowAll = pills.length <= maxVisibleItems;
   const shouldShowNumbers = maxVisibleItems >= 5; // Lower threshold for better mobile experience
 
-  if (!shouldShowNumbers || displayItems.length === 0) {
+  if (!shouldShowNumbers || pills.length === 0) {
     return null; // Don't show navigation if less than 5 items fit or no items
   }
 
-  let visibleItems = displayItems;
+  let visibleItems = pills;
 
-  if (!shouldShowAll && displayItems.length > maxVisibleItems) {
+  if (!shouldShowAll && pills.length > maxVisibleItems) {
     // Calculate how many items we can show around active item
     // Reserve space for: first item + dots + last item + dots = 4 slots
     const reservedSlots = 4;
@@ -115,7 +171,7 @@ export function NavigationBar({
 
     // Calculate the range around active item
     let startIdx = Math.max(1, activeIdx - itemsPerSide); // Don't include first item (index 0)
-    let endIdx = Math.min(displayItems.length - 2, activeIdx + itemsPerSide); // Don't include last item
+    let endIdx = Math.min(pills.length - 2, activeIdx + itemsPerSide); // Don't include last item
 
     // Adjust range if we hit boundaries to use available space
     const rangeSize = endIdx - startIdx + 1;
@@ -123,10 +179,10 @@ export function NavigationBar({
       if (startIdx === 1) {
         // Hit left boundary, extend right
         endIdx = Math.min(
-          displayItems.length - 2,
+          pills.length - 2,
           startIdx + availableSlots - 1
         );
-      } else if (endIdx === displayItems.length - 2) {
+      } else if (endIdx === pills.length - 2) {
         // Hit right boundary, extend left
         startIdx = Math.max(1, endIdx - availableSlots + 1);
       }
@@ -135,7 +191,7 @@ export function NavigationBar({
     visibleItems = [];
 
     // Always show first item
-    visibleItems.push(displayItems[0]);
+    visibleItems.push(pills[0]);
 
     // Add dots if there's a gap between first and our range
     if (startIdx > 1) {
@@ -144,17 +200,17 @@ export function NavigationBar({
 
     // Add the range of items around active
     for (let i = startIdx; i <= endIdx; i++) {
-      visibleItems.push(displayItems[i]);
+      visibleItems.push(pills[i]);
     }
 
     // Add dots if there's a gap between our range and last
-    if (endIdx < displayItems.length - 2) {
+    if (endIdx < pills.length - 2) {
       visibleItems.push({ isDots: true, key: "dots2" });
     }
 
     // Always show last item (if it's not already included)
-    if (displayItems.length > 1 && endIdx < displayItems.length - 1) {
-      visibleItems.push(displayItems[displayItems.length - 1]);
+    if (pills.length > 1 && endIdx < pills.length - 1) {
+      visibleItems.push(pills[pills.length - 1]);
     }
   }
 
@@ -181,6 +237,7 @@ export function NavigationBar({
               isActive: item.isActive,
               isMarked: item.isMarked,
               isInfo: item.isInfo,
+              isGroup: item.isGroup,
             })}
             onClick={() => handleItemClick(item)}
             title={item.label || `Item ${item.displayNumber}`}

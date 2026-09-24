@@ -1,0 +1,99 @@
+/*
+ * Classic mode's shared-stimulus page, on top of `booklet.css`: the source on
+ * the left, the questions that use it stacked on the right, the way cito-test-uit
+ * lays out a `navigateBySection` screen: no cards, a rule between the
+ * questions and a small number badge on each (see `decorateSectionItemNumbers`).
+ * The toolbar holds the bookmark.
+ */
+
+/* A page without a source is just an item or two: keep it at the width a
+   single-item screen has. */
+qti-assessment-section:not(:has(> [data-shared-stimulus-block])) {
+  display: block;
+  max-width: 56rem;
+  margin-inline: auto;
+}
+
+qti-assessment-section:has(> [data-shared-stimulus-block]) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 2.5rem;
+  align-items: start;
+}
+
+/* The source spans every row the questions take, and stays in view while the
+   reader works down them. A long reading text scrolls in its own column. */
+qti-assessment-section > [data-shared-stimulus-block] {
+  grid-column: 1;
+  grid-row: 1 / span 100;
+  position: sticky;
+  top: 0;
+  max-height: calc(100dvh - 16rem);
+  overflow: auto;
+}
+
+qti-assessment-section:has(> [data-shared-stimulus-block])
+  > qti-assessment-item-ref {
+  grid-column: 2;
+  display: block;
+}
+
+/* The source column, as cito-test-uit's shared-stimulus panel. */
+qti-assessment-section > [data-shared-stimulus-block] {
+  padding: 0.5rem 1rem;
+}
+
+qti-assessment-section > [data-shared-stimulus-block] qti-stimulus-body > div {
+  max-width: 65ch;
+}
+
+/* Several questions on one screen: each gets its number, top right, and a
+   rule separates it from the one above. */
+qti-assessment-item-ref[data-question-number] {
+  position: relative;
+  display: block;
+  padding: 1rem 1rem 1rem 0;
+}
+
+qti-assessment-item-ref[data-question-number]
+  + qti-assessment-item-ref[data-question-number] {
+  border-top: 1px solid #e5e7eb;
+}
+
+qti-assessment-item-ref[data-question-number]::before {
+  content: attr(data-question-number);
+  position: absolute;
+  top: 0.125rem;
+  right: 0.5rem;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.4rem;
+  border-radius: 9999px;
+  background: var(--color-citolab-600, #00a748);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Too narrow for two columns: the source goes above its questions. */
+@media (max-width: 767px) {
+  qti-assessment-section:has(> [data-shared-stimulus-block]) {
+    display: block;
+  }
+
+  qti-assessment-section > [data-shared-stimulus-block] {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    margin-bottom: 1.5rem;
+  }
+
+  qti-assessment-item-ref[data-question-number] {
+    padding: 1rem 0.5rem 1rem 0;
+  }
+}

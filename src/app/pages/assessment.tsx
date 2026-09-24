@@ -58,14 +58,17 @@ import {
   groupItemRefsBySharedStimulus,
 } from "../qti/test-layout-transforms";
 import {
-  bookletCss,
+  bookletCssFor,
   decorateQuestionBadges,
+  decorateSectionItemNumbers,
   hoistSharedStimuli,
   observeBookletScroll,
   syncBookmarkButtons,
   scrollToBookletItem,
 } from "../qti/booklet";
 import { itemKey, useStimulusRefs } from "../qti/use-stimulus-refs";
+import { usePageLoading } from "../qti/use-page-loading";
+import { PageLoadingSkeleton } from "../components/page-loading-skeleton";
 import { VerticalNavigationPane } from "../components/vertical-navigation-pane";
 
 /* React */
@@ -1159,6 +1162,44 @@ export const AssessmentPage: React.FC = () => {
       : currentItemRefIdentifier;
 
   /**
+   * The page stays hidden while the runner assembles it — items connecting,
+   * the stimulus landing and being lifted into its column, images arriving —
+   * and a skeleton of the same shape holds its place. The hoist runs once more
+   * right before the reveal, so the source is already in its column when the
+   * page appears rather than moving there a beat later.
+   */
+  const {
+    loading: pageLoading,
+    showSkeleton: showPageSkeleton,
+    target: pageLoadingTarget,
+  } = usePageLoading({
+    qtiTestElement,
+    testContainerRef,
+    beforeReveal: isBookletLayout ? hoistSharedStimuli : undefined,
+  });
+
+  /** What the page being loaded holds, so the skeleton can take its shape. */
+  const pageSkeletonShape = useMemo(() => {
+    const itemRefIds =
+      pageLoadingTarget?.type === "section"
+        ? (grouping?.itemRefsBySection.get(pageLoadingTarget.id) ?? [])
+        : pageLoadingTarget
+          ? [pageLoadingTarget.id]
+          : [];
+    return {
+      withStimulus:
+        !isVerticalLayout &&
+        itemRefIds.some((id) => stimulusRefs.primaryStimulusByItem.has(id)),
+      questionCount: isVerticalLayout ? 3 : Math.min(itemRefIds.length, 4),
+    };
+  }, [
+    grouping,
+    isVerticalLayout,
+    pageLoadingTarget,
+    stimulusRefs.primaryStimulusByItem,
+  ]);
+
+  /**
    * Whether vertical mode's left pane is on screen. Off on the intro and the
    * overview, which both take the whole surface.
    */
@@ -1422,10 +1463,17 @@ export const AssessmentPage: React.FC = () => {
       observer.disconnect();
       try {
         hoistSharedStimuli(container);
-        decorateQuestionBadges(container, displayNumbers, {
-          bookmarkedIds: bookmarkedItemRefIdsRef.current,
-          onToggle: toggleBookmark,
-        });
+        // Vertical mode gives every question a card header with its number,
+        // bookmark and score. Classic only numbers the questions of a page
+        // that holds several; the toolbar keeps the bookmark.
+        if (isVerticalLayout) {
+          decorateQuestionBadges(container, displayNumbers, {
+            bookmarkedIds: bookmarkedItemRefIdsRef.current,
+            onToggle: toggleBookmark,
+          });
+        } else {
+          decorateSectionItemNumbers(container, displayNumbers);
+        }
       } finally {
         if (!disposed) {
           observer.observe(root, { childList: true, subtree: true });
@@ -1458,6 +1506,7 @@ export const AssessmentPage: React.FC = () => {
   }, [
     displayNumbers,
     isBookletLayout,
+    isVerticalLayout,
     qtiTestElement,
     showIntro,
     isOverviewOpen,
@@ -1469,9 +1518,9 @@ export const AssessmentPage: React.FC = () => {
    * the side pane and the overview. Repaint them whenever the set changes.
    */
   useEffect(() => {
-    if (!isBookletLayout) return;
+    if (!isVerticalLayout) return;
     syncBookmarkButtons(testContainerRef.current, bookmarkedItemRefIds);
-  }, [bookmarkedItemRefIds, isBookletLayout]);
+  }, [bookmarkedItemRefIds, isVerticalLayout]);
 
   /**
    * Vertical mode only: the scroll position is what "the current question"
@@ -1633,15 +1682,16 @@ export const AssessmentPage: React.FC = () => {
                     >
                       <ToolBar
                         marked={bookmarkedItemRefIds.has(
-                          currentItemRefIdentifier,
+                          currentPositionItemRefId,
                         )}
                         onMarkCurrentItem={handleMarkCurrentItem}
-                        // A booklet page carries a bookmark on every question
-                        // it shows, so the toolbar's own -- which can only ever
+                        // Vertical mode carries a bookmark on every question it
+                        // shows, so the toolbar's own -- which can only ever
                         // mean "the one in view" -- would be a second, vaguer
-                        // way to do the same thing. Paged mode keeps it: there
-                        // the question in view is the only one there is.
-                        showBookmark={!isBookletLayout}
+                        // way to do the same thing. Classic keeps it, and on a
+                        // shared-stimulus page it marks the page's first
+                        // question, the one its nav pill opens on.
+                        showBookmark={!isVerticalLayout}
                         onZoomIn={handleZoomIn}
                         onZoomOut={handleZoomOut}
                         onResetZoom={handleResetZoom}
@@ -1712,36 +1762,51 @@ export const AssessmentPage: React.FC = () => {
                   ) : (
                     <div
                       className={
-                        isBookletLayout
-                          ? // A booklet reads at one column, and vertical mode
-                            // needs a viewport of slack below the last question
-                            // so it can still be scrolled to the top of the pane.
-                            `mx-auto w-full max-w-3xl px-4 pt-6 ${
-                              isVerticalLayout ? "pb-[70vh]" : "pb-6"
-                            }`
-                          : "flex justify-center p-6 min-h-full"
+                        isVerticalLayout
+                          ? // A booklet reads at one column, and needs a
+                            // viewport of slack below the last question so it
+                            // can still be scrolled to the top of the pane.
+                            "relative mx-auto w-full max-w-3xl px-4 pt-6 pb-[70vh]"
+                          : "relative flex justify-center p-6 min-h-full"
                       }
                     >
                       <test-container
                         ref={attachTestContainer}
                         customElementRegistry={scopedRegistry}
-                        className={
-                          isBookletLayout
+                        // Hidden, not unmounted: the runner needs a laid-out
+                        // container to render into while the page loads.
+                        className={`transition-opacity duration-200 ${
+                          pageLoading ? "invisible opacity-0" : "opacity-100"
+                        } ${
+                          isVerticalLayout
                             ? "custom-qti-style cito-style block w-full"
-                            : "custom-qti-style cito-style w-full max-w-4xl"
-                        }
+                            : groupsSharedStimuli
+                              ? // Room for the source beside its questions;
+                                // booklet-classic.css narrows a page without
+                                // one back to the single-item width.
+                                "custom-qti-style cito-style block w-full max-w-7xl"
+                              : "custom-qti-style cito-style w-full max-w-4xl"
+                        }`}
                         testURL={assessment?.testUrl}
                       >
                         <template
                           dangerouslySetInnerHTML={{
                             __html: `<style>${itemCss}</style>${
                               isBookletLayout
-                                ? `<style>${bookletCss}</style>`
+                                ? `<style>${bookletCssFor(layoutMode)}</style>`
                                 : ""
                             }`,
                           }}
                         ></template>
                       </test-container>
+                      {showPageSkeleton && (
+                        <div className="absolute inset-x-0 top-0 px-6 pt-6">
+                          <PageLoadingSkeleton
+                            withStimulus={pageSkeletonShape.withStimulus}
+                            questionCount={pageSkeletonShape.questionCount}
+                          />
+                        </div>
+                      )}
                       {/* The end of the booklet. Vertical mode has no footer
                           bar, so the way on from the last question has to live
                           on the page -- and reaching it costs a scroll past
@@ -1875,6 +1940,9 @@ export const AssessmentPage: React.FC = () => {
                             <NavigationBar
                               onClick={handleNavigationBarClick}
                               stampContext={navStampContext}
+                              groupOf={
+                                groupsSharedStimuli ? sectionOf : undefined
+                              }
                               bookmarkedItemIds={Array.from(
                                 bookmarkedItemRefIds,
                               )}

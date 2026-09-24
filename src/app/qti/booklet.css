@@ -4,10 +4,10 @@
  *
  * Used by both layouts that put more than one question on a page: vertical mode
  * (the whole test) and classic mode's shared-stimulus sections (one source and
- * its questions). Three jobs: let the container grow instead of being its own
- * scroller, stack each question as a card with its number in the margin, and
- * drop the two-column stimulus/question split so a reading text sits above its
- * questions the way it does in the printed booklet.
+ * its questions). Only what the two share lives here: the container grows
+ * instead of being its own scroller, and a hoisted source is shown once. Each
+ * layout adds its own sheet on top — `booklet-vertical.css` stacks questions as
+ * numbered cards, `booklet-classic.css` puts the source beside its questions.
  *
  * Adapted from `verticalItemCss` in cito-test-uit's AssessmentPlayerView.
  */
@@ -21,138 +21,8 @@
   display: block;
 }
 
-qti-assessment-item-ref[identifier] {
-  position: relative;
-  display: block;
-  margin: 0 0 1rem 0;
-  /* Top padding reserves the badge row, so the question never runs under it and
-     the label is free to grow ("12" / "2p") without eating text width. */
-  padding: 3rem 1.5rem 1.5rem 1.5rem;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
-  /* A little breathing room above a question jumped to from the nav bar. */
-  scroll-margin-top: 1rem;
-}
-
-/* Question header: sequence number and bookmark toggle in the top-left corner,
-   what it is worth in the top-right. Spanning the card and pushing the two
-   groups apart keeps each pinned to its own corner however wide the labels
-   get. */
-[data-question-header] {
-  position: absolute;
-  top: 0.875rem;
-  left: 1.5rem;
-  right: 1.5rem;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  pointer-events: none;
-}
-
-[data-question-number-badge],
-[data-question-score-badge] {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 1.5rem;
-  padding: 0 0.625rem;
-  border-radius: 9999px;
-  background: #fff;
-  font-size: 0.75rem;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-[data-question-number-badge] {
-  min-width: 1.75rem;
-  border: 1px solid var(--color-citolab-600, #00a748);
-  color: var(--color-citolab-700, #00742f);
-  font-weight: 700;
-}
-
-[data-question-score-badge] {
-  border: 1px solid #d1d5db;
-  color: #4b5563;
-  font-weight: 600;
-}
-
-/* The bookmark sits beside the number; an auto right margin takes the slack the
-   header's space-between would otherwise put between them, so the two stay a
-   pair and the score badge keeps the right-hand corner to itself. */
-[data-question-bookmark] {
-  margin-right: auto;
-  /* The header itself is click-through so it cannot shadow the question. */
-  pointer-events: auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  /* Same 1.5rem box as the two badges, so all three sit on one line. */
-  height: 1.5rem;
-  width: 1.5rem;
-  padding: 0;
-  border: 1px solid #d1d5db;
-  border-radius: 9999px;
-  background: #fff;
-  color: #6b7280;
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease,
-    color 0.15s ease;
-}
-
-[data-question-bookmark] svg {
-  height: 0.875rem;
-  width: 0.875rem;
-}
-
-[data-question-bookmark]:hover {
-  border-color: #9ca3af;
-  background: #f9fafb;
-  color: #374151;
-}
-
-[data-question-bookmark]:focus-visible {
-  outline: 2px solid var(--color-citolab-600, #00a748);
-  outline-offset: 1px;
-}
-
-[data-question-bookmark][aria-pressed="true"] {
-  border-color: #f59e0b;
-  background: #fffbeb;
-  color: #f59e0b;
-}
-
-[data-question-bookmark][aria-pressed="true"]:hover {
-  border-color: #d97706;
-  background: #fef3c7;
-  color: #d97706;
-}
-
-/* The question the reader is on, so the nav bar and the page agree. */
-qti-assessment-item-ref[data-question-current] {
-  border-color: var(--color-citolab-600, #00a748);
-  box-shadow: 0 0 0 1px var(--color-citolab-600, #00a748);
-}
-
-/* Booklet chapter heading, from the section this question came from. */
-[data-section-start][data-source-section-title] {
-  margin-top: 3rem;
-}
-
-[data-section-start][data-source-section-title]::after {
-  content: attr(data-source-section-title);
-  position: absolute;
-  top: -2.25rem;
-  left: 0;
-  font-size: 1rem;
-  font-weight: 700;
-  color: #374151;
-}
-
-/* Drop the booklet's side-by-side split: the question gets the full width, and
-   its source sits above it in a card of its own (see below). */
+/* Drop the item's own stimulus/question split: the source has been lifted out
+   of the item (see booklet.ts), so the question takes the item's full width. */
 qti-assessment-item-ref .qti-layout-row {
   flex-wrap: wrap !important;
 }
@@ -163,45 +33,13 @@ qti-assessment-item-ref [class*="qti-layout-col"] {
   max-width: 100% !important;
 }
 
-/* A shared source is shown once, in its own card above the questions that use
-   it, so every copy still sitting inside a question card goes. */
+/* A shared source is shown once, in a block of its own, so every copy still
+   sitting inside a question goes. */
 [data-stimulus-idref][data-stimulus-duplicate],
 qti-assessment-item-ref [data-stimulus-hoisted] {
   display: none;
 }
 
-/* The lifted source: the same card as a question, minus the badge row — the
-   numbering starts at the first real question below it. */
 [data-shared-stimulus-block] {
-  position: relative;
   display: block;
-  margin: 0 0 1rem 0;
-  padding: 1.5rem;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
-  scroll-margin-top: 1rem;
-}
-
-/* Phones: 1.5rem of card padding on each side is a sixth of the screen, so
-   trade most of it for text width. Media queries inside a shadow root still
-   resolve against the viewport, so this is a real breakpoint. */
-@media (max-width: 640px) {
-  qti-assessment-item-ref[identifier] {
-    padding: 2.75rem 0.875rem 1rem 0.875rem;
-  }
-
-  [data-question-header] {
-    top: 0.625rem;
-    left: 0.875rem;
-    right: 0.875rem;
-  }
-
-  [data-section-start][data-source-section-title]::after {
-    font-size: 0.9375rem;
-  }
-
-  [data-shared-stimulus-block] {
-    padding: 1rem 0.875rem;
-  }
 }

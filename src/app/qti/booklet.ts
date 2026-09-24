@@ -9,9 +9,17 @@
  *
  * Adapted from `applyStimulusReferences.ts` in cito-test-uit's ui package.
  */
+import type { AssessmentLayoutMode } from "./layout-mode";
 import bookletCss from "./booklet.css?inline";
+import classicBookletCss from "./booklet-classic.css?inline";
+import verticalBookletCss from "./booklet-vertical.css?inline";
 
-export { bookletCss };
+/**
+ * The booklet stylesheet for one layout: what both share, plus that layout's
+ * own — numbered cards in vertical mode, source-beside-questions in classic.
+ */
+export const bookletCssFor = (mode: AssessmentLayoutMode): string =>
+  `${bookletCss}\n${mode === "vertical" ? verticalBookletCss : classicBookletCss}`;
 
 /** Marks the block a hoisted stimulus is lifted into. */
 const BLOCK_ATTR = "data-shared-stimulus-block";
@@ -223,6 +231,39 @@ export const decorateQuestionBadges = (
         (node): node is Element => node !== null,
       ),
     );
+  });
+};
+
+/**
+ * Classic mode's per-question number: an attribute CSS draws as a badge.
+ *
+ * Only when several questions share the screen — a single question needs no
+ * number beside the nav bar's. `displayNumbers` maps an item-ref identifier to
+ * its 1-based question number.
+ *
+ * Adapted from `decorateSectionItemNumbers` in cito-test-uit.
+ */
+export const decorateSectionItemNumbers = (
+  testContainer: HTMLElement | null,
+  displayNumbers: ReadonlyMap<string, number>,
+): void => {
+  const root = bookletRoot(testContainer);
+  if (!root) return;
+
+  const rendered = new Set(renderedItemRefs(root));
+  const showNumbers = rendered.size > 1;
+
+  root.querySelectorAll("qti-assessment-item-ref").forEach((itemRef) => {
+    const number = displayNumbers.get(itemRef.getAttribute("identifier") ?? "");
+    if (
+      showNumbers &&
+      rendered.has(itemRef as HTMLElement) &&
+      typeof number === "number"
+    ) {
+      itemRef.setAttribute("data-question-number", String(number));
+    } else {
+      itemRef.removeAttribute("data-question-number");
+    }
   });
 };
 

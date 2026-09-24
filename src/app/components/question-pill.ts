@@ -13,6 +13,8 @@ export type QuestionPillFlags = {
   isActive?: boolean;
   isMarked?: boolean;
   isInfo?: boolean;
+  /** A pill standing for several questions ("3-4"), which needs the room. */
+  isGroup?: boolean;
 };
 
 /**
@@ -23,10 +25,10 @@ export type QuestionPillFlags = {
  */
 export function questionPillClasses(
   responseState: ResponseState,
-  { isActive, isMarked, isInfo }: QuestionPillFlags = {},
+  { isActive, isMarked, isInfo, isGroup }: QuestionPillFlags = {},
 ): string {
   let classes =
-    "relative w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium cursor-pointer transition-all duration-300 select-none transform";
+    `relative ${isGroup ? "w-14" : "w-10"} h-10 rounded-full flex items-center justify-center text-sm font-medium cursor-pointer transition-all duration-300 select-none transform`;
 
   const isComplete = responseState === "complete";
 
