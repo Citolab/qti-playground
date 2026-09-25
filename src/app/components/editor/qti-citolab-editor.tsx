@@ -8,6 +8,7 @@ import {
   List,
   Plus,
   Redo2,
+  RemoveFormatting,
   Square,
   Trash2,
   Underline,
@@ -435,6 +436,7 @@ function QtiCitolabEditorToolbar({ editor }: { editor: Editor }) {
     toggleBold?: () => boolean;
     toggleUnderline?: () => boolean;
     toggleList?: (attrs?: { kind?: "bullet" }) => boolean;
+    clearFormatting?: () => boolean;
   };
 
   const runCommand = (command?: () => boolean) => {
@@ -501,6 +503,16 @@ function QtiCitolabEditorToolbar({ editor }: { editor: Editor }) {
         }
       >
         <List className="h-4 w-4" />
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        aria-label="Clear formatting"
+        title="Clear formatting (Ctrl/Cmd+\)"
+        onClick={() => runCommand(commands.clearFormatting)}
+      >
+        <RemoveFormatting className="h-4 w-4" />
       </Button>
 
       <div className="mx-1 h-5 w-px bg-gray-200" />

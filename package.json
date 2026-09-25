@@ -14,8 +14,8 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
-    "@citolab/prose-extensions": "^1.6.1",
-    "@citolab/prose-qti": "^1.22.0",
+    "@citolab/prose-extensions": "^1.8.1",
+    "@citolab/prose-qti": "^1.24.1",
     "@citolab/qti-api": "^9.1.0",
     "@citolab/qti-browser-import": "^0.7.1",
     "@citolab/qti-components": "^9.1.0",

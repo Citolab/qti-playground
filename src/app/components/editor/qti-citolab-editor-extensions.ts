@@ -17,6 +17,7 @@ import {
   listInteractionPluginFactories,
   listInteractionSchemaNodeSpecs,
 } from "@citolab/prose-qti/core/interactions/composer";
+import { defineClearFormattingExtension } from "@citolab/prose-qti/integration/interactions/prosekit";
 import {
   constrainedEnd,
   constrainedHome,
@@ -45,6 +46,48 @@ function defineQtiPlaygroundInteractionsExtension() {
       defineNodeSpec({ name: "table", group: "block richtext" }),
     );
   }
+
+  // ProseKit's cell content is `block+`, and interactions are `group: 'block'` too, so filling a
+  // new empty cell picked whichever block node sorts first -- an interaction, not a paragraph.
+  // Naming paragraph first makes it the filler without narrowing what a cell accepts. prose-qti
+  // ships this in `@citolab/prose-extensions`' basic extension; this app uses ProseKit's own.
+  nodeSpecExtensions.push(
+    defineNodeSpec({ name: "tableCell", content: "(paragraph | block)+" }),
+    defineNodeSpec({ name: "tableHeaderCell", content: "(paragraph | block)+" }),
+  );
+
+  // prose-qti's choice and prompt paragraphs are `(text | image)*`, which only builds when `image`
+  // is inline. ProseKit's image is a block node, so without this the schema throws "Mixing inline
+  // and block content" and the editor never mounts. prose-qti's own basic extension ships the same
+  // inline image; this app keeps ProseKit's basic extension for its bold/italic/underline marks.
+  nodeSpecExtensions.push(
+    defineNodeSpec({
+      name: "image",
+      inline: true,
+      group: "inline",
+      draggable: true,
+      attrs: {
+        src: { default: null },
+        alt: { default: null },
+        title: { default: null },
+        width: { default: null },
+        height: { default: null },
+      },
+      parseDOM: [
+        {
+          tag: "img[src]",
+          getAttrs: (element) => ({
+            src: element.getAttribute("src") || null,
+            alt: element.getAttribute("alt") || null,
+            title: element.getAttribute("title") || null,
+            width: element.getAttribute("width") || null,
+            height: element.getAttribute("height") || null,
+          }),
+        },
+      ],
+      toDOM: (node) => ["img", node.attrs],
+    }),
+  );
 
   const keymap: Record<string, Command> = {};
   const enterCommands = descriptors
@@ -162,6 +205,9 @@ export function defineQtiPlaygroundExtension() {
     defineQtiPlaygroundInteractionsExtension(),
     defineQtiPlaygroundDecorationsExtension(),
     defineQtiLayoutExtension(),
+    // "Opmaak wissen": a `clearFormatting` command plus `Mod-\`. Opt-in upstream, like the
+    // decorators, because it is an authoring affordance.
+    defineClearFormattingExtension(),
     // Shift+arrows / mouse drag select whole blocks (e.g. a full interaction),
     // matching the qti-editor apps.
     blockSelectExtension,
