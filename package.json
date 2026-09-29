@@ -19,7 +19,7 @@
     "@citolab/qti-api": "^9.1.0",
     "@citolab/qti-browser-import": "^0.8.1",
     "@citolab/qti-components": "file:.yalc/@citolab/qti-components",
-    "@citolab/qti-convert": "^0.8.1",
+    "@citolab/qti-convert": "^0.8.2",
     "@citolab/qti-convert-export": "^0.8.1",
     "@citolab/qti-convert-local-ai": "^0.8.1",
     "@citolab/qti-convert-tao-pci": "^0.8.1",
