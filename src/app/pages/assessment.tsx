@@ -70,6 +70,10 @@ import {
   scrollToBookletItem,
 } from "../qti/booklet";
 import { itemKey, useStimulusRefs } from "../qti/use-stimulus-refs";
+import {
+  applyStimulusReferences,
+  stimulusReferenceCss,
+} from "../qti/stimulus-references";
 import { usePageLoading } from "../qti/use-page-loading";
 import { PageLoadingSkeleton } from "../components/page-loading-skeleton";
 import { VerticalNavigationPane } from "../components/vertical-navigation-pane";
@@ -1614,6 +1618,38 @@ export const AssessmentPage: React.FC = () => {
   ]);
 
   /**
+   * Line references ("(r. 1 en 2)", "alinea 2"): click a question and the
+   * lines it names light up in its reading text. Rewired after every render --
+   * the runner swaps items and stimuli behind our back, and on a booklet page
+   * the decoration pass moves sources around -- with the clicked question kept
+   * across re-runs.
+   */
+  const pinnedReferenceRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (showIntro || isOverviewOpen) return;
+    const container = testContainerRef.current;
+    const root = container?.shadowRoot;
+    if (!container || !root) return;
+
+    let cleanup = applyStimulusReferences(container, pinnedReferenceRef);
+    let timer = 0;
+    const rewire = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        cleanup();
+        cleanup = applyStimulusReferences(container, pinnedReferenceRef);
+      }, 150);
+    };
+    const observer = new MutationObserver(rewire);
+    observer.observe(root, { childList: true, subtree: true });
+    return () => {
+      window.clearTimeout(timer);
+      observer.disconnect();
+      cleanup();
+    };
+  }, [qtiTestElement, layoutMode, showIntro, isOverviewOpen]);
+
+  /**
    * The booklet's bookmark buttons are plain DOM, so they do not re-render with
    * the side pane and the overview. Repaint them whenever the set changes.
    */
@@ -1897,7 +1933,7 @@ export const AssessmentPage: React.FC = () => {
                       >
                         <template
                           dangerouslySetInnerHTML={{
-                            __html: `<style>${itemCss}</style>${
+                            __html: `<style>${itemCss}\n${stimulusReferenceCss}</style>${
                               isBookletLayout
                                 ? `<style>${bookletCssFor(layoutMode)}</style>`
                                 : ""
