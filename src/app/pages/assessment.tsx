@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { itemCss } from "../itemCss";
 import { useScopedQtiRegistry } from "../use-scoped-registry";
+import { syncScopedRegistry } from "../scoped-registry";
 import {
   QTI_PKG_URL_PREFIX,
   detectPciBaseUrl,
@@ -186,6 +187,13 @@ export const AssessmentPage: React.FC = () => {
   const { registry: scopedRegistry, attachRef: attachScopedRegistry } =
     useScopedQtiRegistry();
   const [showVariables, setShowVariables] = useState(false);
+  /** Review Mode: the runner's scorer view, which also shows the answer key. */
+  const [reviewMode, setReviewMode] = useState(false);
+  /** The scoring rubric of the item in view, for the review panel. */
+  const [scoringRubricHtml, setScoringRubricHtml] = useState<string | null>(
+    null,
+  );
+  const [rubricPanelOpen, setRubricPanelOpen] = useState(true);
   const [currentItemIdentifier, setCurrentItemIdentifier] = useState("");
   const [currentItemRefIdentifier, setCurrentItemRefIdentifier] = useState("");
   const isOverviewOpen = queryParams.get("overview") === "true";
@@ -342,6 +350,15 @@ export const AssessmentPage: React.FC = () => {
       transformer: transformItemApi,
       itemRef?: QtiAssessmentItemRef,
     ) => {
+      // Define the item's tags in the player's registry before it renders. The
+      // registry is seeded with the interactions only, and mirrors the rest in
+      // as they appear -- so without this `qti-assessment-item` upgraded after
+      // its interactions had connected, their `qti-register-interaction` went
+      // unheard, and the item's `interactionElements` stayed empty: no answer
+      // key in Review Mode. The preview page does the same before it renders.
+      if (scopedRegistry && transformer?.xmlDoc) {
+        syncScopedRegistry(scopedRegistry, transformer.xmlDoc());
+      }
       if (!packageRootUrl || !transformer?.configurePci) return transformer;
 
       const itemHref = itemRef?.getAttribute?.("href") || "";
@@ -577,7 +594,7 @@ export const AssessmentPage: React.FC = () => {
         return transformer;
       }
     },
-    [assessmentTestUrl, packageRootUrl],
+    [assessmentTestUrl, packageRootUrl, scopedRegistry],
   );
 
   /**
@@ -780,15 +797,83 @@ export const AssessmentPage: React.FC = () => {
   }, [assessment?.id, qtiTestElement, testContexts, liveContextElement]);
 
   const handleToggle = useCallback((mode: string) => {
+    setReviewMode(mode === "scorer");
+    // Reopen the rubric panel on every switch to review, even if it was closed.
+    if (mode === "scorer") setRubricPanelOpen(true);
     if (qtiTestRef.current)
       qtiTestRef.current.dispatchEvent(
-        new CustomEvent("on-test-switch-view", {
+        new CustomEvent("cito-test-switch-view", {
           composed: true,
           bubbles: true,
           detail: mode,
         }),
       );
   }, []);
+
+  /**
+   * The answer key on every question on the page, not only the active one.
+   *
+   * The scorer view marks the correct response through
+   * `QtiTestCorrection.updateAssessmentItemView`, but on a switch it only
+   * reaches the item at `navItemRefId` -- and a booklet page has none, so its
+   * questions kept their key hidden. Items that connect later are covered by
+   * the runner itself (it applies the view on `qti-assessment-item-connected`).
+   */
+  useEffect(() => {
+    const root = testContainerRef.current?.shadowRoot;
+    if (!root) return;
+    root
+      .querySelectorAll<
+        HTMLElement & {
+          assessmentItem?: { showCorrectResponse?: (show: boolean) => void };
+        }
+      >("qti-assessment-item-ref")
+      .forEach((itemRef) =>
+        itemRef.assessmentItem?.showCorrectResponse?.(reviewMode),
+      );
+  }, [reviewMode, qtiTestElement]);
+
+  /**
+   * Review Mode on a one-question page: the item's scoring rubric moves out of
+   * the question into a panel that can be dragged clear of it (adapted from
+   * cito-test-uit's Correctievoorschrift panel). A booklet page has no panel;
+   * the scorer view already shows each rubric inline, beside its question.
+   */
+  const showRubricPanel = reviewMode && !isBookletLayout;
+  useEffect(() => {
+    const container = testContainerRef.current;
+    const root = container?.shadowRoot;
+    if (!showRubricPanel || !container || !root) {
+      setScoringRubricHtml(null);
+      return;
+    }
+
+    const hidden = new Set<HTMLElement>();
+    const sync = () => {
+      const blocks = Array.from(
+        root.querySelectorAll<HTMLElement>(
+          'qti-rubric-block[use="scoring"], qti-rubric-block[view~="scorer"]',
+        ),
+      ).filter((block) => block.closest("qti-assessment-item"));
+      const html = new Set<string>();
+      blocks.forEach((block) => {
+        const body = block.querySelector("qti-content-body") ?? block;
+        const content = body.innerHTML.trim();
+        if (content) html.add(content);
+        block.style.display = "none";
+        hidden.add(block);
+      });
+      setScoringRubricHtml(html.size ? [...html].join("<hr />") : null);
+    };
+
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(root, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      hidden.forEach((block) => (block.style.display = ""));
+    };
+  }, [showRubricPanel, qtiTestElement, layoutMode]);
 
   /**
    * Put the persisted answers back after the runner has wiped its own context.
@@ -1996,6 +2081,22 @@ export const AssessmentPage: React.FC = () => {
                   </div>
                 )}
               </test-stamp>
+              <DraggablePopup
+                isOpen={
+                  showRubricPanel && rubricPanelOpen && !!scoringRubricHtml
+                }
+                onClose={() => setRubricPanelOpen(false)}
+                setIsOpen={setRubricPanelOpen}
+                title="Scoring rubric"
+                storageKey="rubricPanelState"
+              >
+                {/* The item's own rubric markup, already rendered in the
+                    player; the package is the user's, nothing leaves the page. */}
+                <div
+                  className="prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: scoringRubricHtml ?? "" }}
+                />
+              </DraggablePopup>
               <DraggablePopup
                 isOpen={showVariables}
                 onClose={() => setShowVariables(false)}
