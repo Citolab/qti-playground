@@ -95,21 +95,6 @@ const qtiEditorOptimizeDepsInclude = [
   ...prosemirrorDeps,
 ] as const;
 
-const appPackageJson = JSON.parse(
-  fs.readFileSync(path.join(dirname, "package.json"), "utf-8"),
-) as {
-  dependencies?: Record<string, string>;
-};
-
-function normalizeDependencyVersion(spec: string | undefined): string {
-  if (!spec) {
-    return "latest";
-  }
-
-  const match = spec.match(/\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?/);
-  return match?.[0] ?? "latest";
-}
-
 function resolveInstalledPackageRoot(packageName: string): string | null {
   const packageRoot = path.join(dirname, "node_modules", ...packageName.split("/"));
   if (!fs.existsSync(packageRoot)) {
@@ -119,9 +104,6 @@ function resolveInstalledPackageRoot(packageName: string): string | null {
   return fs.realpathSync(packageRoot);
 }
 
-const qtiComponentsVersion = normalizeDependencyVersion(
-  appPackageJson.dependencies?.["@citolab/qti-components"],
-);
 const qtiComponentsRoot = resolveInstalledPackageRoot("@citolab/qti-components");
 const pdfWorkerSourcePath = path.join(
   dirname,
@@ -216,51 +198,62 @@ function spaHtmlFallbackForPackageRoute(): Plugin {
   };
 }
 
-function localQtiComponentsAssets(): Plugin {
-  const cdnPath = qtiComponentsRoot
-    ? path.join(qtiComponentsRoot, "cdn/index.js")
+/**
+ * Serves the installed qti-components bundle and item stylesheet from the app itself, at
+ * QTI_COMPONENTS_ASSETS, in dev and in the build. The PCI iframe imports that bundle and waits
+ * for it before it starts the PCI, so a slow or hanging CDN kept PCIs from loading at all; the
+ * copy here is also always the version the app was built against. `/cdn/index.js` is where
+ * qti-components looks on localhost when an item does not say.
+ */
+const QTI_COMPONENTS_ASSETS = {
+  bundle: "qti-components/index.js",
+  css: "qti-components/item.css",
+};
+
+function qtiComponentsAssets(): Plugin {
+  const sources = qtiComponentsRoot
+    ? {
+        bundle: path.join(qtiComponentsRoot, "cdn/index.js"),
+        css: path.join(qtiComponentsRoot, "dist/item.css"),
+      }
     : null;
-  const cssPath = qtiComponentsRoot
-    ? path.join(qtiComponentsRoot, "dist/item.css")
-    : null;
+  const routes = sources
+    ? new Map([
+        [`/${QTI_COMPONENTS_ASSETS.bundle}`, sources.bundle],
+        ["/cdn/index.js", sources.bundle],
+        [`/${QTI_COMPONENTS_ASSETS.css}`, sources.css],
+      ])
+    : new Map<string, string>();
 
   return {
-    name: "qti-playground-local-qti-components-assets",
+    name: "qti-playground-qti-components-assets",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        const url = req.url?.split("?", 1)[0] || "";
-        if (
-          cdnPath &&
-          (url === "/local-qti-components-cdn/index.js" || url === "/cdn/index.js")
-        ) {
-          res.setHeader("Content-Type", "application/javascript; charset=utf-8");
-          fs.createReadStream(cdnPath).pipe(res);
-          return;
-        }
-        if (cssPath && url === "/local-qti-components-dist/item.css") {
-          res.setHeader("Content-Type", "text/css; charset=utf-8");
-          fs.createReadStream(cssPath).pipe(res);
-          return;
-        }
-        next();
+        const file = routes.get(req.url?.split("?", 1)[0] || "");
+        if (!file) return next();
+        res.setHeader(
+          "Content-Type",
+          file.endsWith(".css") ? "text/css; charset=utf-8" : "application/javascript; charset=utf-8",
+        );
+        fs.createReadStream(file).pipe(res);
       });
+    },
+    generateBundle() {
+      if (!sources) {
+        this.error("@citolab/qti-components is not installed, so its bundle cannot be copied into the build");
+      }
+      for (const key of ["bundle", "css"] as const) {
+        this.emitFile({
+          type: "asset",
+          fileName: QTI_COMPONENTS_ASSETS[key],
+          source: fs.readFileSync(sources[key]),
+        });
+      }
     },
   };
 }
 
-export default defineConfig(({ mode }) => {
-  const hasLocalQtiComponentsAssets =
-    !!qtiComponentsRoot &&
-    fs.existsSync(path.join(qtiComponentsRoot, "cdn/index.js")) &&
-    fs.existsSync(path.join(qtiComponentsRoot, "dist/item.css"));
-  const useRemoteQtiComponentsAssets = mode === "production" || !hasLocalQtiComponentsAssets;
-  const qtiComponentsCdnUrl = useRemoteQtiComponentsAssets
-    ? `https://unpkg.com/@citolab/qti-components@${qtiComponentsVersion}/cdn/index.js`
-    : "/cdn/index.js";
-  const qtiComponentsCssUrl = useRemoteQtiComponentsAssets
-    ? `https://unpkg.com/@citolab/qti-components@${qtiComponentsVersion}/dist/item.css`
-    : "/local-qti-components-dist/item.css";
-
+export default defineConfig(() => {
   return {
     plugins: [
       {
@@ -284,13 +277,13 @@ export default defineConfig(({ mode }) => {
       qtiTypeScriptTransform(),
       lazyTaoPciConversion(),
       spaHtmlFallbackForPackageRoute(),
-      localQtiComponentsAssets(),
+      qtiComponentsAssets(),
       react(),
       tailwindcss(),
     ],
     define: {
-      __QTI_COMPONENTS_CDN_URL__: JSON.stringify(qtiComponentsCdnUrl),
-      __QTI_COMPONENTS_CSS_URL__: JSON.stringify(qtiComponentsCssUrl),
+      __QTI_COMPONENTS_CDN_URL__: JSON.stringify(`/${QTI_COMPONENTS_ASSETS.bundle}`),
+      __QTI_COMPONENTS_CSS_URL__: JSON.stringify(`/${QTI_COMPONENTS_ASSETS.css}`),
     },
     resolve: {
       alias: {

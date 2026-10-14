@@ -47,6 +47,7 @@ export class DepPopup extends LitElement {
   @state() private popupPosition = { top: 0, left: 0 };
   @state() private isDragging = false;
   @state() private dragOffset = { x: 0, y: 0 };
+  @state() private imageOnlyTrigger = false;
 
   // Static counter for z-index stacking and offset for multiple popups
   private static zIndexCounter = 10000;
@@ -57,6 +58,16 @@ export class DepPopup extends LitElement {
     :host {
       display: inline-block;
       position: relative;
+    }
+
+    /* The trigger opens the popup, so it shows it can be clicked: a thumbnail that opens an
+       enlargement gets the zoom-in cursor, any other trigger the pointer. */
+    .trigger {
+      cursor: pointer;
+    }
+
+    .trigger.image-only {
+      cursor: zoom-in;
     }
 
     .popup-backdrop {
@@ -162,6 +173,18 @@ export class DepPopup extends LitElement {
       justify-content: center;
     }
   `;
+
+  private handleTriggerSlotChange(e: Event) {
+    const nodes = (e.target as HTMLSlotElement).assignedNodes({ flatten: true });
+    const text = nodes.map((node) => node.textContent ?? "").join("").trim();
+    const hasImage = nodes.some(
+      (node) =>
+        node instanceof Element &&
+        (node.matches("img, picture, svg") ||
+          node.querySelector("img, picture, svg") !== null)
+    );
+    this.imageOnlyTrigger = text === "" && hasImage;
+  }
 
   private togglePopup(e?: Event) {
     if (this.open) {
@@ -365,8 +388,11 @@ export class DepPopup extends LitElement {
 
   override render() {
     return html`
-      <div @click=${this.togglePopup}>
-        <slot></slot>
+      <div
+        class="trigger ${this.imageOnlyTrigger ? "image-only" : ""}"
+        @click=${this.togglePopup}
+      >
+        <slot @slotchange=${this.handleTriggerSlotChange}></slot>
       </div>
 
       ${this.open
