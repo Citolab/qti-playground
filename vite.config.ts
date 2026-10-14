@@ -253,6 +253,54 @@ function qtiComponentsAssets(): Plugin {
   };
 }
 
+/**
+ * Serves Monaco (the XML editors) from the installed monaco-editor package, at MONACO_VS, in dev and in the build.
+ * @monaco-editor/react loads it from cdn.jsdelivr.net by default; src/app/monaco-loader.ts points it here instead,
+ * so the editors need no public CDN and run the version in the lockfile. Monaco still loads lazily, file by file.
+ */
+const MONACO_VS = "monaco/vs";
+const monacoRoot = resolveInstalledPackageRoot("monaco-editor");
+
+function monacoAssets(): Plugin {
+  const source = monacoRoot ? path.join(monacoRoot, "min/vs") : null;
+  const types: Record<string, string> = {
+    ".js": "application/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".ts": "application/javascript; charset=utf-8",
+  };
+  const files = (dir: string): string[] =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = path.join(dir, entry.name);
+      return entry.isDirectory() ? files(full) : [full];
+    });
+
+  return {
+    name: "qti-playground-monaco-assets",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = req.url?.split("?", 1)[0] || "";
+        if (!source || !url.startsWith(`/${MONACO_VS}/`)) return next();
+        const file = path.join(source, decodeURIComponent(url.slice(MONACO_VS.length + 2)));
+        if (!file.startsWith(source + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return next();
+        res.setHeader("Content-Type", types[path.extname(file)] ?? "application/octet-stream");
+        fs.createReadStream(file).pipe(res);
+      });
+    },
+    generateBundle() {
+      if (!source) {
+        this.error("monaco-editor is not installed, so the editors cannot be served from the app");
+      }
+      for (const file of files(source)) {
+        this.emitFile({
+          type: "asset",
+          fileName: path.posix.join(MONACO_VS, path.relative(source, file).split(path.sep).join("/")),
+          source: fs.readFileSync(file),
+        });
+      }
+    },
+  };
+}
+
 export default defineConfig(() => {
   return {
     plugins: [
@@ -278,11 +326,13 @@ export default defineConfig(() => {
       lazyTaoPciConversion(),
       spaHtmlFallbackForPackageRoute(),
       qtiComponentsAssets(),
+      monacoAssets(),
       react(),
       tailwindcss(),
     ],
     define: {
       __QTI_COMPONENTS_CDN_URL__: JSON.stringify(`/${QTI_COMPONENTS_ASSETS.bundle}`),
+      __MONACO_VS_URL__: JSON.stringify(`/${MONACO_VS}`),
       __QTI_COMPONENTS_CSS_URL__: JSON.stringify(`/${QTI_COMPONENTS_ASSETS.css}`),
     },
     resolve: {

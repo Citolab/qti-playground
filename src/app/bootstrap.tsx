@@ -23,6 +23,7 @@ import * as ReactDOM from "react-dom/client";
 // has to stay behind the dynamic import that separates it from app/editor-first.ts.
 import "@citolab/qti-components/corrections";
 import "./dep-tools-register";
+import "./monaco-loader";
 
 import App from "./app";
 import { installLocalSpeechGuard } from "./local-speech";

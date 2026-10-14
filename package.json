@@ -48,6 +48,7 @@
     "katex": "^0.16.47",
     "lit": "^3.3.3",
     "lucide-react": "^1.32.0",
+    "monaco-editor": "^0.57.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.10.38",
     "prosekit": "^0.21.4",
