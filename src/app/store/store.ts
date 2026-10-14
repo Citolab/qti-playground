@@ -208,6 +208,8 @@ interface StoreActions {
   ) => void;
   selectAssessment: (assessmentId: string) => void;
   setBookmarks: (assessmentId: string, itemRefIdentifiers: string[]) => void;
+  /** Forget an assessment's saved answers and bookmarks ("Start again"). */
+  resetAssessmentProgress: (assessmentId: string) => void;
   processPackage: (
     file: File,
     options: { removeStylesheets: boolean; skipValidation: boolean },
@@ -387,6 +389,18 @@ export const useStore = create<Store>()(
 
       selectAssessment: (assessmentId: string) => {
         set({ selectedAssessment: assessmentId });
+      },
+
+      resetAssessmentProgress: (assessmentId: string) => {
+        const { testContexts, bookmarks } = get();
+        const nextBookmarks = { ...bookmarks };
+        delete nextBookmarks[assessmentId];
+        set({
+          testContexts: testContexts.filter(
+            (t) => t.assessmentId !== assessmentId,
+          ),
+          bookmarks: nextBookmarks,
+        });
       },
 
       setBookmarks: (assessmentId: string, itemRefIdentifiers: string[]) => {

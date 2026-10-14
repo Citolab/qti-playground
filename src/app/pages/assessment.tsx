@@ -75,6 +75,18 @@ import {
   stimulusReferenceCss,
 } from "../qti/stimulus-references";
 import { usePageLoading } from "../qti/use-page-loading";
+import { hasRecordedWork } from "../qti/has-recorded-work";
+import { useItemLoadWatchdog } from "../qti/use-item-load-watchdog";
+import {
+  HandInDialog,
+  HandedInScreen,
+  type HandInResult,
+} from "../components/hand-in";
+import {
+  readStoredVolume,
+  storeVolume,
+  useMediaVolume,
+} from "../qti/media-volume";
 import { PageLoadingSkeleton } from "../components/page-loading-skeleton";
 import { VerticalNavigationPane } from "../components/vertical-navigation-pane";
 
@@ -198,6 +210,13 @@ export const AssessmentPage: React.FC = () => {
     null,
   );
   const [rubricPanelOpen, setRubricPanelOpen] = useState(true);
+  const [handInOpen, setHandInOpen] = useState(false);
+  /** Set once handed in; shows the result screen in place of the player. */
+  const [handInResult, setHandInResult] = useState<HandInResult | null>(null);
+  /** Bumped by "Start again" to remount the runner with a blank context. */
+  const [attempt, setAttempt] = useState(0);
+  /** While starting again, the outgoing runner must not save its answers back. */
+  const discardingAnswersRef = useRef(false);
   const [currentItemIdentifier, setCurrentItemIdentifier] = useState("");
   const [currentItemRefIdentifier, setCurrentItemRefIdentifier] = useState("");
   const isOverviewOpen = queryParams.get("overview") === "true";
@@ -226,8 +245,16 @@ export const AssessmentPage: React.FC = () => {
   const [scrolledItemRefIdentifier, setScrolledItemRefIdentifier] =
     useState("");
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [volume, setVolume] = useState(readStoredVolume);
+  const handleVolumeChange = useCallback((level: number) => {
+    setVolume(level);
+    storeVolume(level);
+  }, []);
   /** The `<test-container>` element — the runner renders items into its shadow root. */
   const testContainerRef = useRef<HTMLElement | null>(null);
+  /** The same element as state, for effects that must re-run on a remount. */
+  const [testContainerElement, setTestContainerElement] =
+    useState<HTMLElement | null>(null);
   /** The pane the booklet scrolls in, so "which question am I on" is answerable. */
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   /** A question asked for before the booklet had rendered it. */
@@ -669,11 +696,24 @@ export const AssessmentPage: React.FC = () => {
     window.dispatchEvent(new CustomEvent("qti-test-loaded"));
   }, []);
 
+  /** What was last written to the store, so repeat saves can be skipped. */
+  const lastSavedContextJsonRef = useRef<string | null>(null);
   const handleTestContextUpdated = useCallback(
-    (event: CustomEvent<TestContext>) => {
+    (event: CustomEvent<TestContext>, source?: IQtiTest | null) => {
       const assessmentId = assessment?.id;
       if (!assessmentId) return;
-      const detail = event.detail;
+      // Save what the runner holds *now*, not the event payload: the payload is
+      // a snapshot from when the event fired and can predate the response that
+      // triggered it. The store replaces the context wholesale, so a snapshot
+      // one interaction behind would delete the newest answer from storage
+      // while it stays on screen. (Same fix as cito-test-uit's save.)
+      const live = (source ?? qtiTestRef.current)?.testContext as
+        | TestContext
+        | undefined;
+      const detail =
+        live && Array.isArray(live.items) && live.items.length > 0
+          ? live
+          : event.detail;
       if (!detail) return;
 
       const previous = testContextsRef.current.find(
@@ -702,6 +742,20 @@ export const AssessmentPage: React.FC = () => {
         hasSeenBootContextRef.current = true;
         if (previous) return;
       }
+
+      // Saves now also come from interactions and page hide, so most of them
+      // repeat the last one; skip those rather than rewrite storage.
+      let serialized: string | null = null;
+      try {
+        serialized = JSON.stringify([
+          nextContext.items,
+          nextContext.testOutcomeVariables,
+        ]);
+      } catch {
+        // Unserialisable: save it anyway and compare again next time.
+      }
+      if (serialized && serialized === lastSavedContextJsonRef.current) return;
+      lastSavedContextJsonRef.current = serialized;
 
       // This update comes from the active qti-test instance, so avoid immediately replaying it back.
       lastAppliedContextRef.current = nextContext;
@@ -755,10 +809,46 @@ export const AssessmentPage: React.FC = () => {
   useEffect(() => {
     if (!qtiTestElement) return;
     const listener = (event: Event) =>
-      handleTestContextUpdated(event as CustomEvent<TestContext>);
+      handleTestContextUpdated(
+        event as CustomEvent<TestContext>,
+        qtiTestElement,
+      );
     qtiTestElement.addEventListener("qti-test-context-updated", listener);
+
+    // Save from the live runner on two more occasions: after any interaction
+    // change (a frame later, once the runner has applied it), and when the
+    // page is hidden or closed -- the last moment a save is guaranteed to run.
+    // Read from this effect's element, never the ref: on a remount the ref
+    // already holds the new, blank runner. And only a runner holding answers:
+    // a blank one (not restored yet) would overwrite the stored answers.
+    const saveLive = () => {
+      if (discardingAnswersRef.current) return;
+      const context = qtiTestElement.testContext as ExtendedTestContext;
+      if (!hasRecordedWork(context)) return;
+      handleTestContextUpdated(
+        new CustomEvent("qti-test-context-updated", {
+          detail: context as TestContext,
+        }),
+        qtiTestElement,
+      );
+    };
+    const onInteraction = () => requestAnimationFrame(saveLive);
+    const onHide = () => {
+      if (document.visibilityState === "hidden") saveLive();
+    };
+    qtiTestElement.addEventListener("qti-interaction-changed", onInteraction);
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", saveLive);
     return () => {
       qtiTestElement.removeEventListener("qti-test-context-updated", listener);
+      qtiTestElement.removeEventListener(
+        "qti-interaction-changed",
+        onInteraction,
+      );
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", saveLive);
+      // Unmount (leaving the page, a layout switch): one last save.
+      saveLive();
     };
   }, [handleTestContextUpdated, qtiTestElement]);
 
@@ -782,6 +872,18 @@ export const AssessmentPage: React.FC = () => {
       (ctx) => ctx.assessmentId === assessment.id,
     );
     if (!stored || lastAppliedContextRef.current === stored) return;
+
+    // Only while the runner has no answers of its own. After the first restore
+    // the runner is the only up-to-date copy; a store-side edit that hands back
+    // an older snapshot must not be written over it.
+    if (
+      hasRecordedWork(
+        testElement.testContext as ExtendedTestContext | undefined,
+      )
+    ) {
+      lastAppliedContextRef.current = stored;
+      return;
+    }
 
     const merged = mergeRestoredTestContext(
       testElement.testContext as ExtendedTestContext | undefined,
@@ -1310,8 +1412,32 @@ export const AssessmentPage: React.FC = () => {
     );
   }, [activeSectionItemRefIds, currentPositionItemRefId, groupsSharedStimuli]);
 
+  const storedTestContext = useMemo(
+    () => testContexts.find((ctx) => ctx.assessmentId === assessmentId),
+    [assessmentId, testContexts],
+  );
+
   const responseStateByItemRefId = useMemo(() => {
     const map = new Map<string, "missing" | "incomplete" | "complete">();
+    // The saved answers first. The runner's computed context only knows the
+    // questions it has rendered, so on a fresh load -- the overview opened
+    // straight from a reload -- it reported every question as unanswered.
+    for (const item of storedTestContext?.items ?? []) {
+      const variables = item.variables ?? [];
+      const completed = variables.some(
+        (v) => v.identifier === "completionStatus" && v.value === "completed",
+      );
+      const answered = variables.some(
+        (v) =>
+          v.identifier?.startsWith("RESPONSE") &&
+          v.value != null &&
+          v.value !== "" &&
+          !(Array.isArray(v.value) && v.value.length === 0),
+      );
+      if (item.identifier && (completed || answered)) {
+        map.set(item.identifier, completed ? "complete" : "incomplete");
+      }
+    }
     const ctxItems = stampContext?.activeTestpart?.items || [];
     for (const item of ctxItems) {
       const hasNonEmptyResponse =
@@ -1324,10 +1450,114 @@ export const AssessmentPage: React.FC = () => {
           : hasNonEmptyResponse
             ? "incomplete"
             : "missing";
+      // A live "missing" may only mean "not rendered yet"; keep the saved state.
+      if (responseState === "missing" && map.has(item.identifier)) continue;
       map.set(item.identifier, responseState);
     }
     return map;
-  }, [stampContext]);
+  }, [stampContext, storedTestContext]);
+
+  const regularItems = useMemo(
+    () => items.filter((item) => item.type !== "info"),
+    [items],
+  );
+  const regularItemCount = regularItems.length;
+  const answeredCount = regularItems.filter(
+    (item) =>
+      (responseStateByItemRefId.get(item.itemRefIdentifier ?? "") ??
+        "missing") !== "missing",
+  ).length;
+
+  const resetAssessmentProgress = useStore(
+    (state) => state.resetAssessmentProgress,
+  );
+
+  /**
+   * Hand in: end the attempt and show the result. Local only -- there is no
+   * server. The score is what the runner itself computed (`auto-score-items`
+   * scores on every interaction); open questions are left out and counted.
+   */
+  const handIn = useCallback(() => {
+    setHandInOpen(false);
+    const contextItems =
+      ((qtiTestRef.current?.testContext as ExtendedTestContext | undefined)
+        ?.items ?? []) as ExtendedItemContext[];
+    // Live first; the saved copy for questions this runner has not rendered
+    // (the overview, where handing in starts, may follow a fresh load).
+    const storedItems = (storedTestContext?.items ?? []) as ExtendedItemContext[];
+    const numberOf = (
+      itemRefId: string,
+      identifier: string,
+    ): number | null => {
+      const find = (source: ExtendedItemContext[]) =>
+        source
+          .find((ctx) => ctx.identifier === itemRefId)
+          ?.variables?.find((v) => v.identifier === identifier);
+      const variable = find(contextItems) ?? find(storedItems);
+      const value = Number(variable?.value);
+      return variable?.value != null && Number.isFinite(value) ? value : null;
+    };
+
+    let score = 0;
+    let maxScore: number | null = 0;
+    let manuallyScored = 0;
+    const root = testContainerRef.current?.shadowRoot;
+    /** Open questions: the import says so, the runner marks SCORE external, or the page shows one. */
+    const isManuallyScored = (item: (typeof regularItems)[number]) => {
+      const id = item.itemRefIdentifier ?? "";
+      if (item.interactionType === "extendedTextEntry") return true;
+      const scoreVariable = contextItems
+        .find((ctx) => ctx.identifier === id)
+        ?.variables?.find((v) => v.identifier === "SCORE") as
+        | { externalScored?: string | null }
+        | undefined;
+      if (scoreVariable?.externalScored) return true;
+      return !!root?.querySelector(
+        `qti-assessment-item-ref[identifier="${CSS.escape(id)}"] qti-extended-text-interaction`,
+      );
+    };
+    for (const item of regularItems) {
+      const id = item.itemRefIdentifier ?? "";
+      if (isManuallyScored(item)) {
+        manuallyScored += 1;
+        continue;
+      }
+      score += numberOf(id, "SCORE") ?? 0;
+      // Unvisited questions only know their maximum from the import.
+      const max = item.maxScore ?? numberOf(id, "MAXSCORE");
+      maxScore = max === null || maxScore === null ? null : maxScore + max;
+    }
+
+    setOverviewMode(false);
+    setHandInResult({
+      answered: answeredCount,
+      total: regularItemCount,
+      score,
+      maxScore,
+      manuallyScored,
+    });
+  }, [
+    answeredCount,
+    regularItemCount,
+    regularItems,
+    setOverviewMode,
+    storedTestContext,
+  ]);
+
+  /** Start again: forget this attempt's answers and bookmarks, reload the runner. */
+  const startAgain = useCallback(() => {
+    if (!assessmentId) return;
+    discardingAnswersRef.current = true;
+    resetAssessmentProgress(assessmentId);
+    lastSavedContextJsonRef.current = null;
+    setHandInResult(null);
+    setAttempt((current) => current + 1);
+  }, [assessmentId, resetAssessmentProgress]);
+
+  // The new runner is a fresh attempt: its saves count again.
+  useEffect(() => {
+    discardingAnswersRef.current = false;
+  }, [qtiTestElement]);
 
   const overviewNavTargets = useMemo(() => {
     const ctxItems = stampContext?.activeTestpart?.items || [];
@@ -1530,6 +1760,7 @@ export const AssessmentPage: React.FC = () => {
   const attachTestContainer = useCallback(
     (element: HTMLElement | null) => {
       testContainerRef.current = element;
+      setTestContainerElement(element);
       attachScopedRegistry(element);
     },
     [attachScopedRegistry],
@@ -1624,6 +1855,16 @@ export const AssessmentPage: React.FC = () => {
    * the decoration pass moves sources around -- with the clicked question kept
    * across re-runs.
    */
+  /**
+   * A page that never renders gets one silent retry, then a message with a
+   * retry button instead of an empty page.
+   */
+  const { failure: itemLoadFailure, retry: retryItemLoad } =
+    useItemLoadWatchdog(qtiTestElement, isVerticalLayout);
+
+  /** Toolbar volume, applied to every audio/video the runner renders. */
+  const pageHasMedia = useMediaVolume(testContainerElement, volume);
+
   const pinnedReferenceRef = useRef<string | null>(null);
   useEffect(() => {
     if (showIntro || isOverviewOpen) return;
@@ -1775,7 +2016,7 @@ export const AssessmentPage: React.FC = () => {
             </div>
           ) : (
           <qti-test
-            key={layoutMode}
+            key={`${layoutMode}:${attempt}`}
             ref={refCallback}
             cache-transform
             className="h-full min-h-0 flex flex-col"
@@ -1834,6 +2075,9 @@ export const AssessmentPage: React.FC = () => {
                         showSpeech={
                           !isBookletLayout && !showIntro && !isOverviewOpen
                         }
+                        // Only when the page has something to play.
+                        volume={pageHasMedia ? volume : undefined}
+                        onVolumeChange={handleVolumeChange}
                         onZoomIn={handleZoomIn}
                         onZoomOut={handleZoomOut}
                         onResetZoom={handleResetZoom}
@@ -1890,6 +2134,15 @@ export const AssessmentPage: React.FC = () => {
                         setOverviewMode(true);
                       }}
                     />
+                  ) : handInResult ? (
+                    <HandedInScreen
+                      result={handInResult}
+                      onReview={() => {
+                        setHandInResult(null);
+                        setOverviewMode(true);
+                      }}
+                      onStartAgain={startAgain}
+                    />
                   ) : isOverviewOpen ? (
                     <AssessmentOverviewPage
                       items={items}
@@ -1900,6 +2153,7 @@ export const AssessmentPage: React.FC = () => {
                         setOverviewMode(false);
                         goToItem(itemRefIdentifier);
                       }}
+                      onHandIn={() => setHandInOpen(true)}
                     />
                   ) : (
                     <div
@@ -1941,6 +2195,35 @@ export const AssessmentPage: React.FC = () => {
                           }}
                         ></template>
                       </test-container>
+                      {itemLoadFailure && (
+                        <div
+                          role="alert"
+                          className="absolute inset-0 z-10 flex items-start justify-center bg-white/95 p-6 pt-24"
+                        >
+                          <div className="max-w-md rounded-xl border border-gray-200 bg-white p-6 text-center shadow-lg">
+                            <h2 className="mb-2 text-lg font-semibold text-gray-900">
+                              This question could not be loaded
+                            </h2>
+                            <p className="mb-5 text-sm text-gray-600">
+                              Something went wrong while loading{" "}
+                              {itemLoadFailure.type === "section"
+                                ? "this page"
+                                : "this question"}
+                              . Your answers are saved.
+                            </p>
+                            <div className="flex flex-col items-center gap-3">
+                              <Button onClick={retryItemLoad}>Try again</Button>
+                              <button
+                                type="button"
+                                onClick={() => window.location.reload()}
+                                className="text-sm text-citolab-700 underline hover:text-citolab-800"
+                              >
+                                Reload the page
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       {showPageSkeleton && (
                         <div className="absolute inset-x-0 top-0 px-6 pt-6">
                           <PageLoadingSkeleton
@@ -2117,6 +2400,13 @@ export const AssessmentPage: React.FC = () => {
                   </div>
                 )}
               </test-stamp>
+              <HandInDialog
+                open={handInOpen}
+                answered={answeredCount}
+                total={regularItemCount}
+                onConfirm={handIn}
+                onCancel={() => setHandInOpen(false)}
+              />
               <DraggablePopup
                 isOpen={
                   showRubricPanel && rubricPanelOpen && !!scoringRubricHtml

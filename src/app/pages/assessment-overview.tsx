@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
-import { Bookmark, BookOpenText } from "lucide-react";
+import { Bookmark, BookOpenText, Send } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { ItemInfoWithBlobRef } from "../store/store";
 import { ItemPreview } from "../components/item-preview";
 import { Badge } from "@/components/ui/badge";
@@ -145,6 +146,7 @@ export function AssessmentOverviewPage({
   bookmarkedItemRefIds,
   primaryStimulusByItem,
   onOpenItem,
+  onHandIn,
 }: {
   items: ItemInfoWithBlobRef[];
   responseStateByItemRefId: Map<string, ResponseState>;
@@ -152,6 +154,8 @@ export function AssessmentOverviewPage({
   /** Item key → the stimulus it places. See `useStimulusRefs`. */
   primaryStimulusByItem?: ReadonlyMap<string, string>;
   onOpenItem: (itemRefIdentifier: string) => void;
+  /** Shows a "Hand in" button: the overview is where a reader finishes. */
+  onHandIn?: () => void;
 }) {
   const regularItems = items.filter((i) => i.type !== "info");
   const displayNumbers = useMemo(() => {
@@ -216,8 +220,14 @@ export function AssessmentOverviewPage({
 
   return (
     <div className="flex h-full w-full flex-1 flex-col overflow-hidden bg-white">
-      <div className="flex flex-col gap-3 border-b border-gray-200 px-6 py-4">
+      <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-6 py-4">
         <p className="text-xl font-semibold text-gray-900">Overview</p>
+        {onHandIn && (
+          <Button onClick={onHandIn}>
+            <Send className="mr-1 h-4 w-4" />
+            Hand in
+          </Button>
+        )}
       </div>
       <div className="flex-1 overflow-y-auto px-6 py-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

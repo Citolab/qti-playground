@@ -3,6 +3,7 @@ import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { MissingVoiceNotice, SpeechControls } from "./speech-controls";
+import { VolumeControl } from "./volume-control";
 
 export function ToolBar({
   marked,
@@ -15,6 +16,8 @@ export function ToolBar({
   onToggleEdit,
   showBookmark = true,
   showSpeech = false,
+  volume,
+  onVolumeChange,
 }: {
   marked: boolean;
   onMarkCurrentItem: (marked: boolean) => void;
@@ -31,6 +34,9 @@ export function ToolBar({
   showBookmark?: boolean;
   /** Read-aloud for the current item; booklet pages carry their own players. */
   showSpeech?: boolean;
+  /** Audio/video volume; the control shows only when this is given. */
+  volume?: number;
+  onVolumeChange?: (level: number) => void;
 }) {
   const handleMark = useCallback(() => {
     onMarkCurrentItem(!marked);
@@ -65,6 +71,9 @@ export function ToolBar({
       ) : null}
 
       {showSpeech ? <SpeechControls /> : null}
+      {volume !== undefined && onVolumeChange ? (
+        <VolumeControl level={volume} onChange={onVolumeChange} />
+      ) : null}
       <MissingVoiceNotice />
 
       <div className="flex items-center gap-1 bg-white text-gray-800 rounded-full border border-gray-200 shadow-sm px-2 py-1">
