@@ -59,8 +59,10 @@ import {
 } from "../qti/test-layout-transforms";
 import {
   bookletCssFor,
+  decorateClassicSpeechPlayers,
   decorateQuestionBadges,
   decorateSectionItemNumbers,
+  decorateStimulusSpeechPlayers,
   hoistSharedStimuli,
   observeBookletScroll,
   syncBookmarkButtons,
@@ -211,9 +213,6 @@ export const AssessmentPage: React.FC = () => {
    */
   const [scrolledItemRefIdentifier, setScrolledItemRefIdentifier] =
     useState("");
-  const [bookmarkedItemRefIds, setBookmarkedItemRefIds] = useState<Set<string>>(
-    () => new Set(),
-  );
   const [zoomLevel, setZoomLevel] = useState(1);
   /** The `<test-container>` element — the runner renders items into its shadow root. */
   const testContainerRef = useRef<HTMLElement | null>(null);
@@ -271,6 +270,15 @@ export const AssessmentPage: React.FC = () => {
   const { assessmentId } = useParams<{
     assessmentId: string;
   }>();
+  const storedBookmarks = useStore((state) =>
+    assessmentId ? state.bookmarks?.[assessmentId] : undefined,
+  );
+  const setBookmarks = useStore((state) => state.setBookmarks);
+  /** Persisted in the store, so a reload keeps the candidate's bookmarks. */
+  const bookmarkedItemRefIds = useMemo(
+    () => new Set(storedBookmarks ?? []),
+    [storedBookmarks],
+  );
 
   const selectedAssessmentData = assessments?.find(
     (a) => a.id === selectedAssessment,
@@ -1351,15 +1359,15 @@ export const AssessmentPage: React.FC = () => {
   /** Bookmark a named question — any question, not only the one in view. */
   const toggleBookmark = useCallback(
     (itemRefIdentifier: string, marked: boolean) => {
-      if (!itemRefIdentifier) return;
-      setBookmarkedItemRefIds((prev) => {
-        const next = new Set(prev);
-        if (marked) next.add(itemRefIdentifier);
-        else next.delete(itemRefIdentifier);
-        return next;
-      });
+      if (!itemRefIdentifier || !assessmentId) return;
+      const next = new Set(
+        useStore.getState().bookmarks?.[assessmentId] ?? [],
+      );
+      if (marked) next.add(itemRefIdentifier);
+      else next.delete(itemRefIdentifier);
+      setBookmarks(assessmentId, [...next]);
     },
-    [],
+    [assessmentId, setBookmarks],
   );
 
   /** The toolbar's bookmark always aims at whichever question is current. */
@@ -1467,12 +1475,19 @@ export const AssessmentPage: React.FC = () => {
         // bookmark and score. Classic only numbers the questions of a page
         // that holds several; the toolbar keeps the bookmark.
         if (isVerticalLayout) {
-          decorateQuestionBadges(container, displayNumbers, {
-            bookmarkedIds: bookmarkedItemRefIdsRef.current,
-            onToggle: toggleBookmark,
-          });
+          decorateQuestionBadges(
+            container,
+            displayNumbers,
+            {
+              bookmarkedIds: bookmarkedItemRefIdsRef.current,
+              onToggle: toggleBookmark,
+            },
+            true,
+          );
+          decorateStimulusSpeechPlayers(container);
         } else {
           decorateSectionItemNumbers(container, displayNumbers);
+          decorateClassicSpeechPlayers(container);
         }
       } finally {
         if (!disposed) {
@@ -1692,6 +1707,12 @@ export const AssessmentPage: React.FC = () => {
                         // shared-stimulus page it marks the page's first
                         // question, the one its nav pill opens on.
                         showBookmark={!isVerticalLayout}
+                        // The toolbar player reads the current item. A booklet
+                        // page has none -- every question and source there
+                        // carries its own player instead.
+                        showSpeech={
+                          !isBookletLayout && !showIntro && !isOverviewOpen
+                        }
                         onZoomIn={handleZoomIn}
                         onZoomOut={handleZoomOut}
                         onResetZoom={handleResetZoom}

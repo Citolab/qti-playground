@@ -2,6 +2,7 @@ import { Bookmark, BookmarkCheck, Pencil } from "lucide-react";
 import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { MissingVoiceNotice, SpeechControls } from "./speech-controls";
 
 export function ToolBar({
   marked,
@@ -13,6 +14,7 @@ export function ToolBar({
   editing,
   onToggleEdit,
   showBookmark = true,
+  showSpeech = false,
 }: {
   marked: boolean;
   onMarkCurrentItem: (marked: boolean) => void;
@@ -27,6 +29,8 @@ export function ToolBar({
    * every question there carries its own, next to its number.
    */
   showBookmark?: boolean;
+  /** Read-aloud for the current item; booklet pages carry their own players. */
+  showSpeech?: boolean;
 }) {
   const handleMark = useCallback(() => {
     onMarkCurrentItem(!marked);
@@ -59,6 +63,9 @@ export function ToolBar({
           />
         </Button>
       ) : null}
+
+      {showSpeech ? <SpeechControls /> : null}
+      <MissingVoiceNotice />
 
       <div className="flex items-center gap-1 bg-white text-gray-800 rounded-full border border-gray-200 shadow-sm px-2 py-1">
         <Button

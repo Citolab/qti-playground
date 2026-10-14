@@ -25,6 +25,10 @@ import "@citolab/qti-components/corrections";
 import "./dep-tools-register";
 
 import App from "./app";
+import { installLocalSpeechGuard } from "./local-speech";
+
+// Read-aloud may only use voices that run on this machine (see local-speech.ts).
+installLocalSpeechGuard();
 
 // qti-components test navigation initializes QTI_CONTEXT.environmentIdentifier with "default".
 // In assessment mode this can override item-level qti-context-declaration defaults (e.g. CONFORMANCE),

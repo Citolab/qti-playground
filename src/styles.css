@@ -269,3 +269,31 @@ qti-item {
 }
 
 
+
+/* Toolbar read-aloud player (speech-controls.tsx): ghost buttons in a pill, the
+   same look as the zoom group beside it. */
+.speech-controls > *::part(button) {
+  min-inline-size: 2rem;
+  block-size: 2rem;
+  padding-inline: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: #1f2937;
+  --test-tts-icon-size: 1rem;
+}
+
+.speech-controls > *::part(button):hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.speech-controls > *::part(button):disabled {
+  color: #d1d5db;
+  background: transparent;
+}
+
+.speech-controls > test-tts-pick:state(picking)::part(button),
+.speech-controls > test-tts-play:state(playing)::part(button) {
+  background: var(--color-citolab-600, #00a748);
+  color: #fff;
+}

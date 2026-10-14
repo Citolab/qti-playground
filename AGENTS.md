@@ -17,6 +17,15 @@ If a failure reproduces here, first determine which layer owns it:
 
 Do not patch around library bugs in this app unless the workaround is explicitly app-specific.
 
+## Privacy: uploaded content never leaves the browser
+
+Everything a user loads into the playground (QTI packages, items, PDFs, Word files, responses) stays on their machine. No feature may send that content, or anything derived from it, to a server.
+
+- Process everything client-side (CacheStorage/service worker, WebLLM, pdfjs, …).
+- Downloading static assets _to_ the browser (model weights, fonts, CDN libraries) is fine. Uploading user content is not.
+- Browser APIs can hide a network call. `speechSynthesis` voices with `localService === false` (Chrome's "Google …" voices, Edge's "Online" voices) send the text to the vendor's cloud. Only use voices with `localService === true`, and fail visibly when none is available.
+- Before adding a dependency or browser API that touches user content, check that it does not call home (analytics, telemetry, cloud inference).
+
 ## Important local conventions
 
 ### yalc-based local package development

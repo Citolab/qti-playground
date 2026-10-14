@@ -43,3 +43,46 @@ qti-assessment-item-ref [data-stimulus-hoisted] {
 [data-shared-stimulus-block] {
   display: block;
 }
+
+/* Read-aloud players (see speech-player.ts): one per question and one per
+   lifted source, small enough to sit above the text without crowding it. */
+[data-speech-player] {
+  display: flex;
+  width: fit-content;
+  gap: 0.25rem;
+  --test-button-size: 1.75rem;
+  --test-tts-icon-size: 0.875rem;
+}
+
+qti-assessment-item-ref > [data-speech-player],
+[data-shared-stimulus-block] > [data-speech-player] {
+  margin-bottom: 0.5rem;
+}
+
+/* Round, like the question's bookmark toggle. */
+[data-speech-player] > *::part(button) {
+  min-inline-size: var(--test-button-size);
+  block-size: var(--test-button-size);
+  padding-inline: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 9999px;
+  background: #fff;
+  color: #4b5563;
+}
+
+[data-speech-player] > *::part(button):hover:not(:disabled) {
+  border-color: #9ca3af;
+  background: #f9fafb;
+  color: #374151;
+}
+
+[data-speech-player] > *::part(button):disabled {
+  color: #d1d5db;
+}
+
+[data-speech-player] > test-tts-play:state(playing)::part(button),
+[data-speech-player] > test-tts-pick:state(picking)::part(button) {
+  border-color: var(--color-citolab-600, #00a748);
+  background: var(--color-citolab-600, #00a748);
+  color: #fff;
+}

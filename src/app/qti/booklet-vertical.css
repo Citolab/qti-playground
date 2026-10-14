@@ -169,3 +169,16 @@ qti-assessment-item-ref[data-question-current] {
     padding: 1rem 0.875rem;
   }
 }
+
+/* The question's read-aloud player joins the number and bookmark, so it takes
+   over the bookmark's auto margin. The header is click-through; the player is
+   not. */
+[data-question-header] > [data-speech-player] {
+  margin-right: auto;
+  pointer-events: auto;
+  --test-button-size: 1.5rem;
+}
+
+[data-question-header] > [data-question-bookmark]:has(+ [data-speech-player]) {
+  margin-right: 0;
+}

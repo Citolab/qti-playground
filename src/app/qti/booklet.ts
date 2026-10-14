@@ -13,6 +13,7 @@ import type { AssessmentLayoutMode } from "./layout-mode";
 import bookletCss from "./booklet.css?inline";
 import classicBookletCss from "./booklet-classic.css?inline";
 import verticalBookletCss from "./booklet-vertical.css?inline";
+import { ensureSpeechPlayer, removeSpeechPlayer } from "./speech-player";
 
 /**
  * The booklet stylesheet for one layout: what both share, plus that layout's
@@ -165,12 +166,14 @@ export const syncBookmarkButtons = (
  *
  * `displayNumbers` maps an item-ref identifier to its 1-based question number.
  * `bookmarks` is optional: without it the header is number and score only, the
- * way it was before every card carried its own bookmark.
+ * way it was before every card carried its own bookmark. `speech` adds a
+ * read-aloud player for the question after the bookmark.
  */
 export const decorateQuestionBadges = (
   testContainer: HTMLElement | null,
   displayNumbers: ReadonlyMap<string, number>,
   bookmarks?: BookletBookmarkOptions,
+  speech = false,
 ): void => {
   const root = bookletRoot(testContainer);
   if (!root) return;
@@ -212,6 +215,9 @@ export const decorateQuestionBadges = (
       : null;
     if (!bookmarks) header.querySelector("[data-question-bookmark]")?.remove();
 
+    const speechPlayer = speech ? ensureSpeechPlayer(header) : null;
+    if (!speech) removeSpeechPlayer(header);
+
     const existingScore = header.querySelector("[data-question-score-badge]");
     let scoreBadge: Element | null = null;
     if (scoreText) {
@@ -225,9 +231,9 @@ export const decorateQuestionBadges = (
     }
 
     // `append` moves nodes that are already children, so this fixes the order
-    // whichever of the three the previous run happened to create.
+    // whichever of them the previous run happened to create.
     header.append(
-      ...[numberBadge, bookmarkButton, scoreBadge].filter(
+      ...[numberBadge, bookmarkButton, speechPlayer, scoreBadge].filter(
         (node): node is Element => node !== null,
       ),
     );
@@ -265,6 +271,37 @@ export const decorateSectionItemNumbers = (
       itemRef.removeAttribute("data-question-number");
     }
   });
+};
+
+/**
+ * Classic mode's read-aloud players on a booklet page: one at the top of every
+ * rendered question, and one in each lifted source block (which reads that
+ * source, because it sits next to the source's placeholder). The toolbar's
+ * player follows the current item, and a section page has none, so these are
+ * the only way to read it.
+ *
+ * Run after `hoistSharedStimuli`, which creates the blocks.
+ */
+export const decorateClassicSpeechPlayers = (
+  testContainer: HTMLElement | null,
+): void => {
+  const root = bookletRoot(testContainer);
+  if (!root) return;
+  const rendered = new Set(renderedItemRefs(root));
+  root.querySelectorAll("qti-assessment-item-ref").forEach((itemRef) => {
+    if (rendered.has(itemRef as HTMLElement)) ensureSpeechPlayer(itemRef);
+    else removeSpeechPlayer(itemRef);
+  });
+  decorateStimulusSpeechPlayers(testContainer);
+};
+
+/** A read-aloud player at the top of each lifted source block. */
+export const decorateStimulusSpeechPlayers = (
+  testContainer: HTMLElement | null,
+): void => {
+  bookletRoot(testContainer)
+    ?.querySelectorAll(`[${BLOCK_ATTR}]`)
+    .forEach((block) => ensureSpeechPlayer(block));
 };
 
 /**

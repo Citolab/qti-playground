@@ -60,6 +60,8 @@ export interface StateModel {
   importErrors: string[];
   selectedAssessment?: string;
   testContexts: ({ assessmentId: string } & ExtendedTestContext)[];
+  /** Bookmarked item-ref identifiers per assessment, kept across reloads. */
+  bookmarks: Record<string, string[]>;
   itemsPerAssessment: { assessmentId: string; items: ItemInfoWithBlobRef[] }[];
   activePackageId?: string;
   /** Name of the uploaded .zip, used to name the package download. */
@@ -83,6 +85,7 @@ export const initialState: StateModel = {
   loadingItems: false,
   errorMessage: "",
   testContexts: [],
+  bookmarks: {},
   assessments: [],
   itemsPerAssessment: [],
   importErrors: [],
@@ -204,6 +207,7 @@ interface StoreActions {
     context: { assessmentId: string } & ExtendedTestContext,
   ) => void;
   selectAssessment: (assessmentId: string) => void;
+  setBookmarks: (assessmentId: string, itemRefIdentifiers: string[]) => void;
   processPackage: (
     file: File,
     options: { removeStylesheets: boolean; skipValidation: boolean },
@@ -385,6 +389,12 @@ export const useStore = create<Store>()(
         set({ selectedAssessment: assessmentId });
       },
 
+      setBookmarks: (assessmentId: string, itemRefIdentifiers: string[]) => {
+        set({
+          bookmarks: { ...get().bookmarks, [assessmentId]: itemRefIdentifiers },
+        });
+      },
+
       processPackage: async (
         file: File,
         options: { removeStylesheets: boolean; skipValidation: boolean },
@@ -405,6 +415,9 @@ export const useStore = create<Store>()(
           activePackageId: prepared.packageId,
           packageFileName: file.name,
           editedItemIdentifiers: [],
+          // Assessment ids repeat across packages, so a new package must not
+          // inherit the previous one's bookmarks.
+          bookmarks: {},
           assessments: prepared.assessments as AssessmentInfoWithContent[],
           importErrors: prepared.importErrors,
           itemsPerAssessment: prepared.itemsPerAssessment as {
@@ -568,6 +581,7 @@ export const useStore = create<Store>()(
         itemsPerAssessment: state.itemsPerAssessment,
         selectedAssessment: state.selectedAssessment,
         testContexts: state.testContexts,
+        bookmarks: state.bookmarks,
       }),
     },
   ),
