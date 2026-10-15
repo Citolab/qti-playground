@@ -40,6 +40,7 @@ import {
   buildShareUrl,
   decodeSharedParamToXml,
 } from "./item-source";
+import { lockFinishedSteps } from "../qti/adaptive-steps";
 
 type PreviewVariable = {
   identifier: string;
@@ -728,6 +729,8 @@ export const PreviewPage = () => {
                 onClick={() => {
                   const assessmentItem = getAssessmentItemElement();
                   assessmentItem?.processResponse(true, true);
+                  // An adaptive item in steps: the steps this attempt finished take no more answers.
+                  if (assessmentItem?.getAttribute("adaptive") === "true") lockFinishedSteps(assessmentItem);
                   refreshPreviewVariables();
                 }}
               >

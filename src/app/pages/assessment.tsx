@@ -76,6 +76,7 @@ import {
 } from "../qti/stimulus-references";
 import { usePageLoading } from "../qti/use-page-loading";
 import { hasRecordedWork } from "../qti/has-recorded-work";
+import { lockFinishedSteps } from "../qti/adaptive-steps";
 import { useItemLoadWatchdog } from "../qti/use-item-load-watchdog";
 import {
   HandInDialog,
@@ -837,6 +838,13 @@ export const AssessmentPage: React.FC = () => {
       if (document.visibilityState === "hidden") saveLive();
     };
     qtiTestElement.addEventListener("qti-interaction-changed", onInteraction);
+    // An adaptive item in steps: an ended attempt (responseProcessed) locks the steps it finished.
+    const onItemContext = (event: Event) => {
+      if (!(event as CustomEvent<{ responseProcessed?: boolean }>).detail?.responseProcessed) return;
+      const item = (event.composedPath()[0] as Element | undefined)?.closest?.("qti-assessment-item");
+      if (item?.getAttribute("adaptive") === "true") lockFinishedSteps(item);
+    };
+    qtiTestElement.addEventListener("qti-item-context-updated", onItemContext);
     document.addEventListener("visibilitychange", onHide);
     window.addEventListener("pagehide", saveLive);
     return () => {
@@ -845,6 +853,7 @@ export const AssessmentPage: React.FC = () => {
         "qti-interaction-changed",
         onInteraction,
       );
+      qtiTestElement.removeEventListener("qti-item-context-updated", onItemContext);
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("pagehide", saveLive);
       // Unmount (leaving the page, a layout switch): one last save.
@@ -1558,6 +1567,17 @@ export const AssessmentPage: React.FC = () => {
   useEffect(() => {
     discardingAnswersRef.current = false;
   }, [qtiTestElement]);
+
+  /** The item on screen is adaptive and not yet completed: the nav bar offers "End attempt" in place of "Next",
+   *  unless the item brings its own end-attempt interaction. Once completed, "Next" returns. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const activeItemCtx = (stampContext?.activeTestpart?.items ?? []).find((i: any) => i.active);
+  const showEndAttempt =
+    activeItemCtx?.adaptive === true &&
+    activeItemCtx.completionStatus !== "completed" &&
+    !qtiTestElement?.querySelector(
+      `qti-assessment-item-ref[identifier="${CSS.escape(activeItemCtx.identifier)}"] qti-end-attempt-interaction`,
+    );
 
   const overviewNavTargets = useMemo(() => {
     const ctxItems = stampContext?.activeTestpart?.items || [];
@@ -2373,7 +2393,16 @@ export const AssessmentPage: React.FC = () => {
                               )}
                             />
                           </div>
-                          {isBookletLayout ? (
+                          {/* An adaptive item moves on only when an attempt ends: the runner's own button takes
+                              the place of "Next" until the item is completed. One question per screen only. */}
+                          {!isBookletLayout && showEndAttempt ? (
+                            <test-end-attempt
+                              data-testid="end-attempt"
+                              className="inline-flex items-center rounded-md bg-citolab-700 px-5 py-2 text-sm font-semibold text-white hover:bg-citolab-600 transition-colors shadow-sm flex-shrink-0"
+                            >
+                              End attempt
+                            </test-end-attempt>
+                          ) : isBookletLayout ? (
                             <Button
                               size="sm"
                               className="flex-shrink-0"
