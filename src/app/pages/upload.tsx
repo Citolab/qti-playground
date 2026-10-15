@@ -126,27 +126,6 @@ export const UploadPage: React.FC = () => {
             <span className="hidden sm:inline">Select new package</span>
           </Button>
             <DownloadPackageButton className="border-citolab-200 text-citolab-700 hover:bg-citolab-50 hover:border-citolab-400" />
-
-            {assessments?.map((assessment) => (
-              <div
-                key={assessment.id}
-                className="flex items-center divide-x divide-white/25 overflow-hidden rounded-md bg-linear-to-r from-citolab-700 to-citolab-teal-700 shadow-sm"
-              >
-                {assessments.length > 1 && (
-                  <span className="hidden max-w-40 truncate px-3 text-xs font-semibold text-white sm:inline">
-                    {assessment.name}
-                  </span>
-                )}
-                {LAYOUT_MODES.map((mode) => (
-                  <StartLayoutButton
-                    key={mode.value}
-                    mode={mode.value}
-                    assessmentName={assessment.name}
-                    onStart={startAssessment(assessment.id)}
-                  />
-                ))}
-              </div>
-            ))}
           </>
         }
       >
@@ -187,9 +166,33 @@ export const UploadPage: React.FC = () => {
           )}
 
           <div>
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
-              Items
-            </h2>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500">
+                Items
+              </h2>
+              <div className="flex flex-wrap items-center gap-2">
+                {assessments?.map((assessment) => (
+                  <div
+                    key={assessment.id}
+                    className="flex items-center divide-x divide-white/25 overflow-hidden rounded-md bg-linear-to-r from-citolab-700 to-citolab-teal-700 shadow-sm"
+                  >
+                    {assessments.length > 1 && (
+                      <span className="hidden max-w-40 truncate px-3 text-xs font-semibold text-white sm:inline">
+                        {assessment.name}
+                      </span>
+                    )}
+                    {LAYOUT_MODES.map((mode) => (
+                      <StartLayoutButton
+                        key={mode.value}
+                        mode={mode.value}
+                        assessmentName={assessment.name}
+                        onStart={startAssessment(assessment.id)}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {items.map((item, index) => (
                 <ItemPreview
