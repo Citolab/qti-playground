@@ -240,6 +240,66 @@ export const decorateQuestionBadges = (
   });
 };
 
+interface EndableItem extends Element {
+  variables?: readonly { identifier: string; value: unknown }[];
+  processResponse?: (countNumAttempts?: boolean, reportValidityAfterScoring?: boolean) => boolean;
+}
+
+const isItemCompleted = (item: EndableItem): boolean =>
+  item.variables?.find((v) => v.identifier === "completionStatus")?.value === "completed";
+
+/**
+ * Vertical mode's "End attempt" for an adaptive question, in the card's bottom-right corner.
+ *
+ * The nav bar's `test-end-attempt` only ends the active item, and a booklet page has none, so each adaptive card
+ * carries its own button that processes that item's responses. An item that brings its own
+ * `qti-end-attempt-interaction` needs no second one; a completed item gets the button disabled. Safe to re-run.
+ */
+export const decorateEndAttemptButtons = (testContainer: HTMLElement | null): void => {
+  const root = bookletRoot(testContainer);
+  if (!root) return;
+
+  root.querySelectorAll("qti-assessment-item-ref").forEach((itemRef) => {
+    const item = itemRef.querySelector<EndableItem & HTMLElement>("qti-assessment-item");
+    const existing = itemRef.querySelector(":scope > [data-question-footer]");
+    if (
+      !item ||
+      item.getAttribute("adaptive") !== "true" ||
+      item.querySelector("qti-end-attempt-interaction")
+    ) {
+      existing?.remove();
+      return;
+    }
+
+    const doc = itemRef.ownerDocument;
+    const footer = existing ?? doc.createElement("div");
+    if (!existing) footer.setAttribute("data-question-footer", "");
+    // Kept last, under the question, whatever the runner rendered after it.
+    if (itemRef.lastElementChild !== footer) itemRef.appendChild(footer);
+
+    let button = footer.querySelector<HTMLButtonElement>("[data-question-end-attempt]");
+    if (!button) {
+      button = doc.createElement("button");
+      button.type = "button";
+      button.setAttribute("data-question-end-attempt", "");
+      button.textContent = "End attempt";
+      footer.appendChild(button);
+    }
+    const paint = () => {
+      if (button) button.disabled = isItemCompleted(item);
+    };
+    paint();
+    // Assigned, not added: a re-run replaces the handler instead of stacking one.
+    button.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (isItemCompleted(item)) return;
+      item.processResponse?.(true, false);
+      paint();
+    };
+  });
+};
+
 /**
  * Classic mode's per-question number: an attribute CSS draws as a badge.
  *

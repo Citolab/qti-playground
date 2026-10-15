@@ -61,6 +61,7 @@ import {
 import {
   bookletCssFor,
   decorateClassicSpeechPlayers,
+  decorateEndAttemptButtons,
   decorateQuestionBadges,
   decorateSectionItemNumbers,
   decorateStimulusSpeechPlayers,
@@ -1825,6 +1826,7 @@ export const AssessmentPage: React.FC = () => {
             true,
           );
           decorateStimulusSpeechPlayers(container);
+          decorateEndAttemptButtons(container);
         } else {
           decorateSectionItemNumbers(container, displayNumbers);
           decorateClassicSpeechPlayers(container);

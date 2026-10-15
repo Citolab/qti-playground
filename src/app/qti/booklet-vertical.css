@@ -114,6 +114,42 @@ qti-assessment-item-ref[identifier] {
   color: #d97706;
 }
 
+/* An adaptive question's "End attempt", in the card's bottom-right corner. */
+[data-question-footer] {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+[data-question-end-attempt] {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1.25rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: var(--color-citolab-700, #00742f);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  transition: background-color 0.15s ease;
+}
+
+[data-question-end-attempt]:hover:not(:disabled) {
+  background: var(--color-citolab-600, #00a748);
+}
+
+[data-question-end-attempt]:focus-visible {
+  outline: 2px solid var(--color-citolab-600, #00a748);
+  outline-offset: 2px;
+}
+
+[data-question-end-attempt]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* The question the reader is on, so the nav bar and the page agree. */
 qti-assessment-item-ref[data-question-current] {
   border-color: var(--color-citolab-600, #00a748);
