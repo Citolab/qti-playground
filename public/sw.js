@@ -59,6 +59,44 @@ async function getCacheIndex(cacheName) {
   return idx;
 }
 
+// Media elements seek with `Range` requests. A plain 200 lets them seek only within what is already
+// buffered (a long video's scrubber snaps back), so answer ranges with 206 partial content.
+async function withRangeSupport(request, response) {
+  if (request.method !== "GET" || response.status !== 200) return response;
+  const range = request.headers.get("range");
+  const blob = await response.blob();
+  const headers = new Headers(response.headers);
+  headers.set("accept-ranges", "bytes");
+  const size = blob.size;
+  const match = range ? /^bytes=(\d*)-(\d*)$/.exec(range.trim()) : null;
+  if (!match || (match[1] === "" && match[2] === "")) {
+    headers.set("content-length", String(size));
+    return new Response(blob, { status: 200, statusText: "OK", headers });
+  }
+  let start;
+  let end;
+  if (match[1] === "") {
+    // "bytes=-N": the last N bytes.
+    start = Math.max(0, size - Number(match[2]));
+    end = size - 1;
+  } else {
+    start = Number(match[1]);
+    end = match[2] === "" ? size - 1 : Math.min(Number(match[2]), size - 1);
+  }
+  if (start >= size || start > end) {
+    headers.set("content-range", `bytes */${size}`);
+    headers.delete("content-length");
+    return new Response(null, { status: 416, statusText: "Range Not Satisfiable", headers });
+  }
+  headers.set("content-range", `bytes ${start}-${end}/${size}`);
+  headers.set("content-length", String(end - start + 1));
+  return new Response(blob.slice(start, end + 1, blob.type), {
+    status: 206,
+    statusText: "Partial Content",
+    headers,
+  });
+}
+
 self.addEventListener("install", (event) => {
   // Take over as soon as possible; package caches are managed by the app.
   event.waitUntil(self.skipWaiting());
@@ -74,65 +112,67 @@ self.addEventListener("fetch", (event) => {
   if (!url.pathname.startsWith(PKG_PREFIX)) return;
 
   event.respondWith(
-    (async () => {
-      const rest = url.pathname.slice(PKG_PREFIX.length);
-      const [packageId] = rest.split("/", 1);
-      const cacheName = `qti-pkg-${packageId}`;
-
-      const cache = await caches.open(cacheName);
-
-      // CacheStorage only stores GET requests. For HEAD, try matching the GET entry.
-      const matchRequest =
-        request.method === "HEAD"
-          ? new Request(request.url, { method: "GET", headers: request.headers })
-          : request;
-
-      const canonicalUrl = buildCanonicalUrl(request.url, packageId);
-      const canonicalMatchRequest =
-        request.method === "HEAD"
-          ? new Request(canonicalUrl, {
-              method: "GET",
-              headers: request.headers,
-            })
-          : new Request(canonicalUrl, request);
-
-      // 1) Exact match (ignore query string).
-      let cached = await cache.match(canonicalMatchRequest, { ignoreSearch: true });
-      if (cached) {
-        if (request.method === "HEAD") {
-          const headers = new Headers(cached.headers);
-          // Ensure a sane content-length for HEAD (body is empty).
-          headers.set("content-length", "0");
-          return new Response(null, {
-            status: cached.status,
-            statusText: cached.statusText,
-            headers,
-          });
-        }
-        return cached;
-      }
-
-      // 2) Case-insensitive pathname match (common in zips).
-      const idx = await getCacheIndex(cacheName);
-      const canonicalPathname = getPathnameKey(canonicalUrl);
-      const lower = canonicalPathname?.toLowerCase() || "";
-      const matchedUrl = lower ? idx.byPathLower.get(lower) : null;
-      if (matchedUrl) {
-        cached = await cache.match(new Request(matchedUrl), { ignoreSearch: true });
-        if (cached) return cached;
-      }
-
-      // 3) Fallback by filename if unique (helps with case/different folder layouts).
-      const filenameLower =
-        (canonicalPathname || "").split("/").pop()?.toLowerCase() || "";
-      const candidates = filenameLower ? idx.byFileLower.get(filenameLower) : null;
-      if (candidates && candidates.length === 1) {
-        cached = await cache.match(new Request(candidates[0]), { ignoreSearch: true });
-        if (cached) return cached;
-      }
-
-      // Not found in package cache.
-      return new Response("Not found", { status: 404 });
-    })(),
+    servePackageFile(request, url).then((response) => withRangeSupport(request, response)),
   );
 });
+
+async function servePackageFile(request, url) {
+  const rest = url.pathname.slice(PKG_PREFIX.length);
+  const [packageId] = rest.split("/", 1);
+  const cacheName = `qti-pkg-${packageId}`;
+
+  const cache = await caches.open(cacheName);
+
+  // CacheStorage only stores GET requests. For HEAD, try matching the GET entry.
+  const matchRequest =
+    request.method === "HEAD"
+      ? new Request(request.url, { method: "GET", headers: request.headers })
+      : request;
+
+  const canonicalUrl = buildCanonicalUrl(request.url, packageId);
+  const canonicalMatchRequest =
+    request.method === "HEAD"
+      ? new Request(canonicalUrl, {
+          method: "GET",
+          headers: request.headers,
+        })
+      : new Request(canonicalUrl, request);
+
+  // 1) Exact match (ignore query string).
+  let cached = await cache.match(canonicalMatchRequest, { ignoreSearch: true });
+  if (cached) {
+    if (request.method === "HEAD") {
+      const headers = new Headers(cached.headers);
+      // Ensure a sane content-length for HEAD (body is empty).
+      headers.set("content-length", "0");
+      return new Response(null, {
+        status: cached.status,
+        statusText: cached.statusText,
+        headers,
+      });
+    }
+    return cached;
+  }
+
+  // 2) Case-insensitive pathname match (common in zips).
+  const idx = await getCacheIndex(cacheName);
+  const canonicalPathname = getPathnameKey(canonicalUrl);
+  const lower = canonicalPathname?.toLowerCase() || "";
+  const matchedUrl = lower ? idx.byPathLower.get(lower) : null;
+  if (matchedUrl) {
+    cached = await cache.match(new Request(matchedUrl), { ignoreSearch: true });
+    if (cached) return cached;
+  }
+
+  // 3) Fallback by filename if unique (helps with case/different folder layouts).
+  const filenameLower =
+    (canonicalPathname || "").split("/").pop()?.toLowerCase() || "";
+  const candidates = filenameLower ? idx.byFileLower.get(filenameLower) : null;
+  if (candidates && candidates.length === 1) {
+    cached = await cache.match(new Request(candidates[0]), { ignoreSearch: true });
+    if (cached) return cached;
+  }
+
+  // Not found in package cache.
+  return new Response("Not found", { status: 404 });
+}

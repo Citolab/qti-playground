@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../store/store";
-import { Upload, AlertTriangle, Package } from "lucide-react";
+import { Upload, AlertTriangle, Package, Play } from "lucide-react";
 import { forceMemoryCleanup } from "@citolab/qti-convert/qti-helper";
 import { ItemPreview } from "../components/item-preview";
 import { PackageUploadZone } from "../components/package-upload-zone";
@@ -21,10 +21,8 @@ import { PageCard, PageShell } from "../components/page-shell";
  * Start the test straight into one layout, skipping the intro screen that
  * would otherwise ask the same question again.
  *
- * Icon-only until hovered: two buttons per assessment have to fit a toolbar
- * that already carries the package actions, and the layout icon (a screen
- * against a booklet) is the part worth keeping visible. The label slides open
- * on hover and on keyboard focus, so it is not mouse-only.
+ * Always labelled: this is the main thing to do with an uploaded package, so
+ * it should read as a button, not as an icon to discover by hovering.
  */
 function StartLayoutButton({
   mode,
@@ -37,7 +35,7 @@ function StartLayoutButton({
 }) {
   const meta = LAYOUT_MODES.find((layout) => layout.value === mode);
   const label = meta?.label ?? mode;
-  const action = `Play ${label.toLowerCase()} mode`;
+  const action = `Start ${label.toLowerCase()}`;
 
   return (
     <button
@@ -45,12 +43,11 @@ function StartLayoutButton({
       onClick={() => onStart(mode)}
       title={`${action} – ${meta?.description ?? ""}`}
       aria-label={`${action}: ${assessmentName}`}
-      className="group/mode flex h-9 items-center gap-1.5 px-3 text-white transition-colors hover:bg-white/20 focus-visible:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
+      className="flex h-9 items-center gap-2 px-3 text-white transition-colors hover:bg-white/20 focus-visible:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
     >
-      <LayoutModeIcon mode={mode} className="w-4 h-4 shrink-0" />
-      <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-200 group-hover/mode:max-w-32 group-hover/mode:opacity-100 group-focus-visible/mode:max-w-32 group-focus-visible/mode:opacity-100">
-        {action}
-      </span>
+      <Play className="w-3.5 h-3.5 shrink-0 fill-current" />
+      <span className="whitespace-nowrap text-sm font-semibold">{action}</span>
+      <LayoutModeIcon mode={mode} className="w-4 h-4 shrink-0 opacity-80" />
     </button>
   );
 }
@@ -77,17 +74,23 @@ export const UploadPage: React.FC = () => {
       : `${assessments.length} tests`
   }`;
 
+  const resetAssessmentProgress = useStore(
+    (state) => state.resetAssessmentProgress
+  );
+
   /**
    * The layout is chosen here, so the player's intro screen has nothing left
-   * to ask: `start=1` tells it to open the test straight away.
+   * to ask: `start=1` tells it to open the test straight away. Starting is a
+   * fresh attempt, so answers and bookmarks from an earlier run are dropped.
    */
   const startAssessment = useCallback(
     (assessmentId: string) => (mode: AssessmentLayoutMode) => {
+      resetAssessmentProgress(assessmentId);
       const params = new URLSearchParams({ start: "1" });
       if (mode !== DEFAULT_LAYOUT_MODE) params.set("layout", mode);
       navigate(`/assessment/${assessmentId}?${params.toString()}`);
     },
-    [navigate]
+    [navigate, resetAssessmentProgress]
   );
 
   if (assessments.length > 0) {

@@ -1321,31 +1321,6 @@ export const AssessmentPage: React.FC = () => {
     [goToItem],
   );
 
-  /**
-   * Leave the intro for the layout the reader picked.
-   *
-   * One URL write for both the layout and the dismissed overview: two calls
-   * would each start from the same `queryParams` snapshot and the second would
-   * drop the first one's parameter.
-   */
-  const startAssessment = useCallback(
-    (mode: AssessmentLayoutMode) => {
-      setShowIntro(false);
-      const next = new URLSearchParams(queryParams);
-      next.delete("overview");
-      if (mode === DEFAULT_LAYOUT_MODE) next.delete("layout");
-      else next.set("layout", mode);
-      setQueryParams(next, { replace: true });
-
-      // A different layout remounts the player (see the `key` on `<qti-test>`),
-      // and it opens itself on the first question. Only staying put needs a
-      // navigation from here.
-      if (mode === layoutMode) {
-        goToItem(assessment?.items?.[0]?.itemRefIdentifier ?? null);
-      }
-    },
-    [assessment?.items, goToItem, layoutMode, queryParams, setQueryParams],
-  );
 
 
   /** The section the runner is showing, when it is navigating by section. */
@@ -1563,6 +1538,30 @@ export const AssessmentPage: React.FC = () => {
     setHandInResult(null);
     setAttempt((current) => current + 1);
   }, [assessmentId, resetAssessmentProgress]);
+
+  /**
+   * Leave the intro for the layout the reader picked.
+   *
+   * Starting is always a fresh attempt: answers and bookmarks saved by an
+   * earlier run are dropped, and the runner remounts with a blank context
+   * (which opens it on the first question, whatever the layout).
+   *
+   * One URL write for both the layout and the dismissed overview: two calls
+   * would each start from the same `queryParams` snapshot and the second would
+   * drop the first one's parameter.
+   */
+  const startAssessment = useCallback(
+    (mode: AssessmentLayoutMode) => {
+      setShowIntro(false);
+      startAgain();
+      const next = new URLSearchParams(queryParams);
+      next.delete("overview");
+      if (mode === DEFAULT_LAYOUT_MODE) next.delete("layout");
+      else next.set("layout", mode);
+      setQueryParams(next, { replace: true });
+    },
+    [queryParams, setQueryParams, startAgain],
+  );
 
   // The new runner is a fresh attempt: its saves count again.
   useEffect(() => {
