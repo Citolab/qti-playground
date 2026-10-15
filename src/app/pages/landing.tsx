@@ -413,6 +413,19 @@ export const LandingPage: React.FC = () => {
                           </TooltipTrigger>
                           <TooltipContent>Open in Stackblitz</TooltipContent>
                         </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <a
+                              href="https://citolab.github.io/qti-player/"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
+                            >
+                              Demo
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent>Try the live QTI Player demo</TooltipContent>
+                        </Tooltip>
                       </div>
                       <a
                         href="https://site.imsglobal.org/certifications/cito/cito-qti-player"
