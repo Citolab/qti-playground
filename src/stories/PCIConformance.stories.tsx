@@ -175,11 +175,11 @@ function mountPreparedPackagePreview(
     test.navigateTo('item', first);
   };
 
-  test.addEventListener('qti-assessment-test-connected', () => {
+  test.addEventListener('cito-test-loaded', () => {
     navigateToFirstItem();
   });
 
-  test.addEventListener('qti-assessment-item-connected', () => {
+  test.addEventListener('cito-item-rendered', () => {
     readyMarker.setAttribute('data-qti-ready', '1');
     status.textContent = `Rendered item ${first || ''}`.trim();
   });

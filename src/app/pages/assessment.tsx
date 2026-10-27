@@ -13,10 +13,11 @@ import {
   IQtiTest,
   QtiAssessmentItem,
   QtiAssessmentItemRef,
+  computedContext,
   transformItemApi,
   transformTestApi,
 } from "@citolab/qti-components";
-import type { TestContext } from "@citolab/qti-components";
+import type { QtiTestState, TestContext } from "@citolab/qti-components";
 // import { QtiTest } from "@citolab/qti-components";
 import {
   Check,
@@ -78,6 +79,8 @@ import {
 import { usePageLoading } from "../qti/use-page-loading";
 import { hasRecordedWork } from "../qti/has-recorded-work";
 import { lockFinishedSteps } from "../qti/adaptive-steps";
+import { ITEM_READY_EVENT } from "../qti-tool-base";
+import { subscribeToContext } from "../qti/lit-context";
 import { useItemLoadWatchdog } from "../qti/use-item-load-watchdog";
 import {
   HandInDialog,
@@ -266,30 +269,24 @@ export const AssessmentPage: React.FC = () => {
   const initialZoomRef = useRef<string>("");
 
   useEffect(() => {
-    const handleContextUpdated = (event: Event) => {
-      const customEvent = event as CustomEvent<{
-        itemContext?: {
-          identifier?: string;
-          state?: Record<string, string | null> | undefined;
-        };
-      }>;
-
-      const state = customEvent.detail?.itemContext?.state;
-      if (!state || Object.keys(state).length === 0) return;
-
-      console.log(
-        "[PCI STATE]->",
-        customEvent.detail?.itemContext?.identifier || "unknown",
-        state,
-      );
+    // Log a PCI's saved state whenever it changes. The test state carries each
+    // item's `state` (where a PCI keeps its own), so diff it per item.
+    const lastLogged = new Map<string, string>();
+    const handleStateChanged = (event: Event) => {
+      const items =
+        (event as CustomEvent<QtiTestState>).detail?.test?.items ?? [];
+      for (const item of items) {
+        if (!item.state || Object.keys(item.state).length === 0) continue;
+        const serialized = JSON.stringify(item.state);
+        if (lastLogged.get(item.identifier) === serialized) continue;
+        lastLogged.set(item.identifier, serialized);
+        console.log("[PCI STATE]->", item.identifier, item.state);
+      }
     };
 
-    window.addEventListener("qti-item-context-updated", handleContextUpdated);
+    window.addEventListener("cito-test-state-changed", handleStateChanged);
     return () => {
-      window.removeEventListener(
-        "qti-item-context-updated",
-        handleContextUpdated,
-      );
+      window.removeEventListener("cito-test-state-changed", handleStateChanged);
     };
   }, []);
   const initialBodyZoomRef = useRef<string>("");
@@ -636,7 +633,7 @@ export const AssessmentPage: React.FC = () => {
    *
    * Kept twice on purpose. The ref is the authority: it is written from inside
    * the transform, which the runner drives, and read by event handlers that may
-   * fire in the same tick — `qti-assessment-test-connected` arrives before
+   * fire in the same tick — `cito-test-loaded` arrives before
    * React has re-rendered. The state copy is what the chrome renders from.
    */
   const groupingRef = useRef<SectionGrouping | null>(null);
@@ -695,18 +692,17 @@ export const AssessmentPage: React.FC = () => {
     setCurrentItemRefIdentifier(itemRefId);
 
     // Signal to external tools (DEP marker/symbol picker) that an item is ready
-    window.dispatchEvent(new CustomEvent("qti-test-loaded"));
+    window.dispatchEvent(new CustomEvent(ITEM_READY_EVENT));
   }, []);
 
   /** What was last written to the store, so repeat saves can be skipped. */
   const lastSavedContextJsonRef = useRef<string | null>(null);
   const handleTestContextUpdated = useCallback(
-    (event: CustomEvent<TestContext>, source?: IQtiTest | null) => {
+    (fallback: TestContext | undefined, source?: IQtiTest | null) => {
       const assessmentId = assessment?.id;
       if (!assessmentId) return;
-      // Save what the runner holds *now*, not the event payload: the payload is
-      // a snapshot from when the event fired and can predate the response that
-      // triggered it. The store replaces the context wholesale, so a snapshot
+      // Save what the runner holds *now*, not a snapshot handed in: a snapshot
+      // can predate the response that triggered the save. The store replaces the context wholesale, so a snapshot
       // one interaction behind would delete the newest answer from storage
       // while it stays on screen. (Same fix as cito-test-uit's save.)
       const live = (source ?? qtiTestRef.current)?.testContext as
@@ -715,7 +711,7 @@ export const AssessmentPage: React.FC = () => {
       const detail =
         live && Array.isArray(live.items) && live.items.length > 0
           ? live
-          : event.detail;
+          : fallback;
       if (!detail) return;
 
       const previous = testContextsRef.current.find(
@@ -789,13 +785,10 @@ export const AssessmentPage: React.FC = () => {
 
   useEffect(() => {
     if (!qtiTestElement) return;
-    qtiTestElement.addEventListener(
-      "qti-assessment-item-connected",
-      handleItemConnected,
-    );
+    qtiTestElement.addEventListener("cito-item-rendered", handleItemConnected);
     return () => {
       qtiTestElement.removeEventListener(
-        "qti-assessment-item-connected",
+        "cito-item-rendered",
         handleItemConnected,
       );
     };
@@ -810,12 +803,12 @@ export const AssessmentPage: React.FC = () => {
 
   useEffect(() => {
     if (!qtiTestElement) return;
-    const listener = (event: Event) =>
-      handleTestContextUpdated(
-        event as CustomEvent<TestContext>,
-        qtiTestElement,
-      );
-    qtiTestElement.addEventListener("qti-test-context-updated", listener);
+    // `cito-test-state-changed` fires whenever the runner's context changes. Its
+    // payload is the `state` shape, not the stored context, so only the live
+    // `testContext` is saved from it.
+    const listener = () =>
+      handleTestContextUpdated(undefined, qtiTestElement);
+    qtiTestElement.addEventListener("cito-test-state-changed", listener);
 
     // Save from the live runner on two more occasions: after any interaction
     // change (a frame later, once the runner has applied it), and when the
@@ -827,34 +820,29 @@ export const AssessmentPage: React.FC = () => {
       if (discardingAnswersRef.current) return;
       const context = qtiTestElement.testContext as ExtendedTestContext;
       if (!hasRecordedWork(context)) return;
-      handleTestContextUpdated(
-        new CustomEvent("qti-test-context-updated", {
-          detail: context as TestContext,
-        }),
-        qtiTestElement,
-      );
+      handleTestContextUpdated(context as TestContext, qtiTestElement);
     };
     const onInteraction = () => requestAnimationFrame(saveLive);
     const onHide = () => {
       if (document.visibilityState === "hidden") saveLive();
     };
-    qtiTestElement.addEventListener("qti-interaction-changed", onInteraction);
-    // An adaptive item in steps: an ended attempt (responseProcessed) locks the steps it finished.
-    const onItemContext = (event: Event) => {
-      if (!(event as CustomEvent<{ responseProcessed?: boolean }>).detail?.responseProcessed) return;
+    qtiTestElement.addEventListener("cito-item-response-changed", onInteraction);
+    // An adaptive item in steps: moving on to a next STEP locks the steps before it.
+    const onItemOutcome = (event: Event) => {
+      if ((event as CustomEvent<{ outcomeIdentifier?: string }>).detail?.outcomeIdentifier !== "STEP") return;
       const item = (event.composedPath()[0] as Element | undefined)?.closest?.("qti-assessment-item");
       if (item?.getAttribute("adaptive") === "true") lockFinishedSteps(item);
     };
-    qtiTestElement.addEventListener("qti-item-context-updated", onItemContext);
+    qtiTestElement.addEventListener("cito-item-outcome-changed", onItemOutcome);
     document.addEventListener("visibilitychange", onHide);
     window.addEventListener("pagehide", saveLive);
     return () => {
-      qtiTestElement.removeEventListener("qti-test-context-updated", listener);
+      qtiTestElement.removeEventListener("cito-test-state-changed", listener);
       qtiTestElement.removeEventListener(
-        "qti-interaction-changed",
+        "cito-item-response-changed",
         onInteraction,
       );
-      qtiTestElement.removeEventListener("qti-item-context-updated", onItemContext);
+      qtiTestElement.removeEventListener("cito-item-outcome-changed", onItemOutcome);
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("pagehide", saveLive);
       // Unmount (leaving the page, a layout switch): one last save.
@@ -994,7 +982,7 @@ export const AssessmentPage: React.FC = () => {
   /**
    * Put the persisted answers back after the runner has wiped its own context.
    *
-   * `qti-assessment-test-connected` makes qti-components assign
+   * Loading the test (`cito-test-loaded`) makes qti-components assign
    * `INITIAL_TEST_CONTEXT` unconditionally — the guard meant to preserve an
    * existing context tests the value the line above it has just overwritten —
    * so every `<test-container>` remount starts blank: an overview round trip, a
@@ -1081,14 +1069,11 @@ export const AssessmentPage: React.FC = () => {
       qtiTestRef.current?.navigateTo("item", targetItemRefId);
     };
 
-    qtiTestElement.addEventListener(
-      "qti-assessment-test-connected",
-      handleTestConnected,
-    );
+    qtiTestElement.addEventListener("cito-test-loaded", handleTestConnected);
 
     return () => {
       qtiTestElement.removeEventListener(
-        "qti-assessment-test-connected",
+        "cito-test-loaded",
         handleTestConnected,
       );
     };
@@ -1740,8 +1725,7 @@ export const AssessmentPage: React.FC = () => {
    * Shaped like the stamp context so everything downstream is unchanged.
    */
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  const handleComputedContextUpdate = useCallback((event: Event) => {
-    const context = (event as CustomEvent<any>).detail;
+  const handleComputedContextUpdate = useCallback((context: any) => {
     const testParts: any[] = context?.testParts ?? [];
     const testPart =
       testParts.find((part: any) => part.active) ?? testParts[0];
@@ -1764,17 +1748,18 @@ export const AssessmentPage: React.FC = () => {
   /* eslint-enable @typescript-eslint/no-explicit-any */
 
   useEffect(() => {
-    if (!qtiTestElement) return;
-    qtiTestElement.addEventListener(
-      "qti-computed-context-updated",
+    // `<test-navigation>` provides the computed context. Ask from its
+    // `<test-stamp>`, which is always rendered (the test container is not while
+    // the overview is open), so the chrome keeps following it.
+    const stamp = qtiTestElement?.querySelector(
+      ":scope > test-navigation > test-stamp",
+    );
+    if (!stamp) return;
+    return subscribeToContext(
+      stamp,
+      computedContext,
       handleComputedContextUpdate,
     );
-    return () => {
-      qtiTestElement.removeEventListener(
-        "qti-computed-context-updated",
-        handleComputedContextUpdate,
-      );
-    };
   }, [handleComputedContextUpdate, qtiTestElement]);
 
   const attachTestContainer = useCallback(
@@ -1791,7 +1776,7 @@ export const AssessmentPage: React.FC = () => {
    * shared source lifted into a block of its own above the questions that use
    * it.
    *
-   * Driven by a MutationObserver rather than by `qti-test-loaded` alone,
+   * Driven by a MutationObserver rather than by `cito-test-rendered` alone,
    * because a stimulus can land in the page after the load has been reported
    * and the runner re-renders items behind our back. The observer is
    * disconnected while we work so our own edits cannot wake it — both
@@ -1851,13 +1836,13 @@ export const AssessmentPage: React.FC = () => {
     decorate();
 
     const onTestLoaded = () => schedule();
-    qtiTestElement?.addEventListener("qti-test-loaded", onTestLoaded);
+    qtiTestElement?.addEventListener("cito-test-rendered", onTestLoaded);
 
     return () => {
       disposed = true;
       window.clearTimeout(timer);
       observer.disconnect();
-      qtiTestElement?.removeEventListener("qti-test-loaded", onTestLoaded);
+      qtiTestElement?.removeEventListener("cito-test-rendered", onTestLoaded);
     };
   }, [
     displayNumbers,
@@ -1982,6 +1967,45 @@ export const AssessmentPage: React.FC = () => {
     );
   }
 
+  /** The overview replaces the page, unless the intro or the hand-in result is on screen. */
+  const overviewShown = isOverviewOpen && !showIntro && !handInResult;
+
+  const overviewNavButtons = (
+    <>
+      <Button
+        size="sm"
+        onClick={goToPrevFromOverview}
+        disabled={!overviewNavTargets.prevId}
+        className="shrink-0"
+        title="Previous item"
+      >
+        <ChevronLeft className="mr-1 h-4 w-4" />
+        Previous
+      </Button>
+      <div className="flex-1 min-w-0 flex justify-center">
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={closeOverview}
+          title="Close overview"
+        >
+          <LayoutGrid className="mr-2 h-4 w-4" />
+          Close overview
+        </Button>
+      </div>
+      <Button
+        size="sm"
+        onClick={goToNextFromOverview}
+        disabled={!overviewNavTargets.nextId}
+        className="shrink-0"
+        title="Next item"
+      >
+        Next
+        <ChevronRight className="ml-1 h-4 w-4" />
+      </Button>
+    </>
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex w-full flex-col bg-gray-200 overflow-hidden">
       {/* Fixed Header - Always visible */}
@@ -2036,11 +2060,12 @@ export const AssessmentPage: React.FC = () => {
               Preparing test...
             </div>
           ) : (
+          <>
           <qti-test
             key={`${layoutMode}:${attempt}`}
             ref={refCallback}
             cache-transform
-            className="h-full min-h-0 flex flex-col"
+            className={`${overviewShown ? "flex-none" : "h-full"} min-h-0 flex flex-col`}
           >
             <test-navigation
               initContext={items
@@ -2126,7 +2151,7 @@ export const AssessmentPage: React.FC = () => {
                 <div
                   className={`relative flex-1 min-h-0 ${
                     showVerticalPane ? "flex flex-col lg:flex-row" : ""
-                  }`}
+                  } ${overviewShown ? "hidden" : ""}`}
                 >
                   {showVerticalPane && (
                     <VerticalNavigationPane
@@ -2164,19 +2189,7 @@ export const AssessmentPage: React.FC = () => {
                       }}
                       onStartAgain={startAgain}
                     />
-                  ) : isOverviewOpen ? (
-                    <AssessmentOverviewPage
-                      items={items}
-                      responseStateByItemRefId={responseStateByItemRefId}
-                      bookmarkedItemRefIds={bookmarkedItemRefIds}
-                      primaryStimulusByItem={stimulusRefs.primaryStimulusByItem}
-                      onOpenItem={(itemRefIdentifier) => {
-                        setOverviewMode(false);
-                        goToItem(itemRefIdentifier);
-                      }}
-                      onHandIn={() => setHandInOpen(true)}
-                    />
-                  ) : (
+                  ) : isOverviewOpen ? null : (
                     <div
                       className={
                         isVerticalLayout
@@ -2305,43 +2318,11 @@ export const AssessmentPage: React.FC = () => {
                 {/* Fixed bottom navigation. Absent in vertical mode: the left
                     pane is the navigation there, and a booklet has no pages to
                     step through. */}
-                {!showIntro && !showVerticalPane && (
+                {!showIntro && !showVerticalPane && !overviewShown && (
                   <div className="flex-shrink-0 border-t bg-white">
                     <nav className="flex items-center justify-between px-6 py-4 w-full min-w-0">
                       {isOverviewOpen ? (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={goToPrevFromOverview}
-                            disabled={!overviewNavTargets.prevId}
-                            className="shrink-0"
-                            title="Previous item"
-                          >
-                            <ChevronLeft className="mr-1 h-4 w-4" />
-                            Previous
-                          </Button>
-                          <div className="flex-1 min-w-0 flex justify-center">
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={closeOverview}
-                              title="Close overview"
-                            >
-                              <LayoutGrid className="mr-2 h-4 w-4" />
-                              Close overview
-                            </Button>
-                          </div>
-                          <Button
-                            size="sm"
-                            onClick={goToNextFromOverview}
-                            disabled={!overviewNavTargets.nextId}
-                            className="shrink-0"
-                            title="Next item"
-                          >
-                            Next
-                            <ChevronRight className="ml-1 h-4 w-4" />
-                          </Button>
-                        </>
+                        overviewNavButtons
                       ) : (
                         <>
                           <div className="flex items-center gap-3 flex-shrink-0">
@@ -2466,6 +2447,32 @@ export const AssessmentPage: React.FC = () => {
               </DraggablePopup>
             </test-navigation>
           </qti-test>
+          {/* The overview sits below <qti-test>, not inside it: its thumbnails
+              are item players of their own, and inside the runner their
+              composed events would be taken for the test's items. */}
+          {overviewShown && (
+            <>
+              <div className="min-h-0 flex-1 overflow-auto">
+                <AssessmentOverviewPage
+                  items={items}
+                  responseStateByItemRefId={responseStateByItemRefId}
+                  bookmarkedItemRefIds={bookmarkedItemRefIds}
+                  primaryStimulusByItem={stimulusRefs.primaryStimulusByItem}
+                  onOpenItem={(itemRefIdentifier) => {
+                    setOverviewMode(false);
+                    goToItem(itemRefIdentifier);
+                  }}
+                  onHandIn={() => setHandInOpen(true)}
+                />
+              </div>
+              <div className="flex-shrink-0 border-t bg-white">
+                <nav className="flex items-center justify-between px-6 py-4 w-full min-w-0">
+                  {overviewNavButtons}
+                </nav>
+              </div>
+            </>
+          )}
+          </>
           )}
         </div>
       </div>

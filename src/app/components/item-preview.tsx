@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo, useRef, useCallback } from "react";
+import React, { useState, useEffect, memo, useRef } from "react";
 import { qtiTransform } from "@citolab/qti-convert/qti-transformer";
 import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -10,33 +10,6 @@ import {
   detectPciBaseUrl,
   createModuleResolutionFetcher,
 } from "@citolab/qti-browser-import";
-
-/**
- * The lifecycle events qti-components' *test* runner listens for.
- *
- * A thumbnail is a standalone item player, but the assessment overview renders
- * it inside `<qti-test>`'s light DOM — and every one of these events is
- * `composed`, so it escapes the thumbnail and reaches the runner, which then
- * treats the thumbnail as an item of the test being played. That costs, in
- * order of severity: the shared stimulus of the *second* thumbnail that
- * references a source never loads (the runner dedupes by href and answers the
- * ref itself), the test's outcome variables collect the thumbnails' registered
- * variables, and every card logs a `#handleItemConnected` TypeError because the
- * thumbnail's item has no `qti-assessment-item-ref` parent.
- *
- * They are stopped *outside* `<qti-item>`, so every item-side listener — which
- * all sit on `qti-item` or deeper — has already seen the event.
- */
-const TEST_RUNNER_EVENTS = [
-  "qti-assessment-test-connected",
-  "qti-assessment-item-connected",
-  "qti-assessment-stimulus-ref-connected",
-  "qti-item-context-updated",
-  "qti-interaction-changed",
-  "qti-request-navigation",
-  "qti-register-variable",
-  "qti-set-outcome-value",
-] as const;
 
 interface ItemPreviewProps {
   item: ItemInfoWithBlobRef & { assessmentId?: string };
@@ -56,7 +29,6 @@ interface ItemPreviewProps {
 
 export const ItemPreview: React.FC<ItemPreviewProps> = memo(
   ({ item, index, onItemClick, headerContent, docTransform, overlayLabel }) => {
-    const stopEventsCleanupRef = useRef<(() => void) | null>(null);
     const [itemContent, setItemContent] = useState<string>("");
     const [itemDoc, setItemDoc] = useState<DocumentFragment | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -67,32 +39,6 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
     // surface needs its own scope. See app/editor-first.ts.
     const { registry: scopedRegistry, attachRef: attachScopedRegistry } =
       useScopedQtiRegistry();
-
-    /**
-     * Keep the thumbnail's item player to itself (see TEST_RUNNER_EVENTS).
-     *
-     * A ref callback rather than an effect, because an effect is too late: it
-     * is flushed after paint, while `<item-container>` renders the item — and
-     * `qti-assessment-item` dispatches `qti-assessment-item-connected` off its
-     * `updateComplete` — in a microtask right after this commit. A ref callback
-     * runs inside the commit, so the boundary is up before the first event.
-     */
-    const attachPreviewHost = useCallback((host: HTMLDivElement | null) => {
-      stopEventsCleanupRef.current?.();
-      stopEventsCleanupRef.current = null;
-      containerRef.current = host;
-      if (!host) return;
-
-      const stop = (event: Event) => event.stopPropagation();
-      for (const name of TEST_RUNNER_EVENTS) {
-        host.addEventListener(name, stop);
-      }
-      stopEventsCleanupRef.current = () => {
-        for (const name of TEST_RUNNER_EVENTS) {
-          host.removeEventListener(name, stop);
-        }
-      };
-    }, []);
 
     const packageRootUrl = (() => {
       try {
@@ -543,7 +489,7 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
         className="relative bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow group"
       >
         {headerContent && <div className="px-4 pt-4">{headerContent}</div>}
-        <div className="aspect-[4/3] overflow-hidden m-3" ref={attachPreviewHost}>
+        <div className="aspect-[4/3] overflow-hidden m-3" ref={containerRef}>
           <qti-item>
             <item-container
               ref={attachScopedRegistry}

@@ -22,7 +22,7 @@ import { Dropdown } from "../components/dropdown";
 import { iconActionClassName, Panel } from "../components/panel";
 import { PageShell, WORKSPACE_EDITOR_HEIGHT } from "../components/page-shell";
 import { qtiTransformItem } from "@citolab/qti-components/qti-transformers";
-import { QtiAssessmentItem, QtiItem } from "@citolab/qti-components";
+import { QtiAssessmentItem, QtiItem, itemContext } from "@citolab/qti-components";
 import type { QtiAssessmentItemCorrection } from "@citolab/qti-components/corrections";
 import { CustomElements } from "@citolab/qti-components/react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -41,6 +41,7 @@ import {
   decodeSharedParamToXml,
 } from "./item-source";
 import { lockFinishedSteps } from "../qti/adaptive-steps";
+import { subscribeToContext } from "../qti/lit-context";
 
 type PreviewVariable = {
   identifier: string;
@@ -50,18 +51,6 @@ type PreviewVariable = {
   correctResponse?: unknown;
   mapping?: unknown;
 };
-
-/**
- * The item events that can change a variable. They bubble and are composed, so a
- * listener on an ancestor of the player sees all of them -- which is what lets
- * the panel survive `item-container` swapping its item.
- */
-const VARIABLE_EVENT_TYPES = [
-  "qti-item-context-updated",
-  "qti-interaction-changed",
-  "qti-outcome-changed",
-  "qti-interaction-response",
-] as const;
 
 /**
  * The part of qti-components' `Interaction` base class this page relies on.
@@ -472,24 +461,20 @@ export const PreviewPage = () => {
 
   // Keeps the Item Variable panel in step with the item on screen.
   //
-  // Two things make this harder than "add a listener to the item":
+  // It follows the item's `itemContext` (see lit-context.ts) rather than its
+  // events, because the context changes on every variable change, including the
+  // ones code makes (correct response, template values, a restore), and the
+  // item events only cover what the candidate does.
   //
-  //  1. `item-container` REUSES itself across items. Switching example swaps the
-  //     `qti-assessment-item` inside its shadow root while the container keeps its
-  //     identity, and the swap happens after this effect re-runs. Listeners bound
-  //     to the item element therefore landed on the outgoing one and nothing was
-  //     ever bound to its replacement, so the panel froze on the previous item's
-  //     values -- and stayed frozen through every later interaction, which is why
-  //     dragging appeared not to update anything. These events bubble and are
-  //     composed, so binding to the wrapper (which React owns and never replaces)
-  //     survives the swap.
-  //
-  //  2. Loading an item fires NONE of these events. The variables are simply
-  //     there once it has initialised. So a swap has to be observed rather than
-  //     awaited: the MutationObserver below watches the container's shadow root
-  //     and refreshes as the new item renders. `refreshPreviewVariables` compares
-  //     a signature before touching state, so repeated calls are cheap and only a
-  //     real change re-renders.
+  // `item-container` REUSES itself across items: switching example swaps the
+  // `qti-assessment-item` inside its shadow root while the container keeps its
+  // identity, and the swap happens after this effect re-runs. A subscription
+  // made once would stay on the outgoing item, so the MutationObserver below
+  // watches the container's shadow root and re-subscribes when the item
+  // changes. Loading an item changes nothing in its context either, so the
+  // observer also refreshes as the new item renders. `refreshPreviewVariables`
+  // compares a signature before touching state, so repeated calls are cheap and
+  // only a real change re-renders.
   useEffect(() => {
     let cancelled = false;
     let cleanup: (() => void) | undefined;
@@ -517,22 +502,42 @@ export const PreviewPage = () => {
         return;
       }
 
-      for (const type of VARIABLE_EVENT_TYPES) {
-        host.addEventListener(type, handleUpdate as EventListener);
-      }
+      // Follow the item's own context: it changes on every response, outcome,
+      // template value and correct response, whether the candidate or code
+      // made the change. Re-subscribed whenever the container swaps its item.
+      let followedItem: Element | null = null;
+      let unfollow: (() => void) | undefined;
+      const followItem = () => {
+        const item = container.shadowRoot?.querySelector("qti-assessment-item") ?? null;
+        if (item === followedItem) return;
+        unfollow?.();
+        unfollow = undefined;
+        followedItem = item;
+        // The item provides its context to its descendants, not to itself. The
+        // provider calls back before the item's own field holds the new value,
+        // and the panel reads the item, so it reads a microtask later.
+        const descendant = item?.firstElementChild;
+        if (descendant) {
+          unfollow = subscribeToContext(descendant, itemContext, () =>
+            queueMicrotask(handleUpdate),
+          );
+        }
+      };
 
-      const observer = new MutationObserver(handleUpdate);
+      const observer = new MutationObserver(() => {
+        followItem();
+        handleUpdate();
+      });
       observer.observe(container.shadowRoot, { childList: true, subtree: true });
 
       // The item for this render may already be in place, in which case no
       // mutation is coming.
+      followItem();
       handleUpdate();
 
       cleanup = () => {
         observer.disconnect();
-        for (const type of VARIABLE_EVENT_TYPES) {
-          host.removeEventListener(type, handleUpdate as EventListener);
-        }
+        unfollow?.();
       };
     };
 
@@ -715,8 +720,8 @@ export const PreviewPage = () => {
                   // the correction-free QtiAssessmentItem, so the button silently
                   // did nothing. See src/main.tsx.
                   assessmentItem.showCorrectResponse(true);
-                  // The `variables` setter writes the context directly and fires
-                  // none of the events the panel listens on, so refresh it here.
+                  // Refresh straight away rather than wait for the context
+                  // subscription to report the change.
                   refreshPreviewVariables();
                 }}
               >

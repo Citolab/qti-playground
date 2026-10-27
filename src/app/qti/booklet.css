@@ -21,16 +21,37 @@
   display: block;
 }
 
-/* Drop the item's own stimulus/question split: the source has been lifted out
-   of the item (see booklet.ts), so the question takes the item's full width. */
-qti-assessment-item-ref .qti-layout-row {
+/* The item's own width decides when its columns stack, not the viewport's. */
+qti-assessment-item-ref[identifier] {
+  container-type: inline-size;
+}
+
+/* Drop the item's own stimulus/question split where the source was lifted out
+   of the item (see booklet.ts): the question takes the item's full width. A row
+   whose columns hold the question's own content (an image, a table) stays side
+   by side until the item is too narrow for two. */
+qti-assessment-item-ref .qti-layout-row:has(> [data-stimulus-hoisted]) {
   flex-wrap: wrap !important;
 }
 
-qti-assessment-item-ref [class*="qti-layout-col"] {
+qti-assessment-item-ref
+  .qti-layout-row:has(> [data-stimulus-hoisted])
+  > [class*="qti-layout-col"] {
   flex: 1 1 100% !important;
   width: 100% !important;
   max-width: 100% !important;
+}
+
+@container (width < 40rem) {
+  qti-assessment-item-ref .qti-layout-row {
+    flex-wrap: wrap !important;
+  }
+
+  qti-assessment-item-ref [class*="qti-layout-col"] {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
 }
 
 /* A shared source is shown once, in a block of its own, so every copy still

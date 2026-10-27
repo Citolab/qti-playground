@@ -6,13 +6,13 @@
  * ones connect one by one, the shared stimulus is fetched and copied in, our
  * booklet pass lifts it into its own column, and only then do the images
  * arrive. Each step moves the layout. qti-components reports the start
- * (`qti-navigation-loading-started`) and the point where items and stimuli are
- * in (`qti-test-loaded`); this hook adds the last two steps on top of that.
+ * (`cito-test-navigation-started`) and the point where items and stimuli are
+ * in (`cito-test-rendered`); this hook adds the last two steps on top of that.
  */
 import { useEffect, useRef, useState } from "react";
 import { bookletRoot } from "./booklet";
 
-/** What the runner is navigating to, from `qti-navigation-loading-started`. */
+/** What the runner is navigating to, from `cito-test-navigation-started`. */
 export interface NavigationTarget {
   type: "item" | "section";
   id: string;
@@ -20,8 +20,6 @@ export interface NavigationTarget {
 
 /** Longest we hold a page back for images that are slow or never load. */
 const IMAGE_WAIT_MS = 4000;
-/** Reveal anyway if a navigation ends without ever reporting a loaded page. */
-const LOADED_FALLBACK_MS = 1500;
 /** Reveal anyway if nothing at all is heard — a page must never stay hidden. */
 const SAFETY_MS = 10000;
 /**
@@ -94,12 +92,10 @@ export function usePageLoading({
 
     /** Bumped per navigation, so a slow reveal cannot show a newer page early. */
     let generation = 0;
-    let fallbackTimer = 0;
     let safetyTimer = 0;
     let skeletonTimer = 0;
 
     const clearTimers = () => {
-      window.clearTimeout(fallbackTimer);
       window.clearTimeout(safetyTimer);
       window.clearTimeout(skeletonTimer);
     };
@@ -133,7 +129,6 @@ export function usePageLoading({
 
     const onLoaded = async () => {
       const current = generation;
-      window.clearTimeout(fallbackTimer);
       await nextFrame();
       const container = testContainerRef.current;
       if (container) {
@@ -146,29 +141,23 @@ export function usePageLoading({
       if (current === generation) reveal();
     };
 
-    // `loading-ended` fires just before `qti-test-loaded` on success, and on its
-    // own when a navigation fails or is superseded — only the last needs us.
-    const onEnded = () => {
-      window.clearTimeout(fallbackTimer);
-      fallbackTimer = window.setTimeout(reveal, LOADED_FALLBACK_MS);
-    };
-
-    qtiTestElement.addEventListener("qti-navigation-loading-started", onStarted);
-    qtiTestElement.addEventListener("qti-test-loaded", onLoaded);
-    qtiTestElement.addEventListener("qti-navigation-loading-ended", onEnded);
-    qtiTestElement.addEventListener("qti-navigation-error", reveal);
+    // Every navigation ends in one of three ways: rendered, failed, or
+    // superseded by a newer one, which reports its own start. So there is no
+    // "ended" case left to time out; SAFETY_MS is the backstop.
+    qtiTestElement.addEventListener("cito-test-navigation-started", onStarted);
+    qtiTestElement.addEventListener("cito-test-rendered", onLoaded);
+    qtiTestElement.addEventListener("cito-test-navigation-failed", reveal);
     startTimers();
 
     return () => {
       generation++;
       clearTimers();
       qtiTestElement.removeEventListener(
-        "qti-navigation-loading-started",
+        "cito-test-navigation-started",
         onStarted,
       );
-      qtiTestElement.removeEventListener("qti-test-loaded", onLoaded);
-      qtiTestElement.removeEventListener("qti-navigation-loading-ended", onEnded);
-      qtiTestElement.removeEventListener("qti-navigation-error", reveal);
+      qtiTestElement.removeEventListener("cito-test-rendered", onLoaded);
+      qtiTestElement.removeEventListener("cito-test-navigation-failed", reveal);
     };
   }, [qtiTestElement, testContainerRef]);
 

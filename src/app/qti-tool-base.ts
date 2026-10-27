@@ -3,6 +3,15 @@
 import { LitElement } from "lit";
 import { property, state } from "lit/decorators.js";
 
+/**
+ * Sent on `window` by the assessment page each time an item connects. Ours, not
+ * qti-components', so it gets a name of its own rather than one of theirs.
+ */
+export const ITEM_READY_EVENT = "playground-item-ready";
+
+/** The signals after which a tool looks for its item again. */
+const ITEM_LOADED_EVENTS = ["cito-test-rendered", ITEM_READY_EVENT] as const;
+
 export abstract class QtiBaseTool extends LitElement {
   @property({ type: String }) movetoid = "toolbar";
   @property({ type: String }) hostTagName = "test-container";
@@ -139,11 +148,15 @@ export abstract class QtiBaseTool extends LitElement {
   }
 
   private attachEventListeners() {
-    window.addEventListener("qti-test-loaded", this.handleTestLoaded);
+    for (const type of ITEM_LOADED_EVENTS) {
+      window.addEventListener(type, this.handleTestLoaded);
+    }
   }
 
   private detachEventListeners() {
-    window.removeEventListener("qti-test-loaded", this.handleTestLoaded);
+    for (const type of ITEM_LOADED_EVENTS) {
+      window.removeEventListener(type, this.handleTestLoaded);
+    }
   }
 
   private handleTestLoaded = (_event: Event) => {

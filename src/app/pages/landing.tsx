@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -228,14 +228,28 @@ export const LandingPage: React.FC = () => {
     [],
   );
 
-  const onConnected = useCallback(
-    (e: CustomEvent) => {
-      const assessmentItem = e.detail as QtiAssessmentItem;
+  const onItemRendered = useCallback(
+    (e: Event) => {
+      const assessmentItem = (e as CustomEvent<QtiAssessmentItem>).detail;
       restoreResponses(assessmentItem, {
         RESPONSE2: PCI_BLOCKS_RESPONSE,
       });
     },
     [restoreResponses],
+  );
+
+  // `cito-item-rendered` has no JSX event prop, so bind it on the element.
+  const qtiItemCleanupRef = useRef<(() => void) | null>(null);
+  const attachQtiItem = useCallback(
+    (element: HTMLElement | null) => {
+      qtiItemCleanupRef.current?.();
+      qtiItemCleanupRef.current = null;
+      if (!element) return;
+      element.addEventListener("cito-item-rendered", onItemRendered);
+      qtiItemCleanupRef.current = () =>
+        element.removeEventListener("cito-item-rendered", onItemRendered);
+    },
+    [onItemRendered],
   );
 
   return (
@@ -441,7 +455,7 @@ export const LandingPage: React.FC = () => {
                   </div>
                   {/* Right: PCI preview */}
                   <div className="bg-gray-50 border-t sm:border-t-0 sm:border-l border-gray-200 flex flex-col items-center justify-center p-4 gap-3">
-                    <qti-item onqti-assessment-item-connected={onConnected}>
+                    <qti-item ref={attachQtiItem}>
                       <item-container
                         ref={attachScopedRegistry}
                         customElementRegistry={scopedRegistry}
