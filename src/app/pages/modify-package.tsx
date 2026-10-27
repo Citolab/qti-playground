@@ -12,6 +12,9 @@ import {
 import {
   convertPackageToDocx,
   convertPackageToPdf,
+  convertPackageToZip,
+  type PaperDocumentKind,
+  type PaperFormat,
 } from "@citolab/qti-convert-export";
 import {
   AlertCircle,
@@ -40,8 +43,40 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type TabType = "upgrade" | "downgrade" | "media" | "items" | "export";
-type ExportFormat = "docx" | "pdf";
+type ExportFormat = PaperFormat | "both";
 type ExportLocale = "en" | "nl";
+/** `set` is the booklet / answer sheet / answer key zip, `workbook` the single document. */
+type ExportLayout = "set" | "workbook";
+type SetDocument = Exclude<PaperDocumentKind, "workbook">;
+
+const setDocumentOptions: { kind: SetDocument; label: string; hint: string }[] = [
+  {
+    kind: "questions",
+    label: "Question booklet",
+    hint: "Questions and options only, no answer space — reusable",
+  },
+  {
+    kind: "answerSheet",
+    label: "Answer sheet",
+    hint: "Name, class and date, then an answer area per question",
+  },
+  {
+    kind: "answerKey",
+    label: "Answer key",
+    hint: "The answer sheet filled in, with points, alternatives and rubrics",
+  },
+];
+
+const docxMime =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const mimeFor = (format: PaperFormat) =>
+  format === "pdf" ? "application/pdf" : docxMime;
+
+// qti-convert-export declares a bare Uint8Array, which TS 5.7+ widens to
+// Uint8Array<ArrayBufferLike>; docx/pdf-lib/jszip never hand back a
+// SharedArrayBuffer, so narrowing it is safe.
+const bytesToBlob = (bytes: Uint8Array, type: string) =>
+  new Blob([bytes as Uint8Array<ArrayBuffer>], { type });
 
 const downloadBlob = (blob: Blob, filename: string) => {
   const safe =
@@ -116,7 +151,12 @@ export const ModifyPackagePage: React.FC = () => {
   const [itemsLoaded, setItemsLoaded] = useState(false);
   const [removedItems, setRemovedItems] = useState<string[]>([]);
   const [removedWebcontent, setRemovedWebcontent] = useState<number>(0);
+  const [exportLayout, setExportLayout] = useState<ExportLayout>("set");
   const [exportFormat, setExportFormat] = useState<ExportFormat>("docx");
+  const [exportDocuments, setExportDocuments] = useState<SetDocument[]>(
+    setDocumentOptions.map((option) => option.kind),
+  );
+  const [keepSourceOrder, setKeepSourceOrder] = useState(false);
   const [exportLocale, setExportLocale] = useState<ExportLocale>("en");
   const [correctionInDocument, setCorrectionInDocument] = useState(false);
   const [correctionSeparate, setCorrectionSeparate] = useState(true);
@@ -224,24 +264,44 @@ export const ModifyPackagePage: React.FC = () => {
       const newName = fileName.substring(0, fileName.lastIndexOf(".")) || "";
       let newZipName = "";
 
-      if (activeTab === "export") {
+      if (activeTab === "export" && exportLayout === "set") {
+        const result = await convertPackageToZip(selectedFile, {
+          locale: exportLocale,
+          keepSourceOrder,
+          fileNameBase: packageBaseName(fileName),
+          formats: exportFormat === "both" ? ["docx", "pdf"] : [exportFormat],
+          // Keep the booklet → sheet → key order regardless of click order
+          documents: setDocumentOptions
+            .map((option) => option.kind)
+            .filter((kind) => exportDocuments.includes(kind)),
+        });
+
+        setExportItemCount(result.paper.items.length);
+
+        if (result.files.length === 1) {
+          // A zip around a single document is just an extra click
+          const [file] = result.files;
+          blob = bytesToBlob(file.bytes, mimeFor(file.format));
+          newZipName = file.name;
+        } else {
+          blob = bytesToBlob(result.zip, "application/zip");
+          newZipName = result.fileName;
+        }
+      } else if (activeTab === "export") {
+        const format: PaperFormat = exportFormat === "pdf" ? "pdf" : "docx";
         const base = packageBaseName(fileName);
-        const ext = exportFormat === "pdf" ? "pdf" : "docx";
-        const paperName = `${base}.${ext}`;
-        const correctionName = `${base}-correction.${ext}`;
+        const paperName = `${base}.${format}`;
+        const correctionName = `${base}-correction.${format}`;
         const options = {
           locale: exportLocale,
+          keepSourceOrder,
           correctionInDocument,
           correctionSeparate,
           fileNameBase: base,
         };
-        const mime =
-          exportFormat === "pdf"
-            ? "application/pdf"
-            : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
         const result =
-          exportFormat === "pdf"
+          format === "pdf"
             ? await convertPackageToPdf(selectedFile, options)
             : await convertPackageToDocx(selectedFile, options);
 
@@ -257,12 +317,7 @@ export const ModifyPackagePage: React.FC = () => {
           );
           newZipName = `${base}.zip`;
         } else {
-          // qti-convert-export declares a bare Uint8Array, which TS 5.7+ widens
-          // to Uint8Array<ArrayBufferLike>; docx/pdf-lib never hand back a
-          // SharedArrayBuffer, so narrowing it is safe.
-          blob = new Blob([result.assessment as Uint8Array<ArrayBuffer>], {
-            type: mime,
-          });
+          blob = bytesToBlob(result.assessment, mimeFor(format));
           newZipName = paperName;
         }
       } else if (activeTab === "downgrade") {
@@ -392,7 +447,9 @@ export const ModifyPackagePage: React.FC = () => {
                         ? "Please wait while we process the selected items..."
                         : "Analyzing package to count available items..."
                       : activeTab === "export"
-                        ? `Building a paper-friendly ${exportFormat === "pdf" ? "PDF" : "Word"} document from your QTI package...`
+                        ? exportLayout === "set"
+                          ? "Building the paper documents from your QTI package..."
+                          : `Building a paper-friendly ${exportFormat === "pdf" ? "PDF" : "Word"} document from your QTI package...`
                         : activeTab === "downgrade"
                           ? "Please wait while we convert your QTI3 package to QTI 2.1 format..."
                           : "Please wait while we convert your QTI2 package to QTI3 format..."}
@@ -574,13 +631,43 @@ export const ModifyPackagePage: React.FC = () => {
                       </h2>
                     </div>
                     <p className="text-sm text-gray-600 mb-4">
-                      Create a paper-friendly document from a QTI 3 package.
-                      Choice, text, match, order, gap-match and hottext items
-                      are mapped to printable layouts; unsupported types get a
-                      short note.
+                      Create paper-friendly documents from a QTI 3 or 2.1
+                      package. Every interaction gets a printable layout —
+                      graphic items get letters on the image; PCIs are marked
+                      digital only.
                     </p>
 
                     <div className="space-y-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          Documents
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant={exportLayout === "set" ? "default" : "outline"}
+                            onClick={() => setExportLayout("set")}
+                          >
+                            Booklet, answer sheet &amp; key
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={exportLayout === "workbook" ? "default" : "outline"}
+                            onClick={() => {
+                              setExportLayout("workbook");
+                              if (exportFormat === "both") setExportFormat("docx");
+                            }}
+                          >
+                            Single workbook
+                          </Button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {exportLayout === "set"
+                            ? "Separate documents, so the question booklet can be reused."
+                            : "One document with the answer space under each question."}
+                        </p>
+                      </div>
+
                       <div>
                         <p className="text-sm font-medium text-gray-700 mb-2">
                           Format
@@ -600,6 +687,15 @@ export const ModifyPackagePage: React.FC = () => {
                           >
                             PDF
                           </Button>
+                          {exportLayout === "set" ? (
+                            <Button
+                              type="button"
+                              variant={exportFormat === "both" ? "default" : "outline"}
+                              onClick={() => setExportFormat("both")}
+                            >
+                              Both
+                            </Button>
+                          ) : null}
                         </div>
                       </div>
 
@@ -622,47 +718,102 @@ export const ModifyPackagePage: React.FC = () => {
                         </p>
                       </div>
 
-                      <label className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-200 cursor-pointer">
-                        <Checkbox
-                          checked={correctionInDocument}
-                          onCheckedChange={(checked) =>
-                            setCorrectionInDocument(checked === true)
-                          }
-                        />
-                        <span className="text-gray-700 text-sm">
-                          Correction in question document
-                        </span>
-                      </label>
+                      {exportLayout === "set" ? (
+                        <div className="space-y-2">
+                          {setDocumentOptions.map((option) => (
+                            <label
+                              key={option.kind}
+                              className="flex items-start space-x-2 p-2 bg-white rounded border border-gray-200 cursor-pointer"
+                            >
+                              <Checkbox
+                                className="mt-0.5"
+                                checked={exportDocuments.includes(option.kind)}
+                                onCheckedChange={(checked) =>
+                                  setExportDocuments((current) =>
+                                    checked === true
+                                      ? [...current, option.kind]
+                                      : current.filter((kind) => kind !== option.kind),
+                                  )
+                                }
+                              />
+                              <span className="text-sm">
+                                <span className="text-gray-700">{option.label}</span>
+                                <span className="block text-xs text-gray-500">
+                                  {option.hint}
+                                </span>
+                              </span>
+                            </label>
+                          ))}
+                          <p className="text-xs text-gray-500 pl-1">
+                            {exportDocuments.length === 0
+                              ? "Select at least one document."
+                              : exportDocuments.length === 1 && exportFormat !== "both"
+                                ? "Downloads a single document."
+                                : "Downloads a zip with the selected documents."}
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <label className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-200 cursor-pointer">
+                            <Checkbox
+                              checked={correctionInDocument}
+                              onCheckedChange={(checked) =>
+                                setCorrectionInDocument(checked === true)
+                              }
+                            />
+                            <span className="text-gray-700 text-sm">
+                              Correction in question document
+                            </span>
+                          </label>
+
+                          <label className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-200 cursor-pointer">
+                            <Checkbox
+                              checked={correctionSeparate}
+                              onCheckedChange={(checked) =>
+                                setCorrectionSeparate(checked === true)
+                              }
+                            />
+                            <span className="text-gray-700 text-sm">
+                              Correction in separate document
+                            </span>
+                          </label>
+                          {correctionSeparate ? (
+                            <p className="text-xs text-gray-500 pl-1">
+                              Downloads a zip with the question sheet and{" "}
+                              <code className="text-[11px]">…-correction.docx</code>.
+                              {correctionInDocument
+                                ? " The question sheet will also include the correction at the end."
+                                : ""}
+                            </p>
+                          ) : correctionInDocument ? (
+                            <p className="text-xs text-gray-500 pl-1">
+                              Correction is appended at the end of the question
+                              document (single file).
+                            </p>
+                          ) : (
+                            <p className="text-xs text-gray-500 pl-1">
+                              Questions only — no correction sheet.
+                            </p>
+                          )}
+                        </>
+                      )}
 
                       <label className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-200 cursor-pointer">
                         <Checkbox
-                          checked={correctionSeparate}
+                          checked={keepSourceOrder}
                           onCheckedChange={(checked) =>
-                            setCorrectionSeparate(checked === true)
+                            setKeepSourceOrder(checked === true)
                           }
                         />
                         <span className="text-gray-700 text-sm">
-                          Correction in separate document
+                          Keep source order of shuffled options
                         </span>
                       </label>
-                      {correctionSeparate ? (
-                        <p className="text-xs text-gray-500 pl-1">
-                          Downloads a zip with the question sheet and{" "}
-                          <code className="text-[11px]">…-correction.docx</code>.
-                          {correctionInDocument
-                            ? " The question sheet will also include the correction at the end."
-                            : ""}
-                        </p>
-                      ) : correctionInDocument ? (
-                        <p className="text-xs text-gray-500 pl-1">
-                          Correction is appended at the end of the question
-                          document (single file).
-                        </p>
-                      ) : (
-                        <p className="text-xs text-gray-500 pl-1">
-                          Questions only — no correction sheet.
-                        </p>
-                      )}
+                      <p className="text-xs text-gray-500 pl-1">
+                        {keepSourceOrder
+                          ? "Options print in package order, which often gives the answer away."
+                          : "Shuffled interactions get a fixed order on paper; order items never print in their correct order."}
+                      </p>
 
                       {processComplete ? (
                         <Alert variant="success">
@@ -672,12 +823,20 @@ export const ModifyPackagePage: React.FC = () => {
                             {exportItemCount != null ? (
                               <p>
                                 Exported {exportItemCount} items to{" "}
-                                {exportFormat === "pdf" ? "PDF" : "Word"}
-                                {correctionSeparate
-                                  ? " (zip)"
-                                  : correctionInDocument
-                                    ? " (with correction)"
-                                    : ""}
+                                {exportFormat === "both"
+                                  ? "Word and PDF"
+                                  : exportFormat === "pdf"
+                                    ? "PDF"
+                                    : "Word"}
+                                {exportLayout === "set"
+                                  ? exportDocuments.length > 1 || exportFormat === "both"
+                                    ? " (zip)"
+                                    : ""
+                                  : correctionSeparate
+                                    ? " (zip)"
+                                    : correctionInDocument
+                                      ? " (with correction)"
+                                      : ""}
                               </p>
                             ) : null}
                             <p className="font-medium">
@@ -815,16 +974,24 @@ export const ModifyPackagePage: React.FC = () => {
                       ) : (
                         <Button
                           onClick={() => void processFile()}
-                          disabled={!!error || (activeTab === "items" && !itemsLoaded)}
+                          disabled={
+                            !!error ||
+                            (activeTab === "items" && !itemsLoaded) ||
+                            (activeTab === "export" &&
+                              exportLayout === "set" &&
+                              exportDocuments.length === 0)
+                          }
                         >
                           {activeTab === "upgrade" || activeTab === "downgrade"
                             ? "Convert Package"
                             : activeTab === "export"
-                              ? correctionSeparate
-                                ? "Export question + correction"
-                                : exportFormat === "pdf"
-                                  ? "Export PDF"
-                                  : "Export Word"
+                              ? exportLayout === "set"
+                                ? "Export paper documents"
+                                : correctionSeparate
+                                  ? "Export question + correction"
+                                  : exportFormat === "pdf"
+                                    ? "Export PDF"
+                                    : "Export Word"
                               : "Process File"}
                         </Button>
                       )}
