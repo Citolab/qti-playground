@@ -489,6 +489,149 @@ export const ModifyPackagePage: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-6">
+                {selectedFile ? (
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <FileText className="text-citolab-600" size={20} />
+                        <h2 className="text-lg font-semibold text-gray-800">
+                          Selected File
+                        </h2>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={clearSelection}
+                        className="text-gray-500"
+                      >
+                        <X size={20} />
+                      </Button>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 bg-white rounded border border-gray-200">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-citolab-50 rounded-full">
+                          <FileText className="text-citolab-600" size={24} />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-800">
+                            {selectedFile.name}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+
+                      {processComplete ? (
+                        <span className="flex items-center text-green-600 text-sm font-medium">
+                          <CheckCircle size={16} className="mr-1" />
+                          Complete
+                        </span>
+                      ) : (
+                        <Button
+                          onClick={() => void processFile()}
+                          disabled={
+                            !!error ||
+                            (activeTab === "items" && !itemsLoaded) ||
+                            (activeTab === "export" &&
+                              exportLayout === "set" &&
+                              exportDocuments.length === 0)
+                          }
+                        >
+                          {activeTab === "upgrade" || activeTab === "downgrade"
+                            ? "Convert Package"
+                            : activeTab === "export"
+                              ? exportLayout === "set"
+                                ? "Export paper documents"
+                                : correctionSeparate
+                                  ? "Export question + correction"
+                                  : exportFormat === "pdf"
+                                    ? "Export PDF"
+                                    : "Export Word"
+                              : "Process File"}
+                        </Button>
+                      )}
+                    </div>
+
+                    {error ? (
+                      <Alert variant="destructive" className="mt-4">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>{error}</AlertDescription>
+                      </Alert>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div
+                    className={`relative rounded-xl transition-all duration-200 ${
+                      isDragging
+                        ? "border-2 border-citolab-500 bg-citolab-50"
+                        : "border-2 border-dashed border-gray-300 bg-gray-50"
+                    } hover:border-citolab-400 hover:bg-gray-100`}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      setIsDragging(false);
+                      const file = event.dataTransfer?.files[0] || null;
+                      setSelectedFile(file);
+                      if (validateFile(file) && activeTab === "items" && file) {
+                        void analyzeItemsInPackage(file);
+                      }
+                    }}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setIsDragging(true);
+                    }}
+                    onDragLeave={(event) => {
+                      event.preventDefault();
+                      setIsDragging(false);
+                    }}
+                  >
+                    <input
+                      id="dropzone-file"
+                      type="file"
+                      className="hidden"
+                      onChange={handleFileChange}
+                      accept=".zip"
+                    />
+
+                    <label
+                      htmlFor="dropzone-file"
+                      className="flex flex-col w-full p-10 cursor-pointer"
+                    >
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <div
+                          className={`p-6 mb-4 rounded-full bg-citolab-50 text-citolab-500 ${
+                            isDragging ? "animate-pulse" : ""
+                          }`}
+                        >
+                          <Upload className="w-12 h-12" />
+                        </div>
+                        <h3 className="mb-2 text-xl font-semibold text-gray-700">
+                          {isDragging
+                            ? "Drop to preview"
+                            : `Select QTI ${activeTab === "upgrade" ? "2" : activeTab === "downgrade" ? "3" : ""} Package`}
+                        </h3>
+                        <p className="mb-4 text-sm text-gray-500">
+                          <span className="font-medium">Click to browse</span>{" "}
+                          or drag and drop your QTI ZIP file
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {activeTab === "upgrade"
+                            ? "QTI 2.x ZIP files are supported"
+                            : activeTab === "downgrade"
+                              ? "QTI 3 ZIP files are supported"
+                              : activeTab === "export"
+                              ? "QTI 3 ZIP packages work best for paper export"
+                              : "QTI 2.x and 3 ZIP files are supported"}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          * By uploading you agree to our Terms and Conditions.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                )}
+
                 {activeTab === "media" ? (
                   <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <div className="flex items-center gap-2 mb-4">
@@ -964,149 +1107,6 @@ export const ModifyPackagePage: React.FC = () => {
                         </AlertDescription>
                       </Alert>
                     ) : null}
-                  </div>
-                )}
-
-                {selectedFile ? (
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <FileText className="text-citolab-600" size={20} />
-                        <h2 className="text-lg font-semibold text-gray-800">
-                          Selected File
-                        </h2>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={clearSelection}
-                        className="text-gray-500"
-                      >
-                        <X size={20} />
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 bg-white rounded border border-gray-200">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-citolab-50 rounded-full">
-                          <FileText className="text-citolab-600" size={24} />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-800">
-                            {selectedFile.name}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
-                          </p>
-                        </div>
-                      </div>
-
-                      {processComplete ? (
-                        <span className="flex items-center text-green-600 text-sm font-medium">
-                          <CheckCircle size={16} className="mr-1" />
-                          Complete
-                        </span>
-                      ) : (
-                        <Button
-                          onClick={() => void processFile()}
-                          disabled={
-                            !!error ||
-                            (activeTab === "items" && !itemsLoaded) ||
-                            (activeTab === "export" &&
-                              exportLayout === "set" &&
-                              exportDocuments.length === 0)
-                          }
-                        >
-                          {activeTab === "upgrade" || activeTab === "downgrade"
-                            ? "Convert Package"
-                            : activeTab === "export"
-                              ? exportLayout === "set"
-                                ? "Export paper documents"
-                                : correctionSeparate
-                                  ? "Export question + correction"
-                                  : exportFormat === "pdf"
-                                    ? "Export PDF"
-                                    : "Export Word"
-                              : "Process File"}
-                        </Button>
-                      )}
-                    </div>
-
-                    {error ? (
-                      <Alert variant="destructive" className="mt-4">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>{error}</AlertDescription>
-                      </Alert>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div
-                    className={`relative rounded-xl transition-all duration-200 ${
-                      isDragging
-                        ? "border-2 border-citolab-500 bg-citolab-50"
-                        : "border-2 border-dashed border-gray-300 bg-gray-50"
-                    } hover:border-citolab-400 hover:bg-gray-100`}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      setIsDragging(false);
-                      const file = event.dataTransfer?.files[0] || null;
-                      setSelectedFile(file);
-                      if (validateFile(file) && activeTab === "items" && file) {
-                        void analyzeItemsInPackage(file);
-                      }
-                    }}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      setIsDragging(true);
-                    }}
-                    onDragLeave={(event) => {
-                      event.preventDefault();
-                      setIsDragging(false);
-                    }}
-                  >
-                    <input
-                      id="dropzone-file"
-                      type="file"
-                      className="hidden"
-                      onChange={handleFileChange}
-                      accept=".zip"
-                    />
-
-                    <label
-                      htmlFor="dropzone-file"
-                      className="flex flex-col w-full p-10 cursor-pointer"
-                    >
-                      <div className="flex flex-col items-center justify-center text-center">
-                        <div
-                          className={`p-6 mb-4 rounded-full bg-citolab-50 text-citolab-500 ${
-                            isDragging ? "animate-pulse" : ""
-                          }`}
-                        >
-                          <Upload className="w-12 h-12" />
-                        </div>
-                        <h3 className="mb-2 text-xl font-semibold text-gray-700">
-                          {isDragging
-                            ? "Drop to preview"
-                            : `Select QTI ${activeTab === "upgrade" ? "2" : activeTab === "downgrade" ? "3" : ""} Package`}
-                        </h3>
-                        <p className="mb-4 text-sm text-gray-500">
-                          <span className="font-medium">Click to browse</span>{" "}
-                          or drag and drop your QTI ZIP file
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          {activeTab === "upgrade"
-                            ? "QTI 2.x ZIP files are supported"
-                            : activeTab === "downgrade"
-                              ? "QTI 3 ZIP files are supported"
-                              : activeTab === "export"
-                              ? "QTI 3 ZIP packages work best for paper export"
-                              : "QTI 2.x and 3 ZIP files are supported"}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          * By uploading you agree to our Terms and Conditions.
-                        </p>
-                      </div>
-                    </label>
                   </div>
                 )}
               </div>
