@@ -12,7 +12,8 @@ import {
 import {
   convertPackageToDocx,
   convertPackageToPdf,
-  convertPackageToZip,
+  loadPackage,
+  renderPaperZip,
   type PaperDocumentKind,
   type PaperFormat,
 } from "@citolab/qti-convert-export";
@@ -56,6 +57,11 @@ const setDocumentOptions: { kind: SetDocument; label: string; hint: string }[] =
     hint: "Questions and options only, no answer space — reusable",
   },
   {
+    kind: "sources",
+    label: "Source texts",
+    hint: "Shared texts, numbered; questions refer to them instead of repeating them",
+  },
+  {
     kind: "answerSheet",
     label: "Answer sheet",
     hint: "Name, class and date, then an answer area per question",
@@ -66,6 +72,9 @@ const setDocumentOptions: { kind: SetDocument; label: string; hint: string }[] =
     hint: "The answer sheet filled in, with points, alternatives and rubrics",
   },
 ];
+
+const noSourcesError =
+  "This package has no shared source texts, so there is nothing to export. Select another document.";
 
 const docxMime =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -157,6 +166,7 @@ export const ModifyPackagePage: React.FC = () => {
     setDocumentOptions.map((option) => option.kind),
   );
   const [keepSourceOrder, setKeepSourceOrder] = useState(false);
+  const [sourcesSkipped, setSourcesSkipped] = useState(false);
   const [exportLocale, setExportLocale] = useState<ExportLocale>("en");
   const [correctionInDocument, setCorrectionInDocument] = useState(false);
   const [correctionSeparate, setCorrectionSeparate] = useState(true);
@@ -265,18 +275,33 @@ export const ModifyPackagePage: React.FC = () => {
       let newZipName = "";
 
       if (activeTab === "export" && exportLayout === "set") {
-        const result = await convertPackageToZip(selectedFile, {
+        const paper = await loadPackage(selectedFile, { keepSourceOrder });
+        const hasSources = paper.stimuli.size > 0;
+        // Keep the booklet → sources → sheet → key order regardless of click
+        // order. Without shared texts there is no sources document; the
+        // library then prints any texts in the booklet itself.
+        const documents = setDocumentOptions
+          .map((option) => option.kind)
+          .filter((kind) => exportDocuments.includes(kind))
+          .filter((kind) => kind !== "sources" || hasSources);
+        setSourcesSkipped(!hasSources && exportDocuments.includes("sources"));
+
+        if (documents.length === 0) {
+          clearInterval(progressInterval);
+          setError(noSourcesError);
+          setInProgress(false);
+          return;
+        }
+
+        const result = await renderPaperZip(paper, {
           locale: exportLocale,
           keepSourceOrder,
           fileNameBase: packageBaseName(fileName),
           formats: exportFormat === "both" ? ["docx", "pdf"] : [exportFormat],
-          // Keep the booklet → sheet → key order regardless of click order
-          documents: setDocumentOptions
-            .map((option) => option.kind)
-            .filter((kind) => exportDocuments.includes(kind)),
+          documents,
         });
 
-        setExportItemCount(result.paper.items.length);
+        setExportItemCount(paper.items.length);
 
         if (result.files.length === 1) {
           // A zip around a single document is just an extra click
@@ -728,13 +753,17 @@ export const ModifyPackagePage: React.FC = () => {
                               <Checkbox
                                 className="mt-0.5"
                                 checked={exportDocuments.includes(option.kind)}
-                                onCheckedChange={(checked) =>
+                                onCheckedChange={(checked) => {
                                   setExportDocuments((current) =>
                                     checked === true
                                       ? [...current, option.kind]
                                       : current.filter((kind) => kind !== option.kind),
-                                  )
-                                }
+                                  );
+                                  // Only this error is about the selection; file errors stay
+                                  setError((current) =>
+                                    current === noSourcesError ? null : current,
+                                  );
+                                }}
                               />
                               <span className="text-sm">
                                 <span className="text-gray-700">{option.label}</span>
@@ -837,6 +866,12 @@ export const ModifyPackagePage: React.FC = () => {
                                     : correctionInDocument
                                       ? " (with correction)"
                                       : ""}
+                              </p>
+                            ) : null}
+                            {exportLayout === "set" && sourcesSkipped ? (
+                              <p>
+                                No shared source texts in this package, so no
+                                sources document.
                               </p>
                             ) : null}
                             <p className="font-medium">
