@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --force",
     "build": "tsc -b && vite build",
-    "test": "vitest --project=storybook --run",
+    "test": "vitest --project=unit --project=storybook --run",
     "test:all": "npm run build && npm run test",
     "lint": "eslint .",
     "deploy:app": "firebase use qti-convert && firebase deploy --only hosting:convert-online",

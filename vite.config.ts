@@ -424,6 +424,8 @@ export default defineConfig(() => {
     },
     test: {
       projects: [
+        // Plain modules (the XML editors' scanner and schema completion), in Node.
+        { test: { name: "unit", include: ["src/**/*.test.ts"], environment: "node" } },
         {
           extends: true,
           plugins: [

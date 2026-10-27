@@ -1,24 +1,29 @@
 import type { Monaco } from "@monaco-editor/react";
 import type { editor, languages } from "monaco-editor";
 import { formatXml } from "./format-xml";
+import { registerSchemaAssist } from "./monaco-schema-assist";
+import { loadSchemaCatalog } from "./schema-catalog";
 import type { XmlIssue, XmlValidationRequest, XmlValidationResponse } from "./xml-validation.worker";
 
 const VALIDATE_DELAY = 500;
 const MARKER_OWNER = "xml-validation";
 
-let formatterRegistered = false;
+let languageRegistered = false;
 /** Started on the first validation; null once it failed to load. */
 let worker: Worker | null | undefined;
 let nextRequestId = 0;
 const pending = new Map<number, (issues: XmlIssue[]) => void>();
 
 /**
- * The XML editors' extras, for `<Editor onMount>`: "Format Document" (Shift+Alt+F, context menu) and validation while
- * typing. Every XML is checked for well-formedness, QTI 3 (by root namespace) also against the QTI 3.0 schema. Both run
- * in the browser (libxml2 in a worker), so the XML never leaves the machine.
+ * The XML editors' extras, for `<Editor onMount>`: "Format Document" (Shift+Alt+F, context menu), completion and hover
+ * from the QTI 3.0 schema, and validation while typing. Every XML is checked for well-formedness, QTI 3 (by root
+ * namespace) also against the QTI 3.0 schema. All of it runs in the browser (libxml2 in a worker, the schema catalog a
+ * static asset), so the XML never leaves the machine.
  */
 export function setupXmlEditor(ed: editor.IStandaloneCodeEditor, monaco: Monaco): void {
-  registerFormatter(monaco);
+  registerLanguage(monaco);
+  // Attribute values are strings to Monaco; suggest there too (enumerations, declared variables).
+  ed.updateOptions({ quickSuggestions: { other: true, comments: false, strings: true } });
 
   let timer: number | undefined;
   let run = 0;
@@ -46,9 +51,14 @@ export function setupXmlEditor(ed: editor.IStandaloneCodeEditor, monaco: Monaco)
   validate();
 }
 
-function registerFormatter(monaco: Monaco) {
-  if (formatterRegistered) return;
-  formatterRegistered = true;
+/** What every XML editor shares, registered once per Monaco. */
+function registerLanguage(monaco: Monaco) {
+  if (languageRegistered) return;
+  languageRegistered = true;
+  // XML names are words, `-`, `.` and `:` included (`qti-choice-interaction`, `xml:lang`): typing them keeps the
+  // suggestions open. Monaco merges this with the built-in XML configuration (brackets, auto-closing, comments).
+  monaco.languages.setLanguageConfiguration("xml", { wordPattern: /[\p{L}\p{N}_.:-]+/u });
+  registerSchemaAssist(monaco, loadSchemaCatalog);
   monaco.languages.registerDocumentFormattingEditProvider("xml", {
     provideDocumentFormattingEdits: (model: editor.ITextModel, options: languages.FormattingOptions) => {
       const xml = model.getValue();

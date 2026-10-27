@@ -11,3 +11,9 @@ Read by `../xml-validation.worker.ts` (bundled as text). Copied from qti-constru
 | `ssmlv1p1-core.xsd` | **A stand-in**, not the official file (from qti-construction): the official SSML 1.1 core schema uses an `xsd:redefine` that breaks XSD 1.0 derivation rules. It declares the twelve SSML elements the QTI schema references, with lax content. |
 
 Imports are resolved by file name to these files, never fetched over the network.
+
+`qti3-catalog.json` is not a schema file: it is what the schema allows per element type (children, attributes,
+enumerations, documentation), read by `../schema-catalog.ts` for the XML editors' completion and hover. It is the
+output of qti-construction's `GET /api/qti/schema-catalog` (`QtiSchemaCatalogBuilder`, built from the same schema with
+its documentation; docs/API.md "QTI schema catalog" there), saved on 2026-10-27. Fetch it again from there when the
+schema changes.
