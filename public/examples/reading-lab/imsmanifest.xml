@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest xmlns="http://www.imsglobal.org/xsd/qti/qtiv3p0/imscp_v1p1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/qti/qtiv3p0/imscp_v1p1 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqtiv3p0_imscpv1p2_v1p0.xsd"
+  identifier="MANIFEST-reading-lab">
+  <metadata>
+    <schema>QTI Package</schema>
+    <schemaversion>3.0.0</schemaversion>
+  </metadata>
+  <organizations/>
+  <resources>
+    <resource identifier="TEST" type="imsqti_test_xmlv3p0" href="test.xml">
+      <file href="test.xml"/>
+      <dependency identifierref="reading-intro"/>
+      <dependency identifierref="reading-a1"/>
+      <dependency identifierref="reading-a2"/>
+      <dependency identifierref="reading-a3"/>
+      <dependency identifierref="reading-b1"/>
+      <dependency identifierref="reading-b2"/>
+      <dependency identifierref="reading-b3"/>
+    </resource>
+    <resource identifier="reading-intro" type="imsqti_item_xmlv3p0" href="intro.xml">
+      <file href="intro.xml"/>
+      <dependency identifierref="IMG-LIGHTHOUSE"/>
+    </resource>
+    <resource identifier="reading-a1" type="imsqti_item_xmlv3p0" href="item-01.xml">
+      <file href="item-01.xml"/>
+      <dependency identifierref="stimulus-gull"/>
+    </resource>
+    <resource identifier="reading-a2" type="imsqti_item_xmlv3p0" href="item-02.xml">
+      <file href="item-02.xml"/>
+      <dependency identifierref="stimulus-gull"/>
+    </resource>
+    <resource identifier="reading-a3" type="imsqti_item_xmlv3p0" href="item-03.xml">
+      <file href="item-03.xml"/>
+      <dependency identifierref="stimulus-gull"/>
+    </resource>
+    <resource identifier="reading-b1" type="imsqti_item_xmlv3p0" href="item-04.xml">
+      <file href="item-04.xml"/>
+      <dependency identifierref="stimulus-bees"/>
+    </resource>
+    <resource identifier="reading-b2" type="imsqti_item_xmlv3p0" href="item-05.xml">
+      <file href="item-05.xml"/>
+      <dependency identifierref="stimulus-bees"/>
+    </resource>
+    <resource identifier="reading-b3" type="imsqti_item_xmlv3p0" href="item-06.xml">
+      <file href="item-06.xml"/>
+      <dependency identifierref="stimulus-bees"/>
+    </resource>
+    <resource identifier="stimulus-gull" type="imsqti_stimulus_xmlv3p0" href="stimulus-gull.xml">
+      <file href="stimulus-gull.xml"/>
+      <dependency identifierref="IMG-GULL"/>
+    </resource>
+    <resource identifier="stimulus-bees" type="imsqti_stimulus_xmlv3p0" href="stimulus-bees.xml">
+      <file href="stimulus-bees.xml"/>
+      <dependency identifierref="IMG-BEES"/>
+    </resource>
+    <resource identifier="IMG-LIGHTHOUSE" type="webcontent" href="images/lighthouse.svg">
+      <file href="images/lighthouse.svg"/>
+    </resource>
+    <resource identifier="IMG-GULL" type="webcontent" href="images/gull.svg">
+      <file href="images/gull.svg"/>
+    </resource>
+    <resource identifier="IMG-BEES" type="webcontent" href="images/bee-dance.svg">
+      <file href="images/bee-dance.svg"/>
+    </resource>
+  </resources>
+</manifest>

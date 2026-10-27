@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="260" viewBox="0 0 480 260" role="img" aria-label="The Earth travelling around the Sun along an oval path">
+  <title>Earth orbiting the Sun</title>
+  <defs>
+    <linearGradient id="space" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a2f5c"/>
+      <stop offset="1" stop-color="#0b1730"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.4" cy="0.38" r="0.65">
+      <stop offset="0" stop-color="#fff4b8"/>
+      <stop offset="0.5" stop-color="#f6c900"/>
+      <stop offset="1" stop-color="#f08c00"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0.45" stop-color="#f6c900" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#f6c900" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="shade" cx="0.36" cy="0.32" r="0.78">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.3"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#050b1c" stop-opacity="0.55"/>
+    </radialGradient>
+    <clipPath id="earth"><circle cx="396" cy="180" r="17"/></clipPath>
+    <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#f6c900"/>
+    </marker>
+  </defs>
+  <rect width="480" height="260" rx="22" fill="url(#space)"/>
+  <g fill="#ffffff">
+    <circle cx="40" cy="30" r="1.3" opacity="0.8"/>
+    <circle cx="120" cy="18" r="1" opacity="0.6"/>
+    <circle cx="300" cy="24" r="1.4" opacity="0.8"/>
+    <circle cx="452" cy="36" r="1" opacity="0.6"/>
+    <circle cx="28" cy="214" r="1.2" opacity="0.7"/>
+    <circle cx="160" cy="236" r="1" opacity="0.6"/>
+    <circle cx="340" cy="240" r="1.3" opacity="0.7"/>
+    <circle cx="190" cy="80" r="0.9" opacity="0.5"/>
+    <circle cx="300" cy="168" r="0.9" opacity="0.5"/>
+    <path d="M86 96 l1.3 3.8 3.8 1.3 -3.8 1.3 -1.3 3.8 -1.3 -3.8 -3.8 -1.3 3.8 -1.3z" opacity="0.9"/>
+  </g>
+
+  <!-- orbit -->
+  <ellipse cx="240" cy="130" rx="190" ry="88" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="2" stroke-dasharray="6 8"/>
+  <!-- direction of travel -->
+  <path d="M441.9 147.4 A205 100 0 0 0 397 65.7" fill="none" stroke="#f6c900" stroke-width="4" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+  <!-- Sun -->
+  <circle cx="240" cy="130" r="62" fill="url(#glow)"/>
+  <circle cx="240" cy="130" r="36" fill="url(#sun)"/>
+
+  <!-- Earth -->
+  <g clip-path="url(#earth)">
+    <circle cx="396" cy="180" r="17" fill="#2e86de"/>
+    <path d="M390 166 c6 -3 12 0 12 5 c0 4 -4 6 -2 9 c2 4 -1 9 -6 10 c-4 0 -4 -5 -7 -8 c-3 -4 -1 -8 1 -9 c3 -1 1 -4 2 -7z" fill="#00a748"/>
+    <ellipse cx="404" cy="186" rx="6" ry="1.6" fill="#ffffff" opacity="0.85"/>
+  </g>
+  <circle cx="396" cy="180" r="17" fill="url(#shade)"/>
+  <!-- Moon -->
+  <circle cx="424" cy="162" r="5" fill="#d9d9d9"/>
+  <circle cx="424" cy="162" r="5" fill="url(#shade)"/>
+</svg>

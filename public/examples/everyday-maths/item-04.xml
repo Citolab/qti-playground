@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="maths-04" title="A trip to the cinema" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="multiple" base-type="directedPair">
+    <qti-correct-response>
+      <qti-value>P1950 TOTAL</qti-value>
+      <qti-value>P050 CHANGE</qti-value>
+    </qti-correct-response>
+    <qti-mapping default-value="0" lower-bound="0" upper-bound="2">
+      <qti-map-entry map-key="P1950 TOTAL" mapped-value="1"/>
+      <qti-map-entry map-key="P050 CHANGE" mapped-value="1"/>
+    </qti-mapping>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>2</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-item-body>
+    <p class="qti-align-center">
+      <img src="images/tickets.svg" width="360" height="180" alt="Two cinema tickets and a striped box of popcorn."/>
+    </p>
+    <qti-gap-match-interaction response-identifier="RESPONSE" shuffle="true">
+      <qti-prompt>Drag the right amounts into the gaps.</qti-prompt>
+      <qti-gap-text identifier="P1850" match-max="1">£18.50</qti-gap-text>
+      <qti-gap-text identifier="P1950" match-max="1">£19.50</qti-gap-text>
+      <qti-gap-text identifier="P1300" match-max="1">£13.00</qti-gap-text>
+      <qti-gap-text identifier="P050" match-max="1">£0.50</qti-gap-text>
+      <qti-gap-text identifier="P150" match-max="1">£1.50</qti-gap-text>
+      <p>One cinema ticket costs £6.50. Sam buys tickets for himself and two friends.</p>
+      <p>Three tickets cost <qti-gap identifier="TOTAL"/> altogether.</p>
+      <p>Sam pays with a £20 note, so he gets <qti-gap identifier="CHANGE"/> change.</p>
+    </qti-gap-match-interaction>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/map_response.xml"/>
+</qti-assessment-item>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="reading-intro" title="Welcome to the Reading Lab" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-item-body>
+    <div class="qti-layout-row">
+      <div class="qti-layout-col7">
+        <h2>Reading Lab</h2>
+        <p>Welcome to the Reading Lab! You will read two short texts:</p>
+        <ul>
+          <li><em>The Keeper and the Gull</em>, a story about a lighthouse keeper and a seabird who needs his help, and</li>
+          <li><em>Why Bees Dance</em>, a short information text about how honeybees share where the flowers are.</li>
+        </ul>
+        <p>Each text comes with three questions. The text stays next to the questions on the same page, so you can read it again whenever you like.</p>
+        <p>Take your time and enjoy reading!</p>
+      </div>
+      <div class="qti-layout-col5">
+        <p class="qti-align-center">
+          <img src="images/lighthouse.svg" width="360" height="300" alt="A red and white lighthouse on the rocks at dusk, shining its beam across the sea while a seagull flies towards it."/>
+        </p>
+      </div>
+    </div>
+  </qti-item-body>
+</qti-assessment-item>

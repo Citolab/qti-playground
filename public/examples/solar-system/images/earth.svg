@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160" role="img" aria-label="A blue planet with green land and white clouds">
+  <title>A blue planet with green land and white clouds</title>
+  <defs>
+    <radialGradient id="shade" cx="0.36" cy="0.32" r="0.78">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#050b1c" stop-opacity="0.55"/>
+    </radialGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a2f5c"/>
+      <stop offset="1" stop-color="#0c1a36"/>
+    </linearGradient>
+    <clipPath id="planet"><circle cx="80" cy="80" r="52"/></clipPath>
+  </defs>
+  <rect width="160" height="160" rx="24" fill="url(#bg)"/>
+  <g fill="#ffffff">
+    <circle cx="22" cy="28" r="1.6" opacity="0.9"/>
+    <circle cx="136" cy="22" r="1.2" opacity="0.7"/>
+    <circle cx="140" cy="120" r="1.8" opacity="0.85"/>
+    <circle cx="18" cy="130" r="1.2" opacity="0.6"/>
+    <circle cx="120" cy="146" r="1" opacity="0.7"/>
+    <circle cx="44" cy="148" r="1.4" opacity="0.8"/>
+    <path d="M142 82 l1.2 3.6 3.6 1.2 -3.6 1.2 -1.2 3.6 -1.2 -3.6 -3.6 -1.2 3.6 -1.2z" opacity="0.9"/>
+  </g>
+  <g clip-path="url(#planet)">
+    <circle cx="80" cy="80" r="52" fill="#2e86de"/>
+    <path d="M72 34 c12 -6 26 -3 31 6 c5 9 -1 15 -8 19 c-6 4 -3 11 3 17 c7 8 3 22 -8 31 c-7 5 -13 2 -13 -6 c0 -8 -6 -12 -10 -18 c-4 -7 -2 -13 4 -15 c5 -2 2 -8 -2 -12 c-4 -6 -3 -16 3 -22z" fill="#00a748"/>
+    <path d="M24 66 c9 -5 18 1 20 10 c2 9 -4 15 -11 19 c-6 3 -11 -2 -11 -9z" fill="#00a748"/>
+    <path d="M112 96 c6 -3 14 0 14 6 c0 6 -6 10 -12 8 c-4 -2 -6 -10 -2 -14z" fill="#2fbf68"/>
+    <ellipse cx="80" cy="132" rx="34" ry="8" fill="#f4fbff"/>
+    <ellipse cx="48" cy="48" rx="16" ry="4" fill="#ffffff" opacity="0.85"/>
+    <ellipse cx="110" cy="114" rx="18" ry="4" fill="#ffffff" opacity="0.85"/>
+    <ellipse cx="100" cy="64" rx="11" ry="3" fill="#ffffff" opacity="0.8"/>
+    <ellipse cx="60" cy="100" rx="12" ry="3" fill="#ffffff" opacity="0.7"/>
+  </g>
+  <circle cx="80" cy="80" r="52" fill="url(#shade)"/>
+</svg>

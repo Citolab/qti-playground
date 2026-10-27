@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240" viewBox="0 0 320 240" role="img" aria-label="A stack of fluffy pancakes on a plate, topped with butter and syrup, with blueberries on the side">
+  <title>A stack of pancakes</title>
+  <rect width="320" height="240" rx="22" fill="#fff6dc"/>
+  <!-- steam -->
+  <g fill="none" stroke="#e8c98a" stroke-width="4" stroke-linecap="round" opacity="0.8">
+    <path d="M132 50 C122 40 142 32 132 20"/>
+    <path d="M160 46 C150 36 170 28 160 16"/>
+    <path d="M188 50 C178 40 198 32 188 20"/>
+  </g>
+  <!-- plate -->
+  <ellipse cx="160" cy="206" rx="136" ry="24" fill="#004119" opacity="0.12"/>
+  <ellipse cx="160" cy="200" rx="134" ry="24" fill="#ffffff" stroke="#d7e3dc" stroke-width="3"/>
+  <ellipse cx="160" cy="200" rx="96" ry="15" fill="none" stroke="#e8f0eb" stroke-width="3"/>
+  <!-- pancakes, bottom to top -->
+  <g>
+    <ellipse cx="160" cy="190" rx="100" ry="18" fill="#b8742f"/>
+    <ellipse cx="160" cy="182" rx="100" ry="18" fill="#e8b465"/>
+    <ellipse cx="160" cy="172" rx="98" ry="18" fill="#b8742f"/>
+    <ellipse cx="160" cy="164" rx="98" ry="18" fill="#ebba6c"/>
+    <ellipse cx="160" cy="154" rx="99" ry="18" fill="#b8742f"/>
+    <ellipse cx="160" cy="146" rx="99" ry="18" fill="#e8b465"/>
+    <ellipse cx="160" cy="136" rx="97" ry="18" fill="#b8742f"/>
+    <ellipse cx="160" cy="128" rx="97" ry="18" fill="#ebba6c"/>
+    <ellipse cx="160" cy="118" rx="98" ry="18" fill="#b8742f"/>
+    <ellipse cx="160" cy="110" rx="98" ry="18" fill="#f0c47a"/>
+  </g>
+  <!-- syrup -->
+  <path d="M96 106 C110 92 210 90 226 104 C232 110 226 116 220 118 C222 130 214 136 210 124 C206 118 196 122 190 124 C188 140 178 142 178 126 C170 124 150 126 140 124 C138 134 128 136 128 124 C116 122 104 120 100 116 C96 128 86 128 88 114 C88 110 92 108 96 106 Z" fill="#a0521d" opacity="0.92"/>
+  <ellipse cx="150" cy="104" rx="30" ry="4" fill="#c87a3c" opacity="0.6"/>
+  <!-- butter -->
+  <g transform="rotate(-8 162 98)">
+    <rect x="144" y="86" width="36" height="22" rx="4" fill="#fff1a8"/>
+    <rect x="144" y="86" width="36" height="8" rx="3" fill="#fff8d1"/>
+  </g>
+  <!-- blueberries -->
+  <g fill="#3b4aa0">
+    <circle cx="66" cy="204" r="8"/>
+    <circle cx="80" cy="212" r="7"/>
+    <circle cx="252" cy="206" r="8"/>
+    <circle cx="238" cy="214" r="7"/>
+  </g>
+  <g fill="#ffffff" opacity="0.5">
+    <circle cx="63" cy="201" r="2"/>
+    <circle cx="249" cy="203" r="2"/>
+  </g>
+  <!-- mint leaf -->
+  <path d="M262 196 C270 184 286 186 288 192 C280 200 270 200 262 196 Z" fill="#00a748"/>
+</svg>

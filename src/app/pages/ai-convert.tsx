@@ -17,6 +17,7 @@ import {
   Play,
   Settings,
   Sparkles,
+  FlaskConical,
   Upload,
   WandSparkles,
   X,
@@ -534,9 +535,10 @@ export const AiConvertPage: React.FC = () => {
 
   return (
     <PageShell
-      icon={Sparkles}
-      title="Experimental convert"
-      description="Best-effort conversion from files or links into downloadable QTI 3 packages, processed locally in your browser."
+      icon={FlaskConical}
+      title="Local AI import"
+      badge="Labs"
+      description="An experiment: a language model running in your browser tries to turn PDF, Word, Excel or CSV into QTI 3. Expect to check and fix the result."
       actions={
         <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
           <DialogTrigger asChild>

@@ -1,8 +1,11 @@
-import catalogUrl from "./qti3-schema/qti3-catalog.json?url";
+import qti21Url from "./qti2-schema/qti21-catalog.json?url";
+import qti22Url from "./qti2-schema/qti22-catalog.json?url";
+import qti3Url from "./qti3-schema/qti3-catalog.json?url";
+import { localName, xmlStartTags } from "./xml-scan";
 
 /**
- * What the QTI 3.0 XML schema allows per element type: the XML editors' completion and hover. `roots` maps the document
- * elements to their type id. The data is `qti3-schema/qti3-catalog.json` (see the README there).
+ * What a QTI XML schema allows per element type: the XML editors' completion and hover. `roots` maps the document
+ * elements to their type id. The data is `qti3-schema/qti3-catalog.json` and `qti2-schema/*.json` (see the READMEs there).
  */
 export interface QtiSchemaCatalog {
   roots: Record<string, string>;
@@ -38,22 +41,56 @@ export interface QtiSchemaAttribute {
   doc?: string;
 }
 
-let loading: Promise<QtiSchemaCatalog | undefined> | undefined;
+const QTI3 = "http://www.imsglobal.org/xsd/imsqtiasi_v3p0";
+const QTI22 = "http://www.imsglobal.org/xsd/imsqti_v2p2";
+
+/** One catalog per QTI namespace, each a static asset of the app (~0.5–1 MB) fetched when a document in it is edited. */
+const CATALOGS: Record<string, string> = {
+  [QTI3]: qti3Url,
+  [QTI22]: qti22Url,
+  "http://www.imsglobal.org/xsd/imsqti_v2p1": qti21Url,
+};
+
+/** QTI 2 document elements, recognized without a namespace. */
+const QTI2_ROOTS = new Set(["assessmentItem", "assessmentTest", "assessmentSection", "assessmentStimulus"]);
 
 /**
- * The catalog, fetched once (a static asset of the app, ~1 MB; nothing of the user's is sent). Undefined when it cannot
- * be loaded; the next call tries again.
+ * The QTI namespace of the document: its root element's (default or prefixed) namespace when it is one with a catalog.
+ * Without a namespace (typed from scratch) the root's name decides: `qti-…` is QTI 3, a QTI 2 element is 2.2 (which
+ * knows the most). Undefined for other XML (a manifest, an unknown namespace).
  */
-export function loadSchemaCatalog(): Promise<QtiSchemaCatalog | undefined> {
-  loading ??= fetch(catalogUrl)
-    .then((response) => {
-      if (!response.ok) throw new Error(`QTI schema catalog: ${response.status}`);
-      return response.json() as Promise<QtiSchemaCatalog>;
-    })
-    .catch((error: unknown) => {
-      console.warn("QTI schema catalog could not be loaded", error);
-      loading = undefined;
-      return undefined;
-    });
-  return loading;
+export function catalogNamespace(xml: string): string | undefined {
+  const root = xmlStartTags(xml)[0];
+  if (!root) return undefined;
+  const colon = root.name.indexOf(":");
+  const declared = root.attributes[colon >= 0 ? `xmlns:${root.name.slice(0, colon)}` : "xmlns"];
+  if (declared !== undefined) return declared in CATALOGS ? declared : undefined;
+  const name = localName(root.name);
+  return name.startsWith("qti-") ? QTI3 : QTI2_ROOTS.has(name) ? QTI22 : undefined;
+}
+
+const loading = new Map<string, Promise<QtiSchemaCatalog | undefined>>();
+
+/**
+ * The catalog for the document `xml`, fetched once per namespace (nothing of the user's is sent). Undefined when there
+ * is none for it or it cannot be loaded; a failed load is tried again on the next call.
+ */
+export function loadSchemaCatalog(xml: string): Promise<QtiSchemaCatalog | undefined> {
+  const namespace = catalogNamespace(xml);
+  if (namespace === undefined) return Promise.resolve(undefined);
+  let catalog = loading.get(namespace);
+  if (!catalog) {
+    catalog = fetch(CATALOGS[namespace])
+      .then((response) => {
+        if (!response.ok) throw new Error(`QTI schema catalog: ${response.status}`);
+        return response.json() as Promise<QtiSchemaCatalog>;
+      })
+      .catch((error: unknown) => {
+        console.warn("QTI schema catalog could not be loaded", namespace, error);
+        loading.delete(namespace);
+        return undefined;
+      });
+    loading.set(namespace, catalog);
+  }
+  return catalog;
 }

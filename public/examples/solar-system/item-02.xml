@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="solar-02" title="Lining up the planets" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="ordered" base-type="identifier">
+    <qti-correct-response>
+      <qti-value>MERCURY</qti-value>
+      <qti-value>EARTH</qti-value>
+      <qti-value>MARS</qti-value>
+      <qti-value>JUPITER</qti-value>
+      <qti-value>SATURN</qti-value>
+    </qti-correct-response>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>1</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-item-body>
+    <p>Each planet travels around the Sun on its own path, called an <strong>orbit</strong>. Some planets stay close to the Sun, others are very far away.</p>
+    <qti-order-interaction response-identifier="RESPONSE" shuffle="true">
+      <qti-prompt>Put these planets in order of their distance from the Sun. Start with the planet that is <strong>closest</strong> to the Sun.</qti-prompt>
+      <qti-simple-choice identifier="EARTH"><img src="images/earth.svg" width="48" height="48" alt=""/> Earth</qti-simple-choice>
+      <qti-simple-choice identifier="JUPITER"><img src="images/jupiter.svg" width="48" height="48" alt=""/> Jupiter</qti-simple-choice>
+      <qti-simple-choice identifier="MERCURY"><img src="images/mercury.svg" width="48" height="48" alt=""/> Mercury</qti-simple-choice>
+      <qti-simple-choice identifier="SATURN"><img src="images/saturn.svg" width="48" height="48" alt=""/> Saturn</qti-simple-choice>
+      <qti-simple-choice identifier="MARS"><img src="images/mars.svg" width="48" height="48" alt=""/> Mars</qti-simple-choice>
+    </qti-order-interaction>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/match_correct.xml"/>
+</qti-assessment-item>

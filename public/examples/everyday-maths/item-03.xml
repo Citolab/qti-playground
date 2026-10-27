@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="maths-03" title="Pancakes for six" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string">
+    <qti-correct-response>
+      <qti-value>300</qti-value>
+    </qti-correct-response>
+    <qti-mapping default-value="0">
+      <qti-map-entry map-key="300" mapped-value="1"/>
+      <qti-map-entry map-key="300g" mapped-value="1"/>
+      <qti-map-entry map-key="300 g" mapped-value="1"/>
+    </qti-mapping>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>1</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-item-body>
+    <div class="qti-layout-row">
+      <div class="qti-layout-col6">
+        <p>Grandma's famous pancake recipe is enough for <strong>4 people</strong>.</p>
+        <table>
+          <caption>Pancakes for 4 people</caption>
+          <tbody>
+            <tr><td>Flour</td><td>200 g</td></tr>
+            <tr><td>Eggs</td><td>2</td></tr>
+            <tr><td>Milk</td><td>400 ml</td></tr>
+            <tr><td>Butter</td><td>20 g</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="qti-layout-col6">
+        <p class="qti-align-center">
+          <img src="images/pancakes.svg" width="320" height="240" alt="A stack of fluffy pancakes on a plate, topped with butter and syrup, with blueberries on the side."/>
+        </p>
+      </div>
+    </div>
+    <p>You are making pancakes for <strong>6 people</strong>. How much flour do you need?</p>
+    <p>I need <qti-text-entry-interaction response-identifier="RESPONSE" expected-length="4" placeholder-text="?"/> grams of flour.</p>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/map_response.xml"/>
+</qti-assessment-item>

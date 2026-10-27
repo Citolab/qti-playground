@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="180" viewBox="0 0 360 180" role="img" aria-label="Two cinema tickets and a striped box of popcorn">
+  <title>Cinema tickets and popcorn</title>
+  <rect width="360" height="180" rx="22" fill="#e6f6ec"/>
+  <!-- ticket 1 -->
+  <g transform="rotate(-9 110 96)">
+    <path d="M30 56 H190 V82 A14 14 0 0 0 190 110 V136 H30 V110 A14 14 0 0 0 30 82 Z" fill="#00a748"/>
+    <line x1="150" y1="60" x2="150" y2="132" stroke="#ffffff" stroke-width="3" stroke-dasharray="6 6"/>
+    <path d="M90 74 L96 88 L111 89 L99 98 L103 113 L90 105 L77 113 L81 98 L69 89 L84 88 Z" fill="#f6c900"/>
+    <rect x="158" y="76" width="22" height="6" rx="3" fill="#ffffff" opacity="0.7"/>
+    <rect x="158" y="90" width="16" height="6" rx="3" fill="#ffffff" opacity="0.7"/>
+    <rect x="158" y="104" width="22" height="6" rx="3" fill="#ffffff" opacity="0.7"/>
+  </g>
+  <!-- ticket 2 -->
+  <g transform="rotate(7 150 104)">
+    <path d="M70 64 H230 V90 A14 14 0 0 0 230 118 V144 H70 V118 A14 14 0 0 0 70 90 Z" fill="#f6c900"/>
+    <line x1="190" y1="68" x2="190" y2="140" stroke="#ffffff" stroke-width="3" stroke-dasharray="6 6"/>
+    <path d="M130 82 L136 96 L151 97 L139 106 L143 121 L130 113 L117 121 L121 106 L109 97 L124 96 Z" fill="#004119"/>
+    <rect x="198" y="84" width="22" height="6" rx="3" fill="#ffffff" opacity="0.8"/>
+    <rect x="198" y="98" width="16" height="6" rx="3" fill="#ffffff" opacity="0.8"/>
+    <rect x="198" y="112" width="22" height="6" rx="3" fill="#ffffff" opacity="0.8"/>
+  </g>
+  <!-- popcorn -->
+  <g transform="translate(296 0)">
+    <g fill="#fff4cf" stroke="#f6c900" stroke-width="2">
+      <circle cx="-22" cy="66" r="13"/>
+      <circle cx="-4" cy="56" r="14"/>
+      <circle cx="16" cy="60" r="13"/>
+      <circle cx="30" cy="72" r="11"/>
+      <circle cx="-32" cy="78" r="10"/>
+      <circle cx="4" cy="72" r="12"/>
+    </g>
+    <path d="M-40 78 H40 L32 160 H-32 Z" fill="#ffffff"/>
+    <path d="M-40 78 H-24 L-20 160 H-32 Z" fill="#e04b3a"/>
+    <path d="M-8 78 H8 L6 160 H-6 Z" fill="#e04b3a"/>
+    <path d="M24 78 H40 L32 160 H20 Z" fill="#e04b3a"/>
+    <rect x="-42" y="74" width="84" height="10" rx="3" fill="#004119"/>
+  </g>
+</svg>

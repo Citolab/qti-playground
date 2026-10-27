@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="maths-02" title="X marks the spot" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="point">
+    <qti-correct-response>
+      <qti-value>250 200</qti-value>
+    </qti-correct-response>
+    <qti-area-mapping default-value="0">
+      <qti-area-map-entry shape="circle" coords="250,200,18" mapped-value="1"/>
+    </qti-area-mapping>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>1</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-item-body>
+    <p>Captain Ada drew a map of her island on a grid. She buried her treasure at the point <strong>(4, 3)</strong>.</p>
+    <p>Remember: the first number tells you how far to go <em>across</em> (x), the second number how far to go <em>up</em> (y).</p>
+    <qti-select-point-interaction response-identifier="RESPONSE" max-choices="1">
+      <qti-prompt>Click on the map to mark where the treasure is buried.</qti-prompt>
+      <img src="images/treasure-map.svg" width="460" height="400" alt="A treasure map drawn on a coordinate grid. The x-axis and the y-axis both run from 0 to 6. There is a palm tree near the top left, some rocks near the bottom right, a compass and a little ship."/>
+    </qti-select-point-interaction>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/map_response_point.xml"/>
+</qti-assessment-item>

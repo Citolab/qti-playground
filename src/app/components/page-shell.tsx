@@ -56,14 +56,14 @@ export function PageShell({
             PAGE_CONTAINER,
             PAGE_GUTTER,
             "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
-            compact ? "py-3" : "py-6",
+            compact ? "py-3" : "py-8",
           )}
         >
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-start gap-3 sm:items-center">
             {Icon ? (
               <span
                 className={cn(
-                  "flex shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-citolab-600 to-citolab-teal-700 text-white shadow-sm",
+                  "flex shrink-0 items-center justify-center rounded-xl bg-citolab-600 text-white",
                   compact ? "h-8 w-8" : "h-10 w-10",
                 )}
               >
@@ -73,8 +73,8 @@ export function PageShell({
             <div className="min-w-0">
               <h1
                 className={cn(
-                  "flex items-center gap-2 font-semibold tracking-tight text-gray-900",
-                  compact ? "text-base" : "text-xl",
+                  "flex items-center gap-2 font-display font-semibold tracking-tight text-gray-900",
+                  compact ? "text-base" : "text-2xl",
                 )}
               >
                 <span className="truncate">{title}</span>

@@ -37,7 +37,7 @@ function useMissingLocalVoice(): string | null {
 export function SpeechControls() {
   if (!speechSupported()) return null;
   return (
-    <test-item-to-speech className="speech-controls flex items-center gap-1 bg-white rounded-full border border-gray-200 shadow-sm px-2 py-1">
+    <test-item-to-speech className="speech-controls flex shrink-0 flex-nowrap items-center gap-1 bg-white rounded-full border border-gray-200 shadow-sm px-2 py-1">
       {/* Transport order: step back, play/stop in the middle, step forward;
           pick mode apart at the end. */}
       <test-tts-prev label={SPEECH_LABELS.prev} title={SPEECH_LABELS.prev} />

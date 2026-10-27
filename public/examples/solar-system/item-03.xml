@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="solar-03" title="Planet facts" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="multiple" base-type="directedPair">
+    <qti-correct-response>
+      <qti-value>MERCURY CLOSEST</qti-value>
+      <qti-value>VENUS HOTTEST</qti-value>
+      <qti-value>EARTH LIFE</qti-value>
+      <qti-value>JUPITER LARGEST</qti-value>
+    </qti-correct-response>
+    <qti-mapping default-value="0" lower-bound="0" upper-bound="2">
+      <qti-map-entry map-key="MERCURY CLOSEST" mapped-value="0.5"/>
+      <qti-map-entry map-key="VENUS HOTTEST" mapped-value="0.5"/>
+      <qti-map-entry map-key="EARTH LIFE" mapped-value="0.5"/>
+      <qti-map-entry map-key="JUPITER LARGEST" mapped-value="0.5"/>
+    </qti-mapping>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>2</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-item-body>
+    <p>Every planet has something that makes it special. Watch out: one of these facts may surprise you!</p>
+    <qti-match-interaction response-identifier="RESPONSE" shuffle="true" max-associations="4">
+      <qti-prompt>Match each planet to the fact that belongs to it.</qti-prompt>
+      <qti-simple-match-set>
+        <qti-simple-associable-choice identifier="MERCURY" match-max="1">Mercury</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="VENUS" match-max="1">Venus</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="EARTH" match-max="1">Earth</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="JUPITER" match-max="1">Jupiter</qti-simple-associable-choice>
+      </qti-simple-match-set>
+      <qti-simple-match-set>
+        <qti-simple-associable-choice identifier="CLOSEST" match-max="1">It is the closest planet to the Sun.</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="HOTTEST" match-max="1">It is the hottest planet, because its thick clouds trap the heat.</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="LIFE" match-max="1">It is the only planet where we know there is life.</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="LARGEST" match-max="1">It is the largest planet: more than 1,300 Earths would fit inside it.</qti-simple-associable-choice>
+      </qti-simple-match-set>
+    </qti-match-interaction>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/map_response.xml"/>
+</qti-assessment-item>

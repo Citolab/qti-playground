@@ -46,7 +46,7 @@ export function ToolBar({
   const BookmarkIcon = marked ? BookmarkCheck : Bookmark;
 
   return (
-    <div className="toolbar relative flex flex-row items-center gap-2 rounded p-1">
+    <div className="toolbar relative flex flex-row flex-wrap items-center gap-2 rounded p-1 [&>*]:shrink-0">
       {showBookmark ? (
         <Button
           type="button"
@@ -76,7 +76,8 @@ export function ToolBar({
       ) : null}
       <MissingVoiceNotice />
 
-      <div className="flex items-center gap-1 bg-white text-gray-800 rounded-full border border-gray-200 shadow-sm px-2 py-1">
+      {/* Phones pinch to zoom, and have no room for a second way to do it. */}
+      <div className="hidden sm:flex items-center gap-1 bg-white text-gray-800 rounded-full border border-gray-200 shadow-sm px-2 py-1">
         <Button
           type="button"
           variant="ghost"
@@ -131,7 +132,7 @@ export function ToolBar({
           <span className="hidden sm:inline">
             {editing ? "Close editor" : "Edit"}
           </span>
-          <span className="ml-1 rounded bg-citolab-600/90 px-1 py-px text-[7px] font-semibold uppercase leading-none tracking-wide text-white">
+          <span className="ml-1 hidden rounded bg-citolab-600/90 px-1 py-px text-[7px] font-semibold uppercase leading-none tracking-wide text-white sm:inline">
             Beta
           </span>
         </Button>

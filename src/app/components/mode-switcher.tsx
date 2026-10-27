@@ -31,14 +31,14 @@ const ModeSwitch: React.FC<ModeSwitchProps> = ({
   }, []);
 
   return (
-    <div className="flex items-center gap-2 mt-1">
+    <div className="mt-1 flex shrink-0 items-center gap-2 whitespace-nowrap">
       <span
         className={cn(
           "text-sm font-medium",
           mode === "candidate" ? "text-gray-900" : "text-muted-foreground"
         )}
       >
-        Candidate Mode
+        Candidate<span className="hidden sm:inline"> Mode</span>
       </span>
       <Switch checked={mode === "scorer"} onCheckedChange={toggleMode} />
       <span
@@ -47,7 +47,7 @@ const ModeSwitch: React.FC<ModeSwitchProps> = ({
           mode === "scorer" ? "text-gray-900" : "text-muted-foreground"
         )}
       >
-        Review Mode
+        Review<span className="hidden sm:inline"> Mode</span>
       </span>
     </div>
   );

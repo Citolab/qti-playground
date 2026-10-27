@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160" role="img" aria-label="A golden planet with wide, bright rings around it">
+  <title>A golden planet with wide, bright rings around it</title>
+  <defs>
+    <radialGradient id="shade" cx="0.36" cy="0.32" r="0.78">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#050b1c" stop-opacity="0.55"/>
+    </radialGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a2f5c"/>
+      <stop offset="1" stop-color="#0c1a36"/>
+    </linearGradient>
+    <clipPath id="planet"><circle cx="80" cy="80" r="38"/></clipPath>
+  </defs>
+  <rect width="160" height="160" rx="24" fill="url(#bg)"/>
+  <g fill="#ffffff">
+    <circle cx="22" cy="28" r="1.6" opacity="0.9"/>
+    <circle cx="136" cy="22" r="1.2" opacity="0.7"/>
+    <circle cx="140" cy="120" r="1.8" opacity="0.85"/>
+    <circle cx="18" cy="130" r="1.2" opacity="0.6"/>
+    <circle cx="120" cy="146" r="1" opacity="0.7"/>
+    <circle cx="44" cy="148" r="1.4" opacity="0.8"/>
+    <path d="M142 82 l1.2 3.6 3.6 1.2 -3.6 1.2 -1.2 3.6 -1.2 -3.6 -3.6 -1.2 3.6 -1.2z" opacity="0.9"/>
+  </g>
+  <defs><clipPath id="front"><rect x="0" y="80" width="160" height="80"/></clipPath></defs>
+  <g transform="rotate(-20 80 80)">
+    <ellipse cx="80" cy="80" rx="68" ry="15" fill="none" stroke="#d8bd84" stroke-width="8"/>
+    <ellipse cx="80" cy="80" rx="54" ry="11" fill="none" stroke="#f0dfb4" stroke-width="6"/>
+  </g>
+  <g clip-path="url(#planet)">
+    <circle cx="80" cy="80" r="38" fill="#e4c07c"/>
+    <g transform="rotate(-20 80 80)">
+      <rect x="20" y="52" width="120" height="7" fill="#f3dca6"/>
+      <rect x="20" y="66" width="120" height="6" fill="#c9a05c"/>
+      <rect x="20" y="88" width="120" height="8" fill="#f3dca6"/>
+      <rect x="20" y="102" width="120" height="6" fill="#c9a05c"/>
+    </g>
+  </g>
+  <circle cx="80" cy="80" r="38" fill="url(#shade)"/>
+  <g transform="rotate(-20 80 80)" clip-path="url(#front)">
+    <ellipse cx="80" cy="80" rx="68" ry="15" fill="none" stroke="#d8bd84" stroke-width="8"/>
+    <ellipse cx="80" cy="80" rx="54" ry="11" fill="none" stroke="#f0dfb4" stroke-width="6"/>
+  </g>
+</svg>

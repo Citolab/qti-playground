@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="solar-intro" title="Welcome, space explorer!" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-item-body>
+    <div class="qti-layout-row">
+      <div class="qti-layout-col7">
+        <h2>Journey Through the Solar System</h2>
+        <p>Fasten your seatbelt! In this short quiz you will travel from the blazing Sun all the way out to icy Neptune.</p>
+        <p>Along the way you will:</p>
+        <ul>
+          <li>spot planets by the way they look,</li>
+          <li>put the planets in order and match them to their facts,</li>
+          <li>find a famous planet on a map of space, and</li>
+          <li>explain one of the biggest everyday mysteries: why we have day and night.</li>
+        </ul>
+        <p>You can move freely between the questions and change your answers until you finish. Good luck, astronaut!</p>
+      </div>
+      <div class="qti-layout-col5">
+        <p class="qti-align-center">
+          <img src="images/rocket.svg" width="280" height="280" alt="A friendly green and white rocket zooming through space past a ringed planet."/>
+        </p>
+      </div>
+    </div>
+  </qti-item-body>
+</qti-assessment-item>

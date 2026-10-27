@@ -1,7 +1,15 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../store/store";
-import { Upload, AlertCircle, X, AlertTriangle, RefreshCw, Lock } from "lucide-react";
+import {
+  Upload,
+  AlertCircle,
+  X,
+  AlertTriangle,
+  RefreshCw,
+  Lock,
+  FlaskConical,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,6 +25,16 @@ export const PackageUploadZone: React.FC = () => {
   const [showValidationDetails, setShowValidationDetails] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [removeStylesheets, setRemoveStylesheets] = useState(false);
+  /**
+   * A non-QTI source the experimental local-AI import could try. It is only
+   * offered, never started: that import is best-effort, so landing someone in
+   * it uninvited makes the whole playground look unreliable.
+   */
+  const [aiCandidate, setAiCandidate] = useState<{
+    file: File;
+    reason: "non-qti-source" | "zip-contained-source";
+    originalFileName?: string;
+  } | null>(null);
 
   const processPackage = useStore((state) => state.processPackage);
 
@@ -67,6 +85,7 @@ export const PackageUploadZone: React.FC = () => {
     if (!file) return;
 
     setError("");
+    setAiCandidate(null);
     setValidationErrors([]);
     setShowValidationDetails(false);
 
@@ -74,20 +93,10 @@ export const PackageUploadZone: React.FC = () => {
       const packageFile = file;
 
       if (!file.name.toLowerCase().endsWith(".zip")) {
-        if (!isAiConvertibleFile(file)) {
-          setError(
-            "This file is not a QTI ZIP package. Supported fallback formats are CSV, XLSX, XLS, DOCX and PDF.",
-          );
-          return;
+        setError("This file is not a QTI package. Select a QTI 2.x or QTI 3 ZIP.");
+        if (isAiConvertibleFile(file)) {
+          setAiCandidate({ file, reason: "non-qti-source" });
         }
-
-        navigate("/ai-convert", {
-          state: {
-            redirectedFile: file,
-            autoStart: true,
-            redirectReason: "non-qti-source",
-          },
-        });
         return;
       } else {
         setInProgress("Processing...");
@@ -115,25 +124,15 @@ export const PackageUploadZone: React.FC = () => {
           return;
         } catch (caughtError) {
           clearInterval(progressInterval);
-          setInProgress(
-            "Package did not look like QTI. Inspecting ZIP for AI-importable source...",
-          );
-          setUploadProgress(92);
-
           const extractedSource = await extractAiConvertibleFileFromZip(file);
-          if (!extractedSource) {
-            throw caughtError;
-          }
-
-          navigate("/ai-convert", {
-            state: {
-              redirectedFile: extractedSource,
-              autoStart: true,
-              redirectReason: "zip-contained-source",
+          if (extractedSource) {
+            setAiCandidate({
+              file: extractedSource,
+              reason: "zip-contained-source",
               originalFileName: file.name,
-            },
-          });
-          return;
+            });
+          }
+          throw caughtError;
         }
       }
     } catch (e) {
@@ -185,7 +184,7 @@ export const PackageUploadZone: React.FC = () => {
           type="file"
           className="hidden"
           onChange={(e) => handleFileSelected(e.target.files?.[0] ?? null)}
-          accept=".zip,.csv,.xlsx,.xls,.docx,.pdf"
+          accept=".zip"
         />
         <label
           htmlFor="dropzone-file"
@@ -200,17 +199,14 @@ export const PackageUploadZone: React.FC = () => {
               <Upload className="w-12 h-12" />
             </div>
             <h3 className="mb-2 text-xl font-semibold text-gray-700">
-              {isDragging ? "Drop to upload" : "Select file"}
+              {isDragging ? "Drop to open" : "Open a QTI package"}
             </h3>
             <p className="mb-4 text-sm text-gray-500">
-              <span className="font-medium">Click to browse</span> or drag and drop your QTI ZIP, CSV, Excel, DOCX or PDF file
+              <span className="font-medium">Click to browse</span> or drag and drop a QTI 2.x or QTI 3 ZIP
             </p>
             <div className="flex flex-wrap justify-center gap-2 text-xs text-gray-400">
               <span className="inline-flex items-center gap-1">
                 <RefreshCw className="w-3 h-3" /> QTI 2.x auto-converted to QTI 3
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <RefreshCw className="w-3 h-3" /> Non-QTI source files try AI conversion first
               </span>
               <span className="inline-flex items-center gap-1">
                 <Lock className="w-3 h-3" /> 100% local — files never leave your browser
@@ -225,25 +221,30 @@ export const PackageUploadZone: React.FC = () => {
         Deliberately a sibling of the drop zone, not a child: the zone's <label> covers its whole
         area, so a control nested inside it would open the file picker on every click.
       */}
-      <label className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 cursor-pointer hover:bg-gray-50">
-        <Checkbox
-          id="remove-stylesheets"
-          className="mt-0.5"
-          checked={removeStylesheets}
-          onCheckedChange={(checked) => setRemoveStylesheets(checked === true)}
-        />
-        <span className="text-sm">
-          <span className="font-medium text-gray-700">
-            Ignore stylesheets referenced by the items
+      <details className="group rounded-lg text-sm">
+        <summary className="cursor-pointer select-none text-xs font-medium text-gray-500 hover:text-gray-800">
+          Import options
+        </summary>
+        <label className="mt-2 flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 cursor-pointer hover:bg-gray-50">
+          <Checkbox
+            id="remove-stylesheets"
+            className="mt-0.5"
+            checked={removeStylesheets}
+            onCheckedChange={(checked) => setRemoveStylesheets(checked === true)}
+          />
+          <span className="text-sm">
+            <span className="font-medium text-gray-700">
+              Ignore stylesheets referenced by the items
+            </span>
+            <span className="block text-xs text-gray-500">
+              Drops every <code>&lt;qti-stylesheet&gt;</code> reference on import, so items render in
+              the player&apos;s own theme. Use this when a package&apos;s CSS fights the theme — a
+              common case is a rule re-gapping <code>.qti-layout-row</code>, which makes QTI 3 column
+              layouts wrap into one column. It removes the package&apos;s intended styling too.
+            </span>
           </span>
-          <span className="block text-xs text-gray-500">
-            Drops every <code>&lt;qti-stylesheet&gt;</code> reference on import, so items render in
-            the player&apos;s own theme. Use this when a package&apos;s CSS fights the theme — a
-            common case is a rule re-gapping <code>.qti-layout-row</code>, which makes QTI 3 column
-            layouts wrap into one column. It removes the package&apos;s intended styling too.
-          </span>
-        </span>
-      </label>
+        </label>
+      </details>
 
       {validationErrors.length > 0 && (
         <Alert variant="warning">
@@ -293,6 +294,34 @@ export const PackageUploadZone: React.FC = () => {
           </AlertDescription>
         </Alert>
       )}
+
+      {aiCandidate ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed border-gray-300 bg-white p-3 text-sm text-gray-600">
+          <span className="flex items-center gap-2">
+            <FlaskConical className="h-4 w-4 shrink-0 text-gray-400" />
+            <span>
+              <span className="font-medium text-gray-800">{aiCandidate.file.name}</span>{" "}
+              is not QTI. The experimental local AI import can try to turn it into items.
+            </span>
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              navigate("/ai-convert", {
+                state: {
+                  redirectedFile: aiCandidate.file,
+                  autoStart: true,
+                  redirectReason: aiCandidate.reason,
+                  originalFileName: aiCandidate.originalFileName,
+                },
+              })
+            }
+          >
+            Try experimental import
+          </Button>
+        </div>
+      ) : null}
 
       <Terms />
     </div>

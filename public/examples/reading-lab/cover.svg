@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450" role="img" aria-label="An open book in front of a lighthouse shining across the evening sea, with a seagull flying overhead">
+  <title>Reading Lab</title>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f4c5c"/>
+      <stop offset="0.5" stop-color="#00b1a9"/>
+      <stop offset="1" stop-color="#ffe08a"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#138a95"/>
+      <stop offset="1" stop-color="#0a4f5c"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#fff4b8" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#fff4b8" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="page-left" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e9efe9"/>
+    </linearGradient>
+    <linearGradient id="page-right" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e9efe9"/>
+    </linearGradient>
+    <clipPath id="tower"><path d="M610 130 L670 130 L688 330 L592 330 Z"/></clipPath>
+  </defs>
+  <rect width="800" height="450" fill="url(#sky)"/>
+  <g fill="#ffffff">
+    <circle cx="60" cy="40" r="1.8" opacity="0.9"/>
+    <circle cx="180" cy="24" r="1.3" opacity="0.7"/>
+    <circle cx="320" cy="50" r="1.5" opacity="0.8"/>
+    <circle cx="460" cy="20" r="1.2" opacity="0.7"/>
+    <circle cx="740" cy="40" r="1.8" opacity="0.9"/>
+    <circle cx="560" cy="60" r="1.1" opacity="0.6"/>
+  </g>
+  <circle cx="180" cy="320" r="70" fill="#ffd56b" opacity="0.3"/>
+  <circle cx="180" cy="320" r="48" fill="#ffd56b"/>
+  <g fill="#ffffff" opacity="0.7">
+    <path d="M60 150 C60 136 80 130 88 140 C94 126 120 126 126 142 C140 140 148 152 140 160 H66 C58 160 56 154 60 150 Z"/>
+    <path d="M420 90 C420 80 434 76 440 82 C444 72 462 72 466 84 C476 82 482 90 476 96 H424 C418 96 418 92 420 90 Z"/>
+  </g>
+
+  <!-- beam -->
+  <polygon points="640,92 0,10 0,190 640,116" fill="url(#beam)"/>
+
+  <!-- sea -->
+  <rect x="0" y="318" width="800" height="132" fill="url(#sea)"/>
+  <rect x="110" y="322" width="140" height="6" rx="3" fill="#ffe08a" opacity="0.7"/>
+  <rect x="140" y="336" width="80" height="4" rx="2" fill="#ffe08a" opacity="0.5"/>
+  <g fill="none" stroke="#bdeee8" stroke-width="4" stroke-linecap="round" opacity="0.7">
+    <path d="M40 360 q14 -10 28 0 t28 0"/>
+    <path d="M680 380 q14 -10 28 0 t28 0"/>
+    <path d="M440 350 q12 -8 24 0 t24 0"/>
+    <path d="M740 340 q12 -8 24 0 t24 0"/>
+  </g>
+
+  <!-- rocks -->
+  <path d="M540 350 C544 312 580 296 612 306 C632 290 670 290 688 306 C720 298 756 314 760 350 Z" fill="#4f5d63"/>
+  <path d="M570 350 C576 330 600 322 618 328 C634 316 662 318 672 332 C696 326 718 336 722 350 Z" fill="#6c7d84"/>
+
+  <!-- lighthouse -->
+  <path d="M610 130 L670 130 L688 330 L592 330 Z" fill="#ffffff"/>
+  <g clip-path="url(#tower)">
+    <rect x="580" y="172" width="120" height="38" fill="#e04b3a"/>
+    <rect x="580" y="252" width="120" height="38" fill="#e04b3a"/>
+    <rect x="652" y="120" width="50" height="220" fill="#000000" opacity="0.08"/>
+  </g>
+  <rect x="634" y="218" width="12" height="22" rx="6" fill="#004119"/>
+  <path d="M628 330 V314 A12 12 0 0 1 652 314 V330 Z" fill="#004119"/>
+  <rect x="598" y="118" width="84" height="14" rx="3" fill="#004119"/>
+  <rect x="614" y="78" width="52" height="40" fill="#fff3b0"/>
+  <circle cx="640" cy="98" r="13" fill="#f6c900"/>
+  <g stroke="#004119" stroke-width="4">
+    <line x1="614" y1="78" x2="614" y2="118"/>
+    <line x1="640" y1="78" x2="640" y2="118"/>
+    <line x1="666" y1="78" x2="666" y2="118"/>
+  </g>
+  <path d="M606 80 L674 80 L640 46 Z" fill="#004119"/>
+  <circle cx="640" cy="43" r="6" fill="#004119"/>
+
+  <!-- gull -->
+  <g transform="translate(400 160) scale(2.2)">
+    <path d="M-26 -6 C-16 -18 -6 -14 0 -2 C6 -14 16 -18 26 -6 C16 -10 8 -6 0 4 C-8 -6 -16 -10 -26 -6 Z" fill="#ffffff"/>
+    <path d="M-26 -6 C-22 -10 -18 -11 -16 -10 L-20 -6 Z" fill="#37474f"/>
+    <path d="M26 -6 C22 -10 18 -11 16 -10 L20 -6 Z" fill="#37474f"/>
+    <ellipse cx="0" cy="0" rx="6" ry="5" fill="#ffffff"/>
+    <path d="M5 -1 L11 0 L5 2 Z" fill="#f6c900"/>
+  </g>
+
+  <!-- open book -->
+  <ellipse cx="300" cy="432" rx="230" ry="18" fill="#002a10" opacity="0.3"/>
+  <path d="M80 300 Q190 280 300 316 Q410 280 520 300 L530 424 Q410 404 300 438 Q190 404 70 424 Z" fill="#00a748"/>
+  <path d="M92 292 Q196 268 300 306 L300 424 Q196 392 86 410 Z" fill="url(#page-left)"/>
+  <path d="M508 292 Q404 268 300 306 L300 424 Q404 392 514 410 Z" fill="url(#page-right)"/>
+  <g stroke="#b7c8be" stroke-width="5" stroke-linecap="round" fill="none">
+    <path d="M118 312 Q190 298 270 320"/>
+    <path d="M118 334 Q190 320 270 342"/>
+    <path d="M118 356 Q190 342 270 364"/>
+    <path d="M118 378 Q170 368 220 380"/>
+    <path d="M330 320 Q410 298 482 312"/>
+    <path d="M330 342 Q410 320 482 334"/>
+    <path d="M330 364 Q410 342 482 356"/>
+    <path d="M330 386 Q380 372 440 378"/>
+  </g>
+  <path d="M300 306 L300 424" stroke="#c9d6cd" stroke-width="3"/>
+  <!-- bookmark -->
+  <path d="M440 290 L440 330 L450 322 L460 330 L460 286 Z" fill="#f6c900"/>
+</svg>

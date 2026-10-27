@@ -35,105 +35,66 @@ export const buildShareUrl = (xml: string, pathname = "/preview") => {
  */
 export type ExampleItem = {
   name: string;
+  /** The example package the item belongs to, for grouping the menu. */
+  group: string;
   href: string;
   current: boolean;
   interaction: string;
 };
 
-/** Where the example files live; `href` on each example is relative to this. */
-export const EXAMPLE_BASE_PATH = "/3";
+/**
+ * The items of the showcase packages in `public/examples/` (see
+ * app/examples/catalog.ts), offered one by one. `href` is the item's own URL,
+ * so the editor and the preview resolve its images against its folder.
+ */
+const example = (
+  group: string,
+  pkg: string,
+  file: string,
+  name: string,
+  interaction: string,
+): ExampleItem => ({
+  name,
+  group,
+  href: `/examples/${pkg}/${file}`,
+  current: false,
+  interaction,
+});
+
+const SOLAR = "Journey Through the Solar System";
+const MATHS = "Everyday Maths";
+const READING = "Reading Lab";
 
 const EXAMPLES: ExampleItem[] = [
-  // { name: "adaptive", href: "/adaptive.xml", current: false, interaction: "qti-choice-interaction" },
-  {
-    name: "associate",
-    href: "/associate.xml",
-    current: false,
-    interaction: "qti-associate-interaction",
-  },
-  {
-    name: "choice",
-    href: "/choice.xml",
-    current: true,
-    interaction: "qti-choice-interaction",
-  },
-  {
-    name: "extended text",
-    href: "/extended_text.xml",
-    current: false,
-    interaction: "qti-extended-text-interaction",
-  },
-  {
-    name: "gap match",
-    href: "/gap-match.xml",
-    current: false,
-    interaction: "qti-gap-match-interaction",
-  },
-  {
-    name: "graphic gap match",
-    href: "/graphic_gap_match.xml",
-    current: false,
-    interaction: "qti-graphic-gap-match-interaction",
-  },
-  {
-    name: "graphic order",
-    href: "/graphic_order.xml",
-    current: false,
-    interaction: "qti-graphic-order-interaction",
-  },
-  {
-    name: "hottext",
-    href: "/hottext.xml",
-    current: false,
-    interaction: "qti-hottext-interaction",
-  },
-  // { name: "hotspot", href: "/hotspot.xml", current: false, interaction: "qti-hotspot-interaction" },
-  {
-    name: "inline choice",
-    href: "/inline_choice.xml",
-    current: false,
-    interaction: "qti-inline-choice-interaction",
-  },
-  {
-    name: "inline choice math",
-    href: "/inline_choice_math.xml",
-    current: false,
-    interaction: "qti-inline-choice-interaction",
-  },
-  {
-    name: "match",
-    href: "/match.xml",
-    current: false,
-    interaction: "qti-match-interaction",
-  },
-  {
-    name: "order",
-    href: "/order.xml",
-    current: false,
-    interaction: "qti-order-interaction",
-  },
-  {
-    name: "select point",
-    href: "/select_point.xml",
-    current: false,
-    interaction: "qti-select-point-interaction",
-  },
-  {
-    name: "text entry",
-    href: "/text_entry.xml",
-    current: false,
-    interaction: "qti-text-entry-interaction",
-  },
-  // A template-processing showcase rather than an interaction showcase: the
-  // editor has no ProseMirror node for template declarations, so it stays out
-  // of the editor list below.
-  {
-    name: "mc_stat2",
-    href: "/mc_stat2.xml",
-    current: false,
-    interaction: "qti-template-processing",
-  },
+  example(SOLAR, "solar-system", "item-01.xml", "The Red Planet", "qti-choice-interaction"),
+  example(SOLAR, "solar-system", "item-02.xml", "Lining up the planets", "qti-order-interaction"),
+  example(SOLAR, "solar-system", "item-03.xml", "Planet facts", "qti-match-interaction"),
+  example(SOLAR, "solar-system", "item-04.xml", "Lord of the rings", "qti-hotspot-interaction"),
+  example(SOLAR, "solar-system", "item-05.xml", "Counting planets", "qti-text-entry-interaction"),
+  example(SOLAR, "solar-system", "item-06.xml", "Once around the Sun", "qti-inline-choice-interaction"),
+  example(SOLAR, "solar-system", "item-07.xml", "Day and night", "qti-extended-text-interaction"),
+  example(MATHS, "everyday-maths", "item-01.xml", "Juice jug fractions", "qti-choice-interaction"),
+  example(MATHS, "everyday-maths", "item-02.xml", "X marks the spot", "qti-select-point-interaction"),
+  example(MATHS, "everyday-maths", "item-03.xml", "Pancakes for six", "qti-text-entry-interaction"),
+  example(MATHS, "everyday-maths", "item-04.xml", "A trip to the cinema", "qti-gap-match-interaction"),
+  example(MATHS, "everyday-maths", "item-05.xml", "Estimate the angle", "qti-slider-interaction"),
+  example(MATHS, "everyday-maths", "item-06.xml", "From smallest to largest", "qti-order-interaction"),
+  example(READING, "reading-lab", "item-01.xml", "A visitor in the storm", "qti-choice-interaction"),
+  example(READING, "reading-lab", "item-02.xml", "Words in context", "qti-inline-choice-interaction"),
+  example(READING, "reading-lab", "item-03.xml", "Tell the story in short", "qti-gap-match-interaction"),
+  example(READING, "reading-lab", "item-04.xml", "Reading the dance", "qti-choice-interaction"),
+  example(READING, "reading-lab", "item-05.xml", "Find the evidence", "qti-hottext-interaction"),
+  example(READING, "reading-lab", "item-06.xml", "Dance like a bee", "qti-extended-text-interaction"),
 ];
+
+/** Examples grouped by the package they come from, in the shape `Dropdown` takes. */
+export const groupExamples = (items: ExampleItem[]) =>
+  [SOLAR, MATHS, READING]
+    .map((group) => ({
+      name: group,
+      items: items.filter((item) => item.group === group),
+    }))
+    .filter((group) => group.items.length > 0);
 
 /**
  * Interactions the QTI editor can import and write back — the one list both the

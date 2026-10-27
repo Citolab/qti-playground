@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="maths-intro" title="Welcome to Everyday Maths" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-item-body>
+    <div class="qti-layout-row">
+      <div class="qti-layout-col7">
+        <h2>Everyday Maths</h2>
+        <p>Maths is everywhere: in the kitchen, at the cinema, on a treasure map and even in the angle of an open door.</p>
+        <p>In this quiz you will:</p>
+        <ul>
+          <li>work with fractions and decimals,</li>
+          <li>find a point on a grid,</li>
+          <li>scale up a recipe and work out your change,</li>
+          <li>estimate the size of an angle, and</li>
+          <li>put numbers in order from smallest to largest.</li>
+        </ul>
+        <p>You may use scrap paper, but no calculator. You can go back and change any answer before you finish.</p>
+      </div>
+      <div class="qti-layout-col5">
+        <p class="qti-align-center">
+          <img src="images/maths-intro.svg" width="300" height="260" alt="A pizza with one slice pulled out, a ruler, and tiles showing the signs for plus, minus, times and divide."/>
+        </p>
+      </div>
+    </div>
+  </qti-item-body>
+</qti-assessment-item>

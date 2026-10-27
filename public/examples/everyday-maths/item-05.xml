@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="maths-05" title="Estimate the angle" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="integer">
+    <qti-correct-response>
+      <qti-value>120</qti-value>
+    </qti-correct-response>
+    <qti-mapping default-value="0">
+      <qti-map-entry map-key="110" mapped-value="0.5"/>
+      <qti-map-entry map-key="115" mapped-value="1"/>
+      <qti-map-entry map-key="120" mapped-value="1"/>
+      <qti-map-entry map-key="125" mapped-value="1"/>
+      <qti-map-entry map-key="130" mapped-value="0.5"/>
+    </qti-mapping>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>1</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-item-body>
+    <p class="qti-align-center">
+      <img src="images/angle.svg" width="360" height="220" alt="An angle between two straight arms that meet at a point. One arm points to the right, the other points up and to the left, so the angle is wider than a right angle."/>
+    </p>
+    <p>A right angle is 90°. A straight line is 180°. Use these to help you estimate.</p>
+    <qti-slider-interaction response-identifier="RESPONSE" lower-bound="0" upper-bound="180" step="5">
+      <qti-prompt>Estimate the size of the marked angle. Move the slider to your estimate in degrees.</qti-prompt>
+    </qti-slider-interaction>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/map_response.xml"/>
+</qti-assessment-item>

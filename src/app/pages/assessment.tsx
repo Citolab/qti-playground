@@ -21,11 +21,11 @@ import type { QtiTestState, TestContext } from "@citolab/qti-components";
 // import { QtiTest } from "@citolab/qti-components";
 import {
   Check,
+  ArrowLeft,
   ChevronLeft,
   Code,
   ChevronRight,
   LayoutGrid,
-  LogOut,
 } from "lucide-react";
 import { itemCss } from "../itemCss";
 import { useScopedQtiRegistry } from "../use-scoped-registry";
@@ -38,6 +38,10 @@ import {
 } from "@citolab/qti-browser-import";
 
 import DraggablePopup from "../components/draggable-popup";
+import {
+  ItemOutputPanel,
+  type OutputItem,
+} from "../components/item-output-panel";
 import ModeSwitch from "../components/mode-switcher";
 import { Button } from "@/components/ui/button";
 import { ToolBar } from "../components/tool-bar";
@@ -45,10 +49,24 @@ import { DownloadPackageButton } from "../components/download-package-button";
 import { QtiCitolabEditorPanel } from "../components/editor/qti-citolab-editor-panel";
 import { NavigationBar } from "./nav-list";
 import { AssessmentOverviewPage } from "./assessment-overview";
-import { AssessmentIntroScreen } from "./assessment-intro";
+import {
+  AssessmentIntroScreen,
+  type SessionSettings,
+} from "./assessment-intro";
+import {
+  DEFAULT_PLAYER_DEVICE,
+  DEFAULT_PLAYER_MODE,
+  DEFAULT_PLAYER_THEME,
+  parsePlayerDevice,
+  parsePlayerMode,
+  parsePlayerTheme,
+} from "../qti/session-options";
+import { PracticeCoach, type CoachMood } from "../components/practice-coach";
+import { checkPage, showAnswers } from "../qti/practice-check";
+import { assessmentTitleOf } from "../qti/assessment-title";
 import { ExtendedItemContext, ExtendedTestContext } from "@citolab/qti-api";
 import { useDebouncedCallback } from "use-debounce";
-import { LayoutModeSelect } from "../components/layout-mode-select";
+import { PlayerOptionsMenu } from "../components/player-options-menu";
 import {
   AssessmentLayoutMode,
   DEFAULT_LAYOUT_MODE,
@@ -240,6 +258,14 @@ export const AssessmentPage: React.FC = () => {
    * test rather than restyling it.
    */
   const layoutMode = parseLayoutMode(queryParams.get("layout"));
+  /** Test or practice, and the colour theme: chosen on the intro, kept in the URL like the layout. */
+  const playerMode = parsePlayerMode(queryParams.get("mode"));
+  const playerTheme = parsePlayerTheme(queryParams.get("theme"));
+  /**
+   * Inside the device preview's iframe the page is the device's screen: the
+   * frame around it has its own way out, so the player's own close button goes.
+   */
+  const isEmbedded = window.self !== window.top;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [stampContext, setStampContext] = useState<any>(null);
   /**
@@ -293,7 +319,6 @@ export const AssessmentPage: React.FC = () => {
 
   // Zustand store - use selectors for optimal re-renders
   const assessments = useStore((state) => state.assessments);
-  const selectedAssessment = useStore((state) => state.selectedAssessment);
   const itemsPerAssessment = useStore((state) => state.itemsPerAssessment);
   const editItem = useStore((state) => state.editItem);
   const saveEditedItem = useStore((state) => state.saveEditedItem);
@@ -318,14 +343,19 @@ export const AssessmentPage: React.FC = () => {
     [storedBookmarks],
   );
 
-  const selectedAssessmentData = assessments?.find(
-    (a) => a.id === selectedAssessment,
-  );
   const assessment = assessments?.find((a) => a.id === assessmentId);
+  const assessmentContent = assessment?.content;
+  const assessmentName = assessment?.name;
+  const assessmentTitle = useMemo(
+    () =>
+      assessmentTitleOf({ content: assessmentContent, name: assessmentName }),
+    [assessmentContent, assessmentName],
+  );
+  const assessmentPackageId = assessment?.packageId;
   const packageRootUrl = useMemo(() => {
-    if (!assessment?.packageId) return null;
-    return `${QTI_PKG_URL_PREFIX}/${encodeURIComponent(assessment.packageId)}`;
-  }, [assessment?.packageId]);
+    if (!assessmentPackageId) return null;
+    return `${QTI_PKG_URL_PREFIX}/${encodeURIComponent(assessmentPackageId)}`;
+  }, [assessmentPackageId]);
 
   const items = useMemo(
     () =>
@@ -1220,6 +1250,24 @@ export const AssessmentPage: React.FC = () => {
     [layoutMode, queryParams, setQueryParams],
   );
 
+  /**
+   * Mode, theme and device from the toolbar's options menu: URL parameters
+   * like the layout. Mode and theme apply in place. A device other than the
+   * desktop hands the page to the device preview (see app.tsx), which frames
+   * this same URL -- `start=1` so the frame opens on the test, where the
+   * answers saved on the way out are restored.
+   */
+  const setSessionOption = useCallback(
+    (key: "mode" | "theme" | "device", value: string, fallback: string) => {
+      const next = new URLSearchParams(queryParams);
+      if (value === fallback) next.delete(key);
+      else next.set(key, value);
+      if (key === "device" && value !== fallback) next.set("start", "1");
+      setQueryParams(next, { replace: true });
+    },
+    [queryParams, setQueryParams],
+  );
+
   const redirectToPackageDueToMissingItemData = useCallback(
     (details?: { uri?: string; error?: unknown }) => {
       if (hasRedirectedForMissingPackageCacheRef.current) return;
@@ -1536,17 +1584,92 @@ export const AssessmentPage: React.FC = () => {
    * drop the first one's parameter.
    */
   const startAssessment = useCallback(
-    (mode: AssessmentLayoutMode) => {
+    (settings: SessionSettings) => {
       setShowIntro(false);
       startAgain();
       const next = new URLSearchParams(queryParams);
       next.delete("overview");
-      if (mode === DEFAULT_LAYOUT_MODE) next.delete("layout");
-      else next.set("layout", mode);
+      const write = (key: string, value: string, fallback: string) => {
+        if (value === fallback) next.delete(key);
+        else next.set(key, value);
+      };
+      write("layout", settings.layout, DEFAULT_LAYOUT_MODE);
+      write("mode", settings.mode, DEFAULT_PLAYER_MODE);
+      write("theme", settings.theme, DEFAULT_PLAYER_THEME);
+      write("device", settings.device, DEFAULT_PLAYER_DEVICE);
+      // A device preview loads this same page into a frame, which must open on
+      // the test rather than on this intro again.
+      if (settings.device !== DEFAULT_PLAYER_DEVICE) next.set("start", "1");
       setQueryParams(next, { replace: true });
     },
     [queryParams, setQueryParams, startAgain],
   );
+
+  /**
+   * Practice mode's coach. `pageKey` names what is on screen, so moving on
+   * clears the last verdict (and any answer it revealed); in vertical mode the
+   * whole test is one page, so scrolling does not.
+   */
+  const practicePageKey = isVerticalLayout
+    ? "booklet"
+    : groupsSharedStimuli
+      ? (activeSectionItemRefIds[0] ?? "")
+      : currentItemRefIdentifier;
+  const [coach, setCoach] = useState<{
+    mood: CoachMood;
+    message: string;
+    bubbleVisible: boolean;
+    checkCount: number;
+    busy: boolean;
+    answerShown: boolean;
+    wrongItems: Parameters<typeof showAnswers>[0];
+  }>({
+    mood: "idle",
+    message:
+      "Hi, I'm Sprout! Answer the question, then press Check and I'll tell you how you did.",
+    bubbleVisible: true,
+    checkCount: 0,
+    busy: false,
+    answerShown: false,
+    wrongItems: [],
+  });
+  const [lastPracticePageKey, setLastPracticePageKey] = useState(practicePageKey);
+  if (lastPracticePageKey !== practicePageKey) {
+    setLastPracticePageKey(practicePageKey);
+    // Until the first check the greeting stays up, so the reader learns what
+    // the button is for; after that the next page starts quiet.
+    setCoach((current) => ({
+      ...current,
+      mood: "idle",
+      bubbleVisible: current.checkCount === 0 && current.bubbleVisible,
+      answerShown: false,
+      wrongItems: [],
+    }));
+  }
+  const handlePracticeCheck = useCallback(async () => {
+    const root = testContainerRef.current?.shadowRoot;
+    if (!root) return;
+    setCoach((current) => ({ ...current, busy: true }));
+    const result = await checkPage(root);
+    setCoach((current) => {
+      if (current.answerShown) showAnswers(current.wrongItems, false);
+      return {
+        mood: result.mood,
+        message: result.message,
+        bubbleVisible: true,
+        checkCount: current.checkCount + 1,
+        busy: false,
+        answerShown: false,
+        wrongItems: result.wrongItems,
+      };
+    });
+  }, []);
+  const handleToggleAnswer = useCallback(() => {
+    setCoach((current) => {
+      showAnswers(current.wrongItems, !current.answerShown);
+      return { ...current, answerShown: !current.answerShown };
+    });
+  }, []);
 
   // The new runner is a fresh attempt: its saves count again.
   useEffect(() => {
@@ -1557,6 +1680,12 @@ export const AssessmentPage: React.FC = () => {
    *  unless the item brings its own end-attempt interaction. Once completed, "Next" returns. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const activeItemCtx = (stampContext?.activeTestpart?.items ?? []).find((i: any) => i.active);
+  /** What "Show Output" reports on: the question being read, which in a booklet is not the runner's active item. */
+  const outputItem: OutputItem | null =
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (stampContext?.activeTestpart?.items ?? []).find((i: any) =>
+      currentPositionItemRefId ? i.identifier === currentPositionItemRefId : i.active,
+    ) ?? activeItemCtx ?? null;
   const showEndAttempt =
     activeItemCtx?.adaptive === true &&
     activeItemCtx.completionStatus !== "completed" &&
@@ -2007,21 +2136,27 @@ export const AssessmentPage: React.FC = () => {
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex w-full flex-col bg-gray-200 overflow-hidden">
+    <div
+      data-player-theme={playerTheme}
+      className="fixed inset-0 z-50 flex w-full flex-col bg-gray-200 overflow-hidden"
+    >
       {/* Fixed Header - Always visible */}
       <div className="flex-shrink-0 flex items-center justify-between bg-white px-4 py-3 border-b border-gray-300 shadow-md z-10">
-        <div className="flex items-center space-x-3">
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleExitOverlay}
-            title="Close assessment"
-          >
-            <LogOut className="sm:mr-1 h-4 w-4" />
-            <span className="hidden sm:inline">Close assessment</span>
-          </Button>
-          <h1 className="text-lg font-medium text-gray-800">
-            {selectedAssessmentData?.name || "Assessment"}
+        <div className="flex min-w-0 items-center space-x-3">
+          {isEmbedded ? null : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleExitOverlay}
+              title="Back"
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="sm:mr-1 h-4 w-4" />
+              <span className="hidden sm:inline">Back</span>
+            </Button>
+          )}
+          <h1 className="truncate text-base font-medium text-gray-800 sm:text-lg">
+            {assessmentTitle || "Assessment"}
           </h1>
         </div>
         <div className="flex items-center space-x-2">
@@ -2048,8 +2183,8 @@ export const AssessmentPage: React.FC = () => {
       </div>
 
       {/* Main content area - takes remaining space */}
-      <div className="flex-1 flex items-center justify-center px-4 py-4 min-h-0 overflow-hidden">
-        <div className={`${PLAYER_SURFACE} h-full flex flex-col bg-white rounded-lg shadow-lg overflow-hidden`}>
+      <div className="flex-1 flex items-center justify-center p-0 sm:px-4 sm:py-4 min-h-0 overflow-hidden">
+        <div className={`${PLAYER_SURFACE} h-full flex flex-col bg-white sm:rounded-lg sm:shadow-lg overflow-hidden`}>
           {/* The layout is decided before the test loads, and the scan that
               decides it (which items share a stimulus) reads the item XML. So
               the player waits for it: `<test-container>` starts fetching the
@@ -2080,7 +2215,7 @@ export const AssessmentPage: React.FC = () => {
             >
               <test-stamp class="h-full min-h-0 flex flex-col">
                 {/* Mode Switch - Fixed at top of content */}
-                <div className="flex-shrink-0 flex justify-center p-4 bg-gray-50 border-b">
+                <div className="flex-shrink-0 flex justify-center p-2 sm:p-4 bg-gray-50 border-b">
                   {/* Spans the surface rather than the item measure, and wraps. Capped at `max-w-4xl` it was
                         narrower than its own controls -- ModeSwitch plus the toolbar group plus Download, none
                         of which can shrink -- so the row overflowed the panel and the panel's `overflow-hidden`
@@ -2093,15 +2228,35 @@ export const AssessmentPage: React.FC = () => {
                         initialMode="candidate"
                         onCheck={handleToggle}
                       />
-                      <LayoutModeSelect
-                        value={layoutMode}
-                        onChange={setLayoutMode}
+                      <PlayerOptionsMenu
+                        layout={layoutMode}
+                        mode={playerMode}
+                        theme={playerTheme}
+                        device={DEFAULT_PLAYER_DEVICE}
+                        onLayoutChange={setLayoutMode}
+                        onModeChange={(value) =>
+                          setSessionOption("mode", value, DEFAULT_PLAYER_MODE)
+                        }
+                        onThemeChange={(value) =>
+                          setSessionOption("theme", value, DEFAULT_PLAYER_THEME)
+                        }
+                        // Inside a device preview the frame's own bar switches device.
+                        onDeviceChange={
+                          isEmbedded
+                            ? undefined
+                            : (value) =>
+                                setSessionOption(
+                                  "device",
+                                  value,
+                                  DEFAULT_PLAYER_DEVICE,
+                                )
+                        }
                       />
                     </div>
 
                     <div
                       id="toolbar"
-                      className="flex items-center gap-2 rounded p-1"
+                      className="flex flex-wrap items-center gap-2 rounded p-1"
                     >
                       <ToolBar
                         marked={bookmarkedItemRefIds.has(
@@ -2140,7 +2295,7 @@ export const AssessmentPage: React.FC = () => {
                       />
                       <DownloadPackageButton
                         label="Download"
-                        className="h-10 rounded-full border border-gray-200 bg-white px-3 text-gray-700 shadow-sm hover:border-gray-300 hover:bg-white hover:text-gray-900"
+                        className="hidden h-10 rounded-full border border-gray-200 bg-white px-3 text-gray-700 shadow-sm hover:border-gray-300 hover:bg-white hover:text-gray-900 sm:inline-flex"
                       />
                     </div>
                   </div>
@@ -2172,8 +2327,14 @@ export const AssessmentPage: React.FC = () => {
                   >
                   {showIntro ? (
                     <AssessmentIntroScreen
-                      assessmentName={selectedAssessmentData?.name}
+                      assessmentName={assessmentTitle}
                       itemCount={items.filter((i) => i.type !== "info").length}
+                      initialSettings={{
+                        layout: layoutMode,
+                        mode: playerMode,
+                        theme: playerTheme,
+                        device: parsePlayerDevice(queryParams.get("device")),
+                      }}
                       onStart={startAssessment}
                       onOpenOverview={() => {
                         setShowIntro(false);
@@ -2197,7 +2358,10 @@ export const AssessmentPage: React.FC = () => {
                             // viewport of slack below the last question so it
                             // can still be scrolled to the top of the pane.
                             "relative mx-auto w-full max-w-3xl px-4 pt-6 pb-[70vh]"
-                          : "relative flex justify-center p-6 min-h-full"
+                          : `relative flex justify-center p-3 sm:p-6 min-h-full ${
+                              // Room for the practice coach below the last line.
+                              playerMode === "practice" ? "pb-40" : ""
+                            }`
                       }
                     >
                       <test-container
@@ -2287,6 +2451,37 @@ export const AssessmentPage: React.FC = () => {
                     </div>
                   )}
                   </div>
+
+                  {playerMode === "practice" &&
+                    !showIntro &&
+                    !handInResult &&
+                    !isOverviewOpen &&
+                    !isEditorOpen && (
+                      <PracticeCoach
+                        mood={coach.mood}
+                        message={coach.message}
+                        bubbleVisible={coach.bubbleVisible}
+                        checkCount={coach.checkCount}
+                        checkLabel={
+                          isVerticalLayout
+                            ? "Check my answers"
+                            : groupsSharedStimuli
+                              ? "Check this page"
+                              : "Check"
+                        }
+                        busy={coach.busy}
+                        canShowAnswer={coach.wrongItems.length > 0}
+                        answerShown={coach.answerShown}
+                        onCheck={() => void handlePracticeCheck()}
+                        onToggleAnswer={handleToggleAnswer}
+                        onDismiss={() =>
+                          setCoach((current) => ({
+                            ...current,
+                            bubbleVisible: false,
+                          }))
+                        }
+                      />
+                    )}
 
                   {/* In-place editor: replaces the item content without
                       unmounting the test underneath. */}
@@ -2438,12 +2633,18 @@ export const AssessmentPage: React.FC = () => {
                 isOpen={showVariables}
                 onClose={() => setShowVariables(false)}
                 setIsOpen={setShowVariables}
-                title={`Item Variable`}
+                title="Item output"
+                storageKey="itemOutputPanelState"
+                defaultSize={{ width: 440, height: 520 }}
               >
-                <div className="bg-gray-50 p-3 rounded">
-                  Item Id: {currentItemIdentifier}
-                  <test-print-item-variables></test-print-item-variables>
-                </div>
+                <ItemOutputPanel
+                  item={outputItem}
+                  itemIdentifier={
+                    outputItem?.identifier === currentItemRefIdentifier
+                      ? currentItemIdentifier
+                      : undefined
+                  }
+                />
               </DraggablePopup>
             </test-navigation>
           </qti-test>

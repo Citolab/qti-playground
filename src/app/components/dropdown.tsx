@@ -4,6 +4,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -26,10 +27,15 @@ export function Dropdown({ items, name, onMenuClick }: Props) {
           <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" className="max-h-[70vh] w-64 overflow-y-auto">
         {items.map((group, groupIndex) => (
           <div key={group.name}>
             {groupIndex > 0 && <DropdownMenuSeparator />}
+            {items.length > 1 ? (
+              <DropdownMenuLabel className="text-xs font-semibold text-gray-500">
+                {group.name}
+              </DropdownMenuLabel>
+            ) : null}
             {group.items.map((item) => (
               <DropdownMenuItem
                 key={item.name}

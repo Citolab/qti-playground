@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="reading-b2" title="Find the evidence" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="identifier">
+    <qti-correct-response>
+      <qti-value>H2</qti-value>
+    </qti-correct-response>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>1</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-assessment-stimulus-ref identifier="stimulus-bees" href="stimulus-bees.xml" title="Why Bees Dance"/>
+  <qti-item-body>
+    <div class="qti-layout-row">
+      <div class="qti-layout-col6">
+        <div class="qti-shared-stimulus" data-stimulus-idref="stimulus-bees"></div>
+      </div>
+      <div class="qti-layout-col6">
+        <p>Here are four sentences from the text. Select the sentence that tells you how the other bees know <strong>which way</strong> to fly.</p>
+        <!-- The instruction is not a qti-prompt on purpose: qti-components 10.0.0-next.15 assigns the
+             prompt to a slot the hottext interaction does not render, so it would never be shown. -->
+        <qti-hottext-interaction response-identifier="RESPONSE" max-choices="1">
+          <p><qti-hottext identifier="H1">Then she loops back and does it again, over and over.</qti-hottext></p>
+          <p><qti-hottext identifier="H2">The direction of the straight run shows which way to fly, compared with the Sun.</qti-hottext></p>
+          <p><qti-hottext identifier="H3">They also smell the flowers on her body.</qti-hottext></p>
+          <p><qti-hottext identifier="H4">Some of them, called foragers, fly out every day to look for flowers.</qti-hottext></p>
+        </qti-hottext-interaction>
+      </div>
+    </div>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/match_correct.xml"/>
+</qti-assessment-item>

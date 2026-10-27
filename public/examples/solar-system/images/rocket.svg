@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="280" viewBox="0 0 280 280" role="img" aria-label="A friendly rocket flying through space past a ringed planet">
+  <title>A rocket flying through space</title>
+  <defs>
+    <linearGradient id="space" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1f3a70"/>
+      <stop offset="1" stop-color="#0b1730"/>
+    </linearGradient>
+    <radialGradient id="shade" cx="0.36" cy="0.32" r="0.78">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.3"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#050b1c" stop-opacity="0.5"/>
+    </radialGradient>
+    <clipPath id="badge"><circle cx="140" cy="140" r="132"/></clipPath>
+    <clipPath id="ring-front"><rect x="0" y="214" width="170" height="40"/></clipPath>
+  </defs>
+  <circle cx="140" cy="140" r="138" fill="#e6f6ec"/>
+  <g clip-path="url(#badge)">
+    <rect width="280" height="280" fill="url(#space)"/>
+    <g fill="#ffffff">
+      <circle cx="60" cy="70" r="1.6" opacity="0.9"/>
+      <circle cx="96" cy="40" r="1.1" opacity="0.7"/>
+      <circle cx="200" cy="44" r="1.4" opacity="0.8"/>
+      <circle cx="236" cy="96" r="1.1" opacity="0.6"/>
+      <circle cx="226" cy="200" r="1.5" opacity="0.8"/>
+      <circle cx="170" cy="246" r="1.1" opacity="0.6"/>
+      <circle cx="40" cy="140" r="1.2" opacity="0.7"/>
+      <path d="M210 150 l1.5 4.5 4.5 1.5 -4.5 1.5 -1.5 4.5 -1.5 -4.5 -4.5 -1.5 4.5 -1.5z" opacity="0.9"/>
+      <path d="M78 104 l1.2 3.6 3.6 1.2 -3.6 1.2 -1.2 3.6 -1.2 -3.6 -3.6 -1.2 3.6 -1.2z" opacity="0.8"/>
+    </g>
+
+    <!-- ringed planet -->
+    <g transform="rotate(-18 82 214)">
+      <ellipse cx="82" cy="214" rx="54" ry="12" fill="none" stroke="#f6c900" stroke-width="6"/>
+    </g>
+    <circle cx="82" cy="214" r="32" fill="#00b1a9"/>
+    <ellipse cx="82" cy="206" rx="30" ry="5" fill="#33c7c0" opacity="0.8"/>
+    <ellipse cx="82" cy="224" rx="28" ry="4" fill="#00938c" opacity="0.8"/>
+    <circle cx="82" cy="214" r="32" fill="url(#shade)"/>
+    <g transform="rotate(-18 82 214)" clip-path="url(#ring-front)">
+      <ellipse cx="82" cy="214" rx="54" ry="12" fill="none" stroke="#f6c900" stroke-width="6"/>
+    </g>
+
+    <!-- exhaust puffs -->
+    <g fill="#ffffff">
+      <circle cx="96" cy="176" r="9" opacity="0.18"/>
+      <circle cx="80" cy="196" r="6" opacity="0.12"/>
+      <circle cx="112" cy="160" r="12" opacity="0.22"/>
+    </g>
+
+    <!-- rocket -->
+    <g transform="translate(160 118) rotate(38)">
+      <path d="M-12 46 Q0 108 12 46 Z" fill="#f6c900"/>
+      <path d="M-6 46 Q0 82 6 46 Z" fill="#fff4b8"/>
+      <rect x="-15" y="38" width="30" height="10" rx="3" fill="#004119"/>
+      <path d="M-22 6 L-44 40 L-44 54 L-22 42 Z" fill="#00a748"/>
+      <path d="M22 6 L44 40 L44 54 L22 42 Z" fill="#00a748"/>
+      <path d="M0 -76 C24 -54 28 -12 22 42 L-22 42 C-28 -12 -24 -54 0 -76 Z" fill="#ffffff"/>
+      <path d="M0 -76 C24 -54 28 -12 22 42 L10 42 C14 -10 12 -50 0 -76 Z" fill="#dfe8ef"/>
+      <path d="M0 -76 C12 -66 18 -54 21 -42 L-21 -42 C-18 -54 -12 -66 0 -76 Z" fill="#00a748"/>
+      <path d="M-4 6 L4 6 L4 42 L-4 42 Z" fill="#00a748"/>
+      <circle cx="0" cy="-12" r="13" fill="#004119"/>
+      <circle cx="0" cy="-12" r="9" fill="#00b1a9"/>
+      <circle cx="-3" cy="-15" r="3" fill="#ffffff" opacity="0.8"/>
+    </g>
+  </g>
+</svg>

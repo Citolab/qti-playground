@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="reading-a3" title="Tell the story in short" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="multiple" base-type="directedPair">
+    <qti-correct-response>
+      <qti-value>STORM G1</qti-value>
+      <qti-value>TIN G2</qti-value>
+      <qti-value>WING G3</qti-value>
+      <qti-value>FISH G4</qti-value>
+    </qti-correct-response>
+    <qti-mapping default-value="0" lower-bound="0" upper-bound="2">
+      <qti-map-entry map-key="STORM G1" mapped-value="0.5"/>
+      <qti-map-entry map-key="TIN G2" mapped-value="0.5"/>
+      <qti-map-entry map-key="WING G3" mapped-value="0.5"/>
+      <qti-map-entry map-key="FISH G4" mapped-value="0.5"/>
+    </qti-mapping>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>2</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-assessment-stimulus-ref identifier="stimulus-gull" href="stimulus-gull.xml" title="The Keeper and the Gull"/>
+  <qti-item-body>
+    <div class="qti-layout-row">
+      <div class="qti-layout-col6">
+        <div class="qti-shared-stimulus" data-stimulus-idref="stimulus-gull"></div>
+      </div>
+      <div class="qti-layout-col6">
+        <qti-gap-match-interaction response-identifier="RESPONSE" shuffle="true">
+          <qti-prompt>Complete the summary of the story. Drag a word into each gap. Not every word is needed.</qti-prompt>
+          <qti-gap-text identifier="STORM" match-max="1">storm</qti-gap-text>
+          <qti-gap-text identifier="HEATWAVE" match-max="1">heatwave</qti-gap-text>
+          <qti-gap-text identifier="TIN" match-max="1">biscuit tin</qti-gap-text>
+          <qti-gap-text identifier="SHOEBOX" match-max="1">shoebox</qti-gap-text>
+          <qti-gap-text identifier="WING" match-max="1">wing</qti-gap-text>
+          <qti-gap-text identifier="BEAK" match-max="1">beak</qti-gap-text>
+          <qti-gap-text identifier="FISH" match-max="1">fish</qti-gap-text>
+          <qti-gap-text identifier="SHELL" match-max="1">shell</qti-gap-text>
+          <p>During a <qti-gap identifier="G1"/>, a young gull crashed into the lighthouse window. Mr Pell made her a bed in an old <qti-gap identifier="G2"/>. When her <qti-gap identifier="G3"/> was strong again, she flew away, but that evening she came back with a <qti-gap identifier="G4"/> as a present.</p>
+        </qti-gap-match-interaction>
+      </div>
+    </div>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/map_response.xml"/>
+</qti-assessment-item>

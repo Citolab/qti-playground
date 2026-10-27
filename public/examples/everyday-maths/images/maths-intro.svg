@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="260" viewBox="0 0 300 260" role="img" aria-label="A pizza with one slice pulled out, a ruler and tiles showing the signs plus, minus, times and divide">
+  <title>Maths all around us</title>
+  <circle cx="140" cy="130" r="122" fill="#e6f6ec"/>
+
+  <!-- ruler -->
+  <g transform="translate(-6 -30) rotate(-14 150 220)">
+    <rect x="40" y="204" width="208" height="34" rx="6" fill="#00b1a9"/>
+    <g stroke="#ffffff" stroke-width="2.5" stroke-linecap="round">
+      <line x1="56" y1="204" x2="56" y2="220"/>
+      <line x1="74" y1="204" x2="74" y2="212"/>
+      <line x1="92" y1="204" x2="92" y2="220"/>
+      <line x1="110" y1="204" x2="110" y2="212"/>
+      <line x1="128" y1="204" x2="128" y2="220"/>
+      <line x1="146" y1="204" x2="146" y2="212"/>
+      <line x1="164" y1="204" x2="164" y2="220"/>
+      <line x1="182" y1="204" x2="182" y2="212"/>
+      <line x1="200" y1="204" x2="200" y2="220"/>
+      <line x1="218" y1="204" x2="218" y2="212"/>
+    </g>
+  </g>
+
+  <!-- pizza with one eighth removed (wedge from -22.5 to 22.5 degrees) -->
+  <path d="M130 120 L194.67 146.79 A70 70 0 1 1 194.67 93.21 Z" fill="#e2a04a"/>
+  <path d="M130 120 L185.43 142.96 A60 60 0 1 1 185.43 97.04 Z" fill="#ffd84d"/>
+  <g fill="#d9472b">
+    <circle cx="100" cy="94" r="9"/>
+    <circle cx="92" cy="140" r="9"/>
+    <circle cx="134" cy="162" r="9"/>
+    <circle cx="142" cy="76" r="8"/>
+    <circle cx="118" cy="124" r="8"/>
+  </g>
+  <g fill="#00a748">
+    <ellipse cx="114" cy="72" rx="6" ry="3" transform="rotate(-30 114 72)"/>
+    <ellipse cx="76" cy="116" rx="6" ry="3" transform="rotate(40 76 116)"/>
+    <ellipse cx="160" cy="150" rx="6" ry="3" transform="rotate(10 160 150)"/>
+  </g>
+  <!-- the slice, pulled out -->
+  <g transform="translate(18 0)">
+    <path d="M130 120 L194.67 93.21 A70 70 0 0 1 194.67 146.79 Z" fill="#e2a04a"/>
+    <path d="M130 120 L185.43 97.04 A60 60 0 0 1 185.43 142.96 Z" fill="#ffd84d"/>
+    <circle cx="168" cy="120" r="8" fill="#d9472b"/>
+    <ellipse cx="150" cy="114" rx="5" ry="2.5" fill="#00a748"/>
+  </g>
+
+  <!-- operation tiles -->
+  <g font-family="Verdana, Arial, sans-serif" font-size="26" font-weight="bold" text-anchor="middle" fill="#ffffff">
+    <rect x="220" y="24" width="42" height="42" rx="10" fill="#004119"/>
+    <text x="241" y="54">+</text>
+    <rect x="252" y="76" width="42" height="42" rx="10" fill="#00a748"/>
+    <text x="273" y="106">&#8722;</text>
+    <rect x="222" y="126" width="42" height="42" rx="10" fill="#f6c900"/>
+    <text x="243" y="156" fill="#004119">&#215;</text>
+    <rect x="256" y="178" width="38" height="38" rx="10" fill="#004119"/>
+    <text x="275" y="205">&#247;</text>
+  </g>
+</svg>

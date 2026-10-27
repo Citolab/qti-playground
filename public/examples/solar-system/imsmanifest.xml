@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest xmlns="http://www.imsglobal.org/xsd/qti/qtiv3p0/imscp_v1p1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/qti/qtiv3p0/imscp_v1p1 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqtiv3p0_imscpv1p2_v1p0.xsd"
+  identifier="MANIFEST-solar-system">
+  <metadata>
+    <schema>QTI Package</schema>
+    <schemaversion>3.0.0</schemaversion>
+  </metadata>
+  <organizations/>
+  <resources>
+    <resource identifier="TEST" type="imsqti_test_xmlv3p0" href="test.xml">
+      <file href="test.xml"/>
+      <dependency identifierref="solar-intro"/>
+      <dependency identifierref="solar-01"/>
+      <dependency identifierref="solar-02"/>
+      <dependency identifierref="solar-03"/>
+      <dependency identifierref="solar-04"/>
+      <dependency identifierref="solar-05"/>
+      <dependency identifierref="solar-06"/>
+      <dependency identifierref="solar-07"/>
+    </resource>
+    <resource identifier="solar-intro" type="imsqti_item_xmlv3p0" href="intro.xml">
+      <file href="intro.xml"/>
+      <dependency identifierref="IMG-ROCKET"/>
+    </resource>
+    <resource identifier="solar-01" type="imsqti_item_xmlv3p0" href="item-01.xml">
+      <file href="item-01.xml"/>
+      <dependency identifierref="IMG-VENUS"/>
+      <dependency identifierref="IMG-MARS"/>
+      <dependency identifierref="IMG-NEPTUNE"/>
+      <dependency identifierref="IMG-JUPITER"/>
+    </resource>
+    <resource identifier="solar-02" type="imsqti_item_xmlv3p0" href="item-02.xml">
+      <file href="item-02.xml"/>
+      <dependency identifierref="IMG-EARTH"/>
+      <dependency identifierref="IMG-JUPITER"/>
+      <dependency identifierref="IMG-MERCURY"/>
+      <dependency identifierref="IMG-SATURN"/>
+      <dependency identifierref="IMG-MARS"/>
+    </resource>
+    <resource identifier="solar-03" type="imsqti_item_xmlv3p0" href="item-03.xml">
+      <file href="item-03.xml"/>
+    </resource>
+    <resource identifier="solar-04" type="imsqti_item_xmlv3p0" href="item-04.xml">
+      <file href="item-04.xml"/>
+      <dependency identifierref="IMG-SOLAR-SYSTEM"/>
+    </resource>
+    <resource identifier="solar-05" type="imsqti_item_xmlv3p0" href="item-05.xml">
+      <file href="item-05.xml"/>
+    </resource>
+    <resource identifier="solar-06" type="imsqti_item_xmlv3p0" href="item-06.xml">
+      <file href="item-06.xml"/>
+      <dependency identifierref="IMG-EARTH-ORBIT"/>
+    </resource>
+    <resource identifier="solar-07" type="imsqti_item_xmlv3p0" href="item-07.xml">
+      <file href="item-07.xml"/>
+      <dependency identifierref="IMG-DAY-NIGHT"/>
+    </resource>
+    <resource identifier="IMG-ROCKET" type="webcontent" href="images/rocket.svg">
+      <file href="images/rocket.svg"/>
+    </resource>
+    <resource identifier="IMG-VENUS" type="webcontent" href="images/venus.svg">
+      <file href="images/venus.svg"/>
+    </resource>
+    <resource identifier="IMG-MARS" type="webcontent" href="images/mars.svg">
+      <file href="images/mars.svg"/>
+    </resource>
+    <resource identifier="IMG-NEPTUNE" type="webcontent" href="images/neptune.svg">
+      <file href="images/neptune.svg"/>
+    </resource>
+    <resource identifier="IMG-JUPITER" type="webcontent" href="images/jupiter.svg">
+      <file href="images/jupiter.svg"/>
+    </resource>
+    <resource identifier="IMG-EARTH" type="webcontent" href="images/earth.svg">
+      <file href="images/earth.svg"/>
+    </resource>
+    <resource identifier="IMG-MERCURY" type="webcontent" href="images/mercury.svg">
+      <file href="images/mercury.svg"/>
+    </resource>
+    <resource identifier="IMG-SATURN" type="webcontent" href="images/saturn.svg">
+      <file href="images/saturn.svg"/>
+    </resource>
+    <resource identifier="IMG-SOLAR-SYSTEM" type="webcontent" href="images/solar-system.svg">
+      <file href="images/solar-system.svg"/>
+    </resource>
+    <resource identifier="IMG-EARTH-ORBIT" type="webcontent" href="images/earth-orbit.svg">
+      <file href="images/earth-orbit.svg"/>
+    </resource>
+    <resource identifier="IMG-DAY-NIGHT" type="webcontent" href="images/day-night.svg">
+      <file href="images/day-night.svg"/>
+    </resource>
+  </resources>
+</manifest>

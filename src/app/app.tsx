@@ -1,8 +1,9 @@
 import { Suspense, lazy } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useSearchParams } from "react-router-dom";
 import { PageLayout } from "./layout";
 import LoadingIndicator from "./components/loading-indicator";
 import LandingPage from "./pages/landing";
+import { DEFAULT_PLAYER_DEVICE, parsePlayerDevice } from "./qti/session-options";
 
 // Every page except the landing page is loaded on demand. Each one drags in a
 // vendor payload that only it needs -- @citolab/qti-convert-local-ai + exceljs +
@@ -31,9 +32,27 @@ const ModifyPackagePage = lazy(() =>
 const AiConvertPage = lazy(() =>
   import("./pages/ai-convert").then((m) => ({ default: m.AiConvertPage })),
 );
+const ExamplesPage = lazy(() =>
+  import("./pages/examples").then((m) => ({ default: m.ExamplesPage })),
+);
 const AssessmentPage = lazy(() =>
   import("./pages/assessment").then((m) => ({ default: m.AssessmentPage })),
 );
+const DevicePreview = lazy(() =>
+  import("./pages/device-preview").then((m) => ({ default: m.DevicePreview })),
+);
+
+/**
+ * A tablet or phone preview frames this same route in an iframe (see
+ * pages/device-preview.tsx); the page inside the frame is the player itself.
+ */
+function AssessmentRoute() {
+  const [params] = useSearchParams();
+  const framed =
+    parsePlayerDevice(params.get("device")) !== DEFAULT_PLAYER_DEVICE &&
+    window.self === window.top;
+  return framed ? <DevicePreview /> : <AssessmentPage />;
+}
 
 export function App() {
   // Zustand persist middleware handles state restoration automatically
@@ -42,15 +61,17 @@ export function App() {
       <Suspense fallback={<LoadingIndicator />}>
         <Routes>
           <Route path="/landing" element={<LandingPage />} />
+          <Route path="/examples" element={<ExamplesPage />} />
           <Route path="/package" element={<UploadPage />} />
+          <Route path="/player" element={<Navigate to="/package" replace />} />
           <Route path="/upload" element={<Navigate to="/package" replace />} />
           <Route path="/convert" element={<ConvertPage />} />
           <Route path="/edit" element={<EditPage />} />
           <Route path="/preview" element={<PreviewPage />} />
           <Route path="/modify" element={<ModifyPackagePage />} />
           <Route path="/ai-convert" element={<AiConvertPage />} />
-          <Route path="/assessment" element={<AssessmentPage />} />
-          <Route path="/assessment/:assessmentId" element={<AssessmentPage />} />
+          <Route path="/assessment" element={<AssessmentRoute />} />
+          <Route path="/assessment/:assessmentId" element={<AssessmentRoute />} />
           <Route path="/" element={<Navigate to="/landing" />} />
         </Routes>
       </Suspense>

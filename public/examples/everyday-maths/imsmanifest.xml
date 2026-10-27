@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest xmlns="http://www.imsglobal.org/xsd/qti/qtiv3p0/imscp_v1p1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/qti/qtiv3p0/imscp_v1p1 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqtiv3p0_imscpv1p2_v1p0.xsd"
+  identifier="MANIFEST-everyday-maths">
+  <metadata>
+    <schema>QTI Package</schema>
+    <schemaversion>3.0.0</schemaversion>
+  </metadata>
+  <organizations/>
+  <resources>
+    <resource identifier="TEST" type="imsqti_test_xmlv3p0" href="test.xml">
+      <file href="test.xml"/>
+      <dependency identifierref="maths-intro"/>
+      <dependency identifierref="maths-01"/>
+      <dependency identifierref="maths-02"/>
+      <dependency identifierref="maths-03"/>
+      <dependency identifierref="maths-04"/>
+      <dependency identifierref="maths-05"/>
+      <dependency identifierref="maths-06"/>
+    </resource>
+    <resource identifier="maths-intro" type="imsqti_item_xmlv3p0" href="intro.xml">
+      <file href="intro.xml"/>
+      <dependency identifierref="IMG-MATHS-INTRO"/>
+    </resource>
+    <resource identifier="maths-01" type="imsqti_item_xmlv3p0" href="item-01.xml">
+      <file href="item-01.xml"/>
+      <dependency identifierref="IMG-JUG"/>
+    </resource>
+    <resource identifier="maths-02" type="imsqti_item_xmlv3p0" href="item-02.xml">
+      <file href="item-02.xml"/>
+      <dependency identifierref="IMG-TREASURE-MAP"/>
+    </resource>
+    <resource identifier="maths-03" type="imsqti_item_xmlv3p0" href="item-03.xml">
+      <file href="item-03.xml"/>
+      <dependency identifierref="IMG-PANCAKES"/>
+    </resource>
+    <resource identifier="maths-04" type="imsqti_item_xmlv3p0" href="item-04.xml">
+      <file href="item-04.xml"/>
+      <dependency identifierref="IMG-TICKETS"/>
+    </resource>
+    <resource identifier="maths-05" type="imsqti_item_xmlv3p0" href="item-05.xml">
+      <file href="item-05.xml"/>
+      <dependency identifierref="IMG-ANGLE"/>
+    </resource>
+    <resource identifier="maths-06" type="imsqti_item_xmlv3p0" href="item-06.xml">
+      <file href="item-06.xml"/>
+    </resource>
+    <resource identifier="IMG-MATHS-INTRO" type="webcontent" href="images/maths-intro.svg">
+      <file href="images/maths-intro.svg"/>
+    </resource>
+    <resource identifier="IMG-JUG" type="webcontent" href="images/jug.svg">
+      <file href="images/jug.svg"/>
+    </resource>
+    <resource identifier="IMG-TREASURE-MAP" type="webcontent" href="images/treasure-map.svg">
+      <file href="images/treasure-map.svg"/>
+    </resource>
+    <resource identifier="IMG-PANCAKES" type="webcontent" href="images/pancakes.svg">
+      <file href="images/pancakes.svg"/>
+    </resource>
+    <resource identifier="IMG-TICKETS" type="webcontent" href="images/tickets.svg">
+      <file href="images/tickets.svg"/>
+    </resource>
+    <resource identifier="IMG-ANGLE" type="webcontent" href="images/angle.svg">
+      <file href="images/angle.svg"/>
+    </resource>
+  </resources>
+</manifest>

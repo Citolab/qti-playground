@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="maths-06" title="From smallest to largest" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="ordered" base-type="identifier">
+    <qti-correct-response>
+      <qti-value>F1_4</qti-value>
+      <qti-value>D0_3</qti-value>
+      <qti-value>F2_5</qti-value>
+      <qti-value>D0_6</qti-value>
+      <qti-value>F3_4</qti-value>
+    </qti-correct-response>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>1</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-item-body>
+    <p>Fractions and decimals are two ways of writing the same kind of number. Tip: try turning every fraction into a decimal first.</p>
+    <qti-order-interaction response-identifier="RESPONSE" shuffle="true" class="qti-orientation-horizontal">
+      <qti-prompt>Put these numbers in order, from <strong>smallest</strong> to <strong>largest</strong>.</qti-prompt>
+      <qti-simple-choice identifier="F3_4"><math xmlns="http://www.w3.org/1998/Math/MathML"><mstyle displaystyle="true" mathsize="1.3em"><mfrac><mn>3</mn><mn>4</mn></mfrac></mstyle></math></qti-simple-choice>
+      <qti-simple-choice identifier="D0_3"><math xmlns="http://www.w3.org/1998/Math/MathML"><mstyle displaystyle="true" mathsize="1.3em"><mn>0.3</mn></mstyle></math></qti-simple-choice>
+      <qti-simple-choice identifier="F2_5"><math xmlns="http://www.w3.org/1998/Math/MathML"><mstyle displaystyle="true" mathsize="1.3em"><mfrac><mn>2</mn><mn>5</mn></mfrac></mstyle></math></qti-simple-choice>
+      <qti-simple-choice identifier="F1_4"><math xmlns="http://www.w3.org/1998/Math/MathML"><mstyle displaystyle="true" mathsize="1.3em"><mfrac><mn>1</mn><mn>4</mn></mfrac></mstyle></math></qti-simple-choice>
+      <qti-simple-choice identifier="D0_6"><math xmlns="http://www.w3.org/1998/Math/MathML"><mstyle displaystyle="true" mathsize="1.3em"><mn>0.6</mn></mstyle></math></qti-simple-choice>
+    </qti-order-interaction>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/match_correct.xml"/>
+</qti-assessment-item>

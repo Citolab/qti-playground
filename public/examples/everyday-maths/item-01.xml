@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="maths-01" title="Juice jug fractions" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="identifier">
+    <qti-correct-response>
+      <qti-value>THREE_QUARTERS</qti-value>
+    </qti-correct-response>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>1</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-item-body>
+    <div class="qti-layout-row">
+      <div class="qti-layout-col4">
+        <p class="qti-align-center">
+          <img src="images/jug.svg" width="240" height="260" alt="A measuring jug with four equal markings, filled with orange juice up to the third marking."/>
+        </p>
+      </div>
+      <div class="qti-layout-col8">
+        <p>This jug holds 1 litre when it is full. Right now there is <strong>0.75 litres</strong> of orange juice in it.</p>
+        <qti-choice-interaction response-identifier="RESPONSE" shuffle="true" max-choices="1" class="qti-choices-stacking-2">
+          <qti-prompt>Which fraction is equal to 0.75?</qti-prompt>
+          <qti-simple-choice identifier="ONE_QUARTER"><math xmlns="http://www.w3.org/1998/Math/MathML"><mstyle displaystyle="true" mathsize="1.3em"><mfrac><mn>1</mn><mn>4</mn></mfrac></mstyle></math></qti-simple-choice>
+          <qti-simple-choice identifier="THREE_FIFTHS"><math xmlns="http://www.w3.org/1998/Math/MathML"><mstyle displaystyle="true" mathsize="1.3em"><mfrac><mn>3</mn><mn>5</mn></mfrac></mstyle></math></qti-simple-choice>
+          <qti-simple-choice identifier="THREE_QUARTERS"><math xmlns="http://www.w3.org/1998/Math/MathML"><mstyle displaystyle="true" mathsize="1.3em"><mfrac><mn>3</mn><mn>4</mn></mfrac></mstyle></math></qti-simple-choice>
+          <qti-simple-choice identifier="SEVEN_FIFTHS"><math xmlns="http://www.w3.org/1998/Math/MathML"><mstyle displaystyle="true" mathsize="1.3em"><mfrac><mn>7</mn><mn>5</mn></mfrac></mstyle></math></qti-simple-choice>
+        </qti-choice-interaction>
+      </div>
+    </div>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/match_correct.xml"/>
+</qti-assessment-item>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="reading-b3" title="Dance like a bee" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string"/>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-assessment-stimulus-ref identifier="stimulus-bees" href="stimulus-bees.xml" title="Why Bees Dance"/>
+  <qti-item-body>
+    <div class="qti-layout-row">
+      <div class="qti-layout-col6">
+        <div class="qti-shared-stimulus" data-stimulus-idref="stimulus-bees"></div>
+      </div>
+      <div class="qti-layout-col6">
+        <p>Imagine you are a forager bee. You have just found a garden full of lavender, a short flight away towards the Sun.</p>
+        <qti-extended-text-interaction response-identifier="RESPONSE" expected-lines="6" expected-length="400" placeholder-text="When I get back to the hive, I ...">
+          <qti-prompt>Explain how you would use your dance to tell the other bees where the garden is. Use at least two facts from the text.</qti-prompt>
+        </qti-extended-text-interaction>
+      </div>
+    </div>
+  </qti-item-body>
+</qti-assessment-item>

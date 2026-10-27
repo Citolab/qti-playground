@@ -3,10 +3,11 @@ import type { QtiSchemaCatalog } from "./schema-catalog";
 import { schemaCompletions, schemaHover, type XmlCompletion } from "./schema-assist";
 
 /**
- * Completion and hover from the QTI 3.0 schema in every XML editor (`schemaAssist`). `catalog` resolves to undefined
- * when it cannot be loaded; the editor then offers nothing extra.
+ * Completion and hover from the QTI schema of the document in every XML editor (`schemaAssist`). `catalog` gives the
+ * catalog for the document's text; undefined when there is none for it or it cannot be loaded, and the editor then offers
+ * nothing extra.
  */
-export function registerSchemaAssist(monaco: typeof Monaco, catalog: () => Promise<QtiSchemaCatalog | undefined>) {
+export function registerSchemaAssist(monaco: typeof Monaco, catalog: (xml: string) => Promise<QtiSchemaCatalog | undefined>) {
   const kinds: Record<XmlCompletion["kind"], Monaco.languages.CompletionItemKind> = {
     element: monaco.languages.CompletionItemKind.Class,
     "end-tag": monaco.languages.CompletionItemKind.Class,
@@ -18,7 +19,7 @@ export function registerSchemaAssist(monaco: typeof Monaco, catalog: () => Promi
   monaco.languages.registerCompletionItemProvider("xml", {
     triggerCharacters: ["<", "/", " ", "\"", "'"],
     provideCompletionItems: async (model, position) => {
-      const loaded = await catalog();
+      const loaded = await catalog(model.getValue());
       if (!loaded || model.isDisposed()) return { suggestions: [] };
       const offset = model.getOffsetAt(position);
       // A completion range stays on the cursor's line.
@@ -40,7 +41,7 @@ export function registerSchemaAssist(monaco: typeof Monaco, catalog: () => Promi
 
   monaco.languages.registerHoverProvider("xml", {
     provideHover: async (model, position) => {
-      const loaded = await catalog();
+      const loaded = await catalog(model.getValue());
       if (!loaded || model.isDisposed()) return null;
       const hover = schemaHover(loaded, model.getValue(), model.getOffsetAt(position));
       if (!hover) return null;

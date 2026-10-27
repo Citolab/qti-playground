@@ -1,56 +1,17 @@
 import React, { useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../store/store";
-import { Upload, AlertTriangle, Package, Play } from "lucide-react";
+import { Upload, AlertTriangle, Play } from "lucide-react";
 import { forceMemoryCleanup } from "@citolab/qti-convert/qti-helper";
 import { ItemPreview } from "../components/item-preview";
 import { PackageUploadZone } from "../components/package-upload-zone";
 import { DownloadPackageButton } from "../components/download-package-button";
-import { LayoutModeIcon } from "../components/layout-mode-select";
-import {
-  AssessmentLayoutMode,
-  DEFAULT_LAYOUT_MODE,
-  LAYOUT_MODES,
-} from "../qti/layout-mode";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useState } from "react";
 import { PageCard, PageShell } from "../components/page-shell";
-
-/**
- * Start the test straight into one layout, skipping the intro screen that
- * would otherwise ask the same question again.
- *
- * Always labelled: this is the main thing to do with an uploaded package, so
- * it should read as a button, not as an icon to discover by hovering.
- */
-function StartLayoutButton({
-  mode,
-  assessmentName,
-  onStart,
-}: {
-  mode: AssessmentLayoutMode;
-  assessmentName: string;
-  onStart: (mode: AssessmentLayoutMode) => void;
-}) {
-  const meta = LAYOUT_MODES.find((layout) => layout.value === mode);
-  const label = meta?.label ?? mode;
-  const action = `Start ${label.toLowerCase()}`;
-
-  return (
-    <button
-      type="button"
-      onClick={() => onStart(mode)}
-      title={`${action} – ${meta?.description ?? ""}`}
-      aria-label={`${action}: ${assessmentName}`}
-      className="flex h-9 items-center gap-2 px-3 text-white transition-colors hover:bg-white/20 focus-visible:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
-    >
-      <Play className="w-3.5 h-3.5 shrink-0 fill-current" />
-      <span className="whitespace-nowrap text-sm font-semibold">{action}</span>
-      <LayoutModeIcon mode={mode} className="w-4 h-4 shrink-0 opacity-80" />
-    </button>
-  );
-}
+import { ExampleGallery } from "../examples/example-gallery";
+import { assessmentTitleOf } from "../qti/assessment-title";
 
 export const UploadPage: React.FC = () => {
   const navigate = useNavigate();
@@ -70,7 +31,7 @@ export const UploadPage: React.FC = () => {
 
   const packageSummary = `${items.length} ${items.length === 1 ? "item" : "items"} in ${
     assessments.length === 1
-      ? assessments[0].name
+      ? assessmentTitleOf(assessments[0])
       : `${assessments.length} tests`
   }`;
 
@@ -79,16 +40,14 @@ export const UploadPage: React.FC = () => {
   );
 
   /**
-   * The layout is chosen here, so the player's intro screen has nothing left
-   * to ask: `start=1` tells it to open the test straight away. Starting is a
-   * fresh attempt, so answers and bookmarks from an earlier run are dropped.
+   * Into the player's intro screen, where the layout, mode, theme and device
+   * are chosen. Starting is a fresh attempt, so answers and bookmarks from an
+   * earlier run are dropped.
    */
   const startAssessment = useCallback(
-    (assessmentId: string) => (mode: AssessmentLayoutMode) => {
+    (assessmentId: string) => {
       resetAssessmentProgress(assessmentId);
-      const params = new URLSearchParams({ start: "1" });
-      if (mode !== DEFAULT_LAYOUT_MODE) params.set("layout", mode);
-      navigate(`/assessment/${assessmentId}?${params.toString()}`);
+      navigate(`/assessment/${assessmentId}`);
     },
     [navigate, resetAssessmentProgress]
   );
@@ -96,8 +55,8 @@ export const UploadPage: React.FC = () => {
   if (assessments.length > 0) {
     return (
       <PageShell
-        icon={Package}
-        title="Preview package"
+        icon={Play}
+        title="Player"
         description={packageSummary}
         actions={
           <>
@@ -172,24 +131,15 @@ export const UploadPage: React.FC = () => {
               </h2>
               <div className="flex flex-wrap items-center gap-2">
                 {assessments?.map((assessment) => (
-                  <div
+                  <Button
                     key={assessment.id}
-                    className="flex items-center divide-x divide-white/25 overflow-hidden rounded-md bg-linear-to-r from-citolab-700 to-citolab-teal-700 shadow-sm"
+                    onClick={() => startAssessment(assessment.id)}
+                    aria-label={`Start ${assessmentTitleOf(assessment)}`}
+                    className="gap-2 font-semibold"
                   >
-                    {assessments.length > 1 && (
-                      <span className="hidden max-w-40 truncate px-3 text-xs font-semibold text-white sm:inline">
-                        {assessment.name}
-                      </span>
-                    )}
-                    {LAYOUT_MODES.map((mode) => (
-                      <StartLayoutButton
-                        key={mode.value}
-                        mode={mode.value}
-                        assessmentName={assessment.name}
-                        onStart={startAssessment(assessment.id)}
-                      />
-                    ))}
-                  </div>
+                    <Play className="h-3.5 w-3.5 fill-current" />
+                    {assessments.length > 1 ? `Start ${assessmentTitleOf(assessment)}` : "Start"}
+                  </Button>
                 ))}
               </div>
             </div>
@@ -209,13 +159,26 @@ export const UploadPage: React.FC = () => {
 
   return (
     <PageShell
-      icon={Package}
-      title="Preview package"
-      description="Open a QTI package to preview its items, play its tests and download it as QTI 3."
+      icon={Play}
+      title="Player"
+      description="Play a QTI test the way a candidate sees it: as a booklet or one question at a time, with zoom, read-aloud and bookmarks."
     >
-      <PageCard className="p-6">
-        <PackageUploadZone />
-      </PageCard>
+      <div className="grid gap-8 lg:grid-cols-2">
+        <section>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
+            Your own package
+          </h2>
+          <PageCard className="p-6">
+            <PackageUploadZone />
+          </PageCard>
+        </section>
+        <section>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
+            Or play an example
+          </h2>
+          <ExampleGallery variant="rows" />
+        </section>
+      </div>
     </PageShell>
   );
 };

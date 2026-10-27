@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   EDITOR_EXAMPLE_ITEMS,
-  EXAMPLE_BASE_PATH,
   type ExampleItem,
 } from "../../pages/item-source";
 
@@ -28,7 +27,7 @@ const checkExamples = async (): Promise<ExampleItem[]> => {
   const results = await Promise.all(
     EDITOR_EXAMPLE_ITEMS.map(async (example) => {
       try {
-        const response = await fetch(`${EXAMPLE_BASE_PATH}${example.href}`);
+        const response = await fetch(example.href);
         if (!response.ok) return null;
         const unsupported = findUnsupportedItemFeatures(await response.text());
         if (unsupported.length === 0) return example;

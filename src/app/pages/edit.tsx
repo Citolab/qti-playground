@@ -18,9 +18,10 @@ import { PageShell, WORKSPACE_EDITOR_HEIGHT } from "../components/page-shell";
 import { QtiCitolabEditorPanel } from "../components/editor/qti-citolab-editor-panel";
 import { DownloadItemPackageButton } from "../components/download-package-button";
 import { useEditorExamples } from "../components/editor/use-editor-examples";
+import { EditorModeSwitch } from "../components/editor-mode-switch";
 import {
-  EXAMPLE_BASE_PATH,
   buildShareUrl,
+  groupExamples,
   decodeSharedParamToXml,
 } from "./item-source";
 
@@ -120,9 +121,10 @@ export const EditPage = () => {
     <PageShell
       variant="workspace"
       icon={PenLine}
-      title="Edit item"
+      title="Editor"
       badge="Beta"
       description="Build a QTI 3 item visually — the XML on the right is generated as you type."
+      actions={<EditorModeSwitch />}
     >
       <div className="relative grid gap-4 md:grid-cols-2">
         {sharePopupOpen ? (
@@ -151,11 +153,11 @@ export const EditPage = () => {
               <Dropdown
                 key="examples"
                 name="Examples"
-                items={[{ name: "choice", items: exampleItems }]}
+                items={groupExamples(exampleItems)}
                 onMenuClick={(name) => {
                   const example = exampleItems.find((i) => i.name === name);
                   if (!example) return;
-                  loadQti3(`${EXAMPLE_BASE_PATH}${example.href}`);
+                  loadQti3(example.href);
                 }}
               />,
               <div key="actions" className="flex gap-2">

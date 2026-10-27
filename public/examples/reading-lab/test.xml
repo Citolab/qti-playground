@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-test xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="reading-lab" title="Reading Lab">
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAX_SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-test-part identifier="test-part" navigation-mode="nonlinear" submission-mode="simultaneous">
+    <qti-assessment-section identifier="section-welcome" title="Welcome" visible="true">
+      <qti-assessment-item-ref identifier="reading-intro" href="intro.xml" category="info"/>
+    </qti-assessment-section>
+    <qti-assessment-section identifier="section-gull" title="The Keeper and the Gull" visible="true">
+      <qti-assessment-item-ref identifier="reading-a1" href="item-01.xml"/>
+      <qti-assessment-item-ref identifier="reading-a2" href="item-02.xml"/>
+      <qti-assessment-item-ref identifier="reading-a3" href="item-03.xml"/>
+    </qti-assessment-section>
+    <qti-assessment-section identifier="section-bees" title="Why Bees Dance" visible="true">
+      <qti-assessment-item-ref identifier="reading-b1" href="item-04.xml"/>
+      <qti-assessment-item-ref identifier="reading-b2" href="item-05.xml"/>
+      <qti-assessment-item-ref identifier="reading-b3" href="item-06.xml"/>
+    </qti-assessment-section>
+  </qti-test-part>
+  <qti-outcome-processing>
+    <qti-set-outcome-value identifier="SCORE">
+      <qti-sum>
+        <qti-test-variables variable-identifier="SCORE"/>
+      </qti-sum>
+    </qti-set-outcome-value>
+    <qti-set-outcome-value identifier="MAX_SCORE">
+      <qti-sum>
+        <qti-test-variables variable-identifier="MAXSCORE"/>
+      </qti-sum>
+    </qti-set-outcome-value>
+  </qti-outcome-processing>
+</qti-assessment-test>

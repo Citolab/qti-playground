@@ -1,38 +1,42 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Editor as MonacoEditor } from "@monaco-editor/react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
-  GitCommit,
-  Book,
-  Mail,
+  ArrowRight,
+  BookOpenCheck,
+  Bookmark,
+  Boxes,
   Code2,
-  Repeat,
-  Shield,
-  Package,
-  Play,
-  Layers,
+  FileCode2,
   FlaskConical,
-  Terminal,
-  CheckCircle2,
-  Zap,
+  Layers,
+  LayoutPanelLeft,
   Lock,
+  Mail,
+  PenLine,
+  Play,
+  Puzzle,
+  Repeat,
+  Share2,
+  Terminal,
+  ZoomIn,
+  type LucideIcon,
 } from "lucide-react";
-import { PackageUploadZone } from "../components/package-upload-zone";
 
 import { itemCss } from "../itemCss";
 import { QtiCitolabEditorPanel } from "../components/editor/qti-citolab-editor-panel";
 import { useScopedQtiRegistry } from "../use-scoped-registry";
 import { QtiAssessmentItem } from "@citolab/qti-components";
-import { PAGE_CONTAINER } from "../components/page-shell";
+import { PAGE_CONTAINER, PAGE_GUTTER } from "../components/page-shell";
+import { CitolabLogo } from "../components/citolab-logo";
+import { GithubMark } from "../components/github-mark";
+import { ExampleGallery } from "../examples/example-gallery";
+import { cn } from "@/lib/utils";
+
+// The live item in the hero: a real item from the Solar System example, loaded
+// by URL the way a host application would load one, so its images resolve
+// against the item's own folder.
+const HERO_ITEM_URL = "/examples/solar-system/item-01.xml";
 
 // Held in the editor's own serialisation, not hand-written QTI: the exporter rebuilds the item
 // from the ProseMirror document, so any other shape would be rewritten into this one the moment
@@ -54,19 +58,19 @@ const LANDING_CHOICE_ITEM_XML = `<qti-assessment-item xmlns="http://www.imsgloba
   <qti-item-body>
     <qti-choice-interaction max-choices="1" response-identifier="RESPONSE">
       <qti-prompt>
-        <p>What do you want to do?</p>
+        <p>Which planet is closest to the Sun?</p>
       </qti-prompt>
       <qti-simple-choice identifier="A">
-        <p>Create, edit and display items.</p>
+        <p>Venus</p>
       </qti-simple-choice>
       <qti-simple-choice identifier="B">
-        <p>Create and theme your own assessment player</p>
+        <p>Mercury</p>
       </qti-simple-choice>
       <qti-simple-choice identifier="C">
-        <p>Convert QTI packages</p>
+        <p>Mars</p>
       </qti-simple-choice>
       <qti-simple-choice identifier="D">
-        <p>Build PCI's</p>
+        <p>Earth</p>
       </qti-simple-choice>
     </qti-choice-interaction>
   </qti-item-body>
@@ -76,9 +80,8 @@ const LANDING_CHOICE_ITEM_XML = `<qti-assessment-item xmlns="http://www.imsgloba
 const LANDING_PCI_ITEM_XML = `<qti-assessment-item xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" xsi:schema-location="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd" identifier="landing-pci" title="Landing PCI" adaptive="false" time-dependent="false">
   <qti-response-declaration identifier="RESPONSE2" cardinality="single" base-type="string"></qti-response-declaration>
   <qti-item-body>
-    <p>The example below is a <strong>Portable Custom Interaction (PCI)</strong> — a QTI 3.0 standard that allows fully custom interactions to be embedded in any compliant player. We are QTI 3.0 certified to import and deliver PCIs.</p>
     <p>
-      <qti-portable-custom-interaction custom-interaction-type-identifier="blocks" data-version="1.0.0" data-grid-divisions="9" data-cube-pixel-size="60" data-width="520" data-height="340" data-brick-color-mode="single" data-brick-colors="#c91a09" data-components-cdn-url="${__QTI_COMPONENTS_CDN_URL__}" data-components-css-url="${__QTI_COMPONENTS_CSS_URL__}" module="blocks" response-identifier="RESPONSE2">
+      <qti-portable-custom-interaction custom-interaction-type-identifier="blocks" data-version="1.0.0" data-grid-divisions="9" data-cube-pixel-size="60" data-width="520" data-height="340" data-brick-color-mode="single" data-brick-colors="#00a748" data-components-cdn-url="${__QTI_COMPONENTS_CDN_URL__}" data-components-css-url="${__QTI_COMPONENTS_CSS_URL__}" module="blocks" response-identifier="RESPONSE2">
         <qti-interaction-modules>
           <qti-interaction-module id="blocks" primary-path="pci/blocks/interaction/runtime/js/index.js" />
         </qti-interaction-modules>
@@ -195,8 +198,231 @@ function prettyPrintXml(xml: string): string {
 // only ever flows outwards -- into the read-only Monaco below it -- so the key never has to change.
 const LANDING_EDITOR_SESSION_KEY = 0;
 
+const EMBED_SNIPPET = `npm install @citolab/qti-components
+
+<script type="module">
+  import "@citolab/qti-components";
+</script>
+
+<qti-item>
+  <item-container item-url="items/red-planet.xml">
+  </item-container>
+</qti-item>`;
+
+type Library = {
+  name: string;
+  tag: string;
+  icon: LucideIcon;
+  description: string;
+  links: { label: string; href: string }[];
+};
+
+const LIBRARIES: Library[] = [
+  {
+    name: "QTI Components",
+    tag: "Player",
+    icon: Boxes,
+    description:
+      "Web components that render and score QTI 3 items and tests in any framework, or none. The engine behind this playground's player.",
+    links: [
+      { label: "GitHub", href: "https://github.com/Citolab/qti-components" },
+      { label: "npm", href: "https://www.npmjs.com/package/@citolab/qti-components" },
+      {
+        label: "Storybook",
+        href: "https://qti-components.citolab.nl/?path=/docs/%F0%9F%91%8B-hi-qti--docs",
+      },
+    ],
+  },
+  {
+    name: "QTI Editor",
+    tag: "Authoring",
+    icon: PenLine,
+    description:
+      "ProseMirror extensions for writing QTI 3 items visually. Bring your own editor UI; the XML round-trips.",
+    links: [
+      { label: "GitHub", href: "https://github.com/Citolab/qti-editor" },
+      { label: "npm", href: "https://www.npmjs.com/package/@citolab/prose-qti" },
+    ],
+  },
+  {
+    name: "QTI Convert",
+    tag: "Conversion",
+    icon: Repeat,
+    description:
+      "Upgrade QTI 2.x to QTI 3, import packages in the browser, convert TAO PCIs and export to Word or PDF for paper tests.",
+    links: [
+      { label: "GitHub", href: "https://github.com/Citolab/qti-convert" },
+      { label: "npm", href: "https://www.npmjs.com/package/@citolab/qti-convert" },
+    ],
+  },
+  {
+    name: "tspci",
+    tag: "PCI toolkit",
+    icon: Terminal,
+    description:
+      "Spin up a Portable Custom Interaction project in seconds: develop, debug and bundle custom interactions with their assets.",
+    links: [
+      { label: "GitHub", href: "https://github.com/Citolab/tspci" },
+      { label: "npm", href: "https://www.npmjs.com/package/@citolab/tspci" },
+      { label: "Examples", href: "https://github.com/Citolab/tspci-examples" },
+    ],
+  },
+  {
+    name: "QTI Player",
+    tag: "Starter",
+    icon: Play,
+    description:
+      "A single-file reference player: the shortest path from a QTI package to a working test in your own app.",
+    links: [
+      { label: "GitHub", href: "https://github.com/Citolab/qti-player" },
+      { label: "Demo", href: "https://citolab.github.io/qti-player/" },
+      {
+        label: "StackBlitz",
+        href: "https://stackblitz.com/~/github.com/Citolab/qti-player?file=index.html",
+      },
+    ],
+  },
+  {
+    name: "QTI Playground",
+    tag: "This site",
+    icon: FlaskConical,
+    description:
+      "Everything you see here, from the package importer to the editor, is open source too. Fork it as a starting point.",
+    links: [{ label: "GitHub", href: "https://github.com/Citolab/qti-playground" }],
+  },
+];
+
+const PLAYER_FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
+  {
+    icon: LayoutPanelLeft,
+    title: "Two layouts",
+    text: "A scrolling booklet or one question at a time, from the same test.",
+  },
+  {
+    icon: ZoomIn,
+    title: "Zoom & read-aloud",
+    text: "Read-aloud only uses voices that run on your own device.",
+  },
+  {
+    icon: Bookmark,
+    title: "Bookmarks & review",
+    text: "Flag questions and jump back from the overview.",
+  },
+  {
+    icon: Puzzle,
+    title: "Custom interactions",
+    text: "QTI 3 PCIs run sandboxed, like the brick builder shown here.",
+  },
+];
+
+const EDITOR_FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
+  {
+    icon: PenLine,
+    title: "Write, don't type tags",
+    text: "Prompts, choices, gaps and layouts, edited like a document.",
+  },
+  {
+    icon: FileCode2,
+    title: "Clean QTI 3 out",
+    text: "Valid XML is generated as you go. Switch to XML mode any time.",
+  },
+  {
+    icon: Share2,
+    title: "Share or download",
+    text: "Send a link to the item, or download it as a QTI package.",
+  },
+];
+
+const TEAM = [
+  {
+    name: "Romy Noordhof",
+    role: "Head of team prototyping",
+    email: "romy.noordhof@cito.nl",
+    initials: "RN",
+  },
+  {
+    name: "Patrick de Klein",
+    role: "Frontend developer / UX specialist",
+    email: "Patrick.deKlein@cito.nl",
+    initials: "PK",
+  },
+  {
+    name: "Marcel Hoekstra",
+    role: "Full-stack developer",
+    email: "marcel.hoekstra@cito.nl",
+    initials: "MH",
+  },
+];
+
+function SectionEyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-sm font-semibold uppercase tracking-[0.14em] text-citolab-600">
+      {children}
+    </p>
+  );
+}
+
+function FeatureList({
+  features,
+}: {
+  features: { icon: LucideIcon; title: string; text: string }[];
+}) {
+  return (
+    <dl className="grid gap-5 sm:grid-cols-2">
+      {features.map((feature) => (
+        <div key={feature.title} className="flex gap-3">
+          <dt className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-citolab-50 text-citolab-700">
+            <feature.icon className="h-[18px] w-[18px]" aria-hidden="true" />
+          </dt>
+          <dd>
+            <span className="block text-sm font-semibold text-gray-900">
+              {feature.title}
+            </span>
+            <span className="block text-sm leading-relaxed text-gray-600">
+              {feature.text}
+            </span>
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** A browser-ish frame, so a live demo reads as "this is running" rather than as a picture. */
+function DemoFrame({
+  label,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_24px_60px_-20px_rgba(0,65,25,0.25)]",
+        className,
+      )}
+    >
+      <div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50/80 px-4 py-2.5">
+        <span className="flex gap-1.5" aria-hidden="true">
+          <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
+          <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
+          <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
+        </span>
+        <span className="truncate font-mono text-xs text-gray-500">{label}</span>
+        <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-citolab-700">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-citolab-500" />
+          Live
+        </span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export const LandingPage: React.FC = () => {
-  const navigate = useNavigate();
   const [landingChoiceXml, setLandingChoiceXml] = useState(
     LANDING_CHOICE_ITEM_XML,
   );
@@ -206,8 +432,10 @@ export const LandingPage: React.FC = () => {
   );
 
   // The editor owns the contested qti-* names globally, so every player surface needs its own
-  // scope -- this page renders one next to the editor. See app/editor-first.ts.
-  const { registry: scopedRegistry, attachRef: attachScopedRegistry } =
+  // scope -- this page renders two next to the editor. See app/editor-first.ts.
+  const { registry: heroRegistry, attachRef: attachHeroRegistry } =
+    useScopedQtiRegistry();
+  const { registry: pciRegistry, attachRef: attachPciRegistry } =
     useScopedQtiRegistry();
 
   const restoreResponses = useCallback(
@@ -216,8 +444,6 @@ export const LandingPage: React.FC = () => {
       responses: Record<string, unknown>,
     ) => {
       if (!assessmentItem) return;
-
-      // set assessmentItem.variables add if not exists or update if exists with the value from responses
       for (const [identifier, value] of Object.entries(responses)) {
         assessmentItem.updateResponseVariable(
           identifier,
@@ -228,7 +454,7 @@ export const LandingPage: React.FC = () => {
     [],
   );
 
-  const onItemRendered = useCallback(
+  const onPciItemRendered = useCallback(
     (e: Event) => {
       const assessmentItem = (e as CustomEvent<QtiAssessmentItem>).detail;
       restoreResponses(assessmentItem, {
@@ -239,621 +465,529 @@ export const LandingPage: React.FC = () => {
   );
 
   // `cito-item-rendered` has no JSX event prop, so bind it on the element.
-  const qtiItemCleanupRef = useRef<(() => void) | null>(null);
-  const attachQtiItem = useCallback(
+  const pciItemCleanupRef = useRef<(() => void) | null>(null);
+  const attachPciItem = useCallback(
     (element: HTMLElement | null) => {
-      qtiItemCleanupRef.current?.();
-      qtiItemCleanupRef.current = null;
+      pciItemCleanupRef.current?.();
+      pciItemCleanupRef.current = null;
       if (!element) return;
-      element.addEventListener("cito-item-rendered", onItemRendered);
-      qtiItemCleanupRef.current = () =>
-        element.removeEventListener("cito-item-rendered", onItemRendered);
+      element.addEventListener("cito-item-rendered", onPciItemRendered);
+      pciItemCleanupRef.current = () =>
+        element.removeEventListener("cito-item-rendered", onPciItemRendered);
     },
-    [onItemRendered],
+    [onPciItemRendered],
   );
 
   return (
-    <TooltipProvider>
-      <div className="min-h-screen bg-linear-to-br from-slate-50 via-citolab-50/20 to-citolab-teal-50/20">
-        {/* Hero Section with Side-by-Side Layout on Large Screens */}
-        <div className={`pt-16 pb-12 px-4 sm:px-6 lg:px-8 ${PAGE_CONTAINER}`}>
-          {/* Grid, not flex: two `w-1/2` flex children plus `gap-12` sum to 100% + 48px, and
-              because flex items are `min-width:auto` the row could not shrink back to fit -- the
-              Monaco pane's intrinsic width held it open and pushed the whole hero off the right
-              edge. Grid tracks are sized after the gap is taken out, so the arithmetic holds at
-              any width. `min-w-0` on each column keeps that true regardless of what the editor
-              and Monaco report as their intrinsic widths. */}
-          <div className="lg:grid lg:grid-cols-2 lg:items-center lg:gap-12 2xl:grid-cols-[5fr_6fr]">
-            {/* Text Content */}
-            <div className="min-w-0">
-              <div className="animate-fade-in-up">
-                <Badge
-                  variant="outline"
-                  className="mb-4 border-citolab-600 text-citolab-600 px-3 py-1 text-sm"
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5 mr-1.5 inline" />
-                  Open Source · 1EdTech Certified
-                </Badge>
-              </div>
-              <h1
-                className="text-4xl font-extrabold sm:text-5xl sm:tracking-tight lg:text-6xl bg-linear-to-r from-citolab-700 to-citolab-teal-500 bg-clip-text text-transparent animate-fade-in-up pb-1"
-                style={{ animationDelay: "100ms" }}
-              >
-                CitoLab open-source QTI tooling
-              </h1>
-              <p
-                className="mt-6 max-w-2xl text-xl text-gray-500 animate-fade-in-up"
-                style={{ animationDelay: "200ms" }}
-              >
-                Convert and display QTI packages with our open-source QTI
-                components and conversion tools
-              </p>
-              <div
-                className="mt-6 flex flex-wrap gap-3 animate-fade-in-up"
-                style={{ animationDelay: "300ms" }}
-              >
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-citolab-50 px-3 py-1 text-sm font-medium text-citolab-700 ring-1 ring-inset ring-citolab-600/20">
-                  <Layers className="h-3.5 w-3.5" />5 open-source libraries
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-citolab-teal-50 px-3 py-1 text-sm font-medium text-citolab-teal-700 ring-1 ring-inset ring-citolab-teal-500/20">
-                  <Zap className="h-3.5 w-3.5" />
-                  1EdTech Certified
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-sm font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-                  <Lock className="h-3.5 w-3.5" />
-                  100% client-side
-                </span>
-              </div>
-              <div
-                className="mt-8 animate-fade-in-up"
-                style={{ animationDelay: "400ms" }}
-              >
-                <PackageUploadZone />
-              </div>
-            </div>
-
-            {/* Editor preview */}
-            <div className="mt-8 min-w-0 lg:mt-0">
-              <div className="mt-4 bg-gray-100 rounded-lg p-4">
-                {/* Fixed box, no `overflow-auto`: the editor scrolls its own body, so a second
-                    scroller here would put the toolbar out of reach on a long item. */}
-                <div className="relative h-[24rem]">
-                  {/* The other two entry points hang this label off the button that opens the
-                      editor; landing has no such button, so it goes on the editor itself -- in the
-                      empty right end of its toolbar. Same chip as tool-bar.tsx and preview.tsx. */}
-                  <span className="pointer-events-none absolute top-5 right-3 z-10 rounded bg-citolab-600/90 px-1 py-px text-[7px] leading-none font-semibold tracking-wide text-white uppercase">
-                    Beta
-                  </span>
-                  <QtiCitolabEditorPanel
-                    active
-                    editorSessionKey={LANDING_EDITOR_SESSION_KEY}
-                    sourceXml={landingChoiceXml}
-                    onSourceChange={setLandingChoiceXml}
-                    heightClassName="h-full"
-                    className="overflow-hidden rounded border border-gray-200 bg-white"
-                    normalizeOnLoad
-                  />
-                </div>
-              </div>
-              <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <MonacoEditor
-                  height="18rem"
-                  language="xml"
-                  theme="vs-dark"
-                  value={prettyLandingChoiceXml}
-                  options={{
-                    readOnly: true,
-                    minimap: { enabled: false },
-                    lineNumbers: "on",
-                    folding: true,
-                    glyphMargin: false,
-                    scrollBeyondLastLine: false,
-                    wordWrap: "off",
-                    renderLineHighlight: "none",
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Libraries Section */}
-        <div className="py-16">
-          <div className={`px-4 sm:px-6 lg:px-8 ${PAGE_CONTAINER}`}>
-            <div className="text-center">
-              <h2 className="text-base font-semibold text-citolab-600 tracking-wide uppercase">
-                Open Source Libraries
-              </h2>
-              <p className="mt-2 text-3xl font-extrabold text-gray-900 sm:text-4xl">
-                Powered by CitoLab
-              </p>
-            </div>
-
-            <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2">
-              {/* QTI Player - always full width */}
-              <Card className="sm:col-span-2 overflow-hidden hover:shadow-md transition-shadow duration-200">
-                <div className="grid grid-cols-1 sm:grid-cols-2">
-                  {/* Left: text content */}
-                  <div className="flex flex-col gap-4 p-8">
-                    <div className="flex items-center gap-3">
-                      <span className="inline-flex items-center justify-center p-3 bg-citolab-yellow-500 rounded-md shadow-sm">
-                        <Play className="h-6 w-6" />
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className="border-citolab-600/30 text-citolab-600 text-xs"
-                      >
-                        Reference Player
-                      </Badge>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 tracking-tight">
-                        QTI Player
-                      </h3>
-                      <p className="mt-2 text-base text-gray-500">
-                        A minimal, fully functional example of a QTI Player
-                        using @citolab/qti-components. It serves as a "Hello
-                        World" or cookbook-style reference for implementing a
-                        QTI player.
-                      </p>
-                    </div>
-                    <div className="flex items-end justify-between gap-4 pt-2">
-                      <div className="flex flex-wrap items-center gap-5">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <a
-                              href="https://github.com/Citolab/qti-player"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                            >
-                              <GitCommit className="h-4 w-4 mr-1.5" />
-                              GitHub
-                            </a>
-                          </TooltipTrigger>
-                          <TooltipContent>View on GitHub</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <a
-                              href="https://stackblitz.com/~/github.com/Citolab/qti-player?file=index.html"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                            >
-                              <Book className="h-4 w-4 mr-1.5" />
-                              Stackblitz
-                            </a>
-                          </TooltipTrigger>
-                          <TooltipContent>Open in Stackblitz</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <a
-                              href="https://citolab.github.io/qti-player/"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                            >
-                              Demo
-                            </a>
-                          </TooltipTrigger>
-                          <TooltipContent>Try the live QTI Player demo</TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <a
-                        href="https://site.imsglobal.org/certifications/cito/cito-qti-player"
-                        className="shrink-0"
-                      >
-                        <img
-                          src="/1edtech_trusted-apps-certified.svg"
-                          alt="1EdTech Trusted Apps Certified"
-                          className="block h-16 w-[4.5rem] max-w-[4.5rem] object-contain"
-                        />
-                      </a>
-                    </div>
-                  </div>
-                  {/* Right: PCI preview */}
-                  <div className="bg-gray-50 border-t sm:border-t-0 sm:border-l border-gray-200 flex flex-col items-center justify-center p-4 gap-3">
-                    <qti-item ref={attachQtiItem}>
-                      <item-container
-                        ref={attachScopedRegistry}
-                        customElementRegistry={scopedRegistry}
-                        itemXML={LANDING_PCI_ITEM_XML}
-                      >
-                        <template
-                          dangerouslySetInnerHTML={{
-                            __html: `<style>${itemCss}</style>`,
-                          }}
-                        ></template>
-                      </item-container>
-                    </qti-item>
-                  </div>
-                </div>
-              </Card>
-
-              {/* QTI Components */}
-              <Card className="hover:-translate-y-1 hover:shadow-md transition-all duration-200">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="inline-flex items-center justify-center p-3 bg-citolab-yellow-500 rounded-md shadow-sm">
-                      <Code2 className="h-6 w-6" />
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className="border-citolab-600/30 text-citolab-600 text-xs"
-                    >
-                      Web Components
-                    </Badge>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 tracking-tight">
-                    QTI Components
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-base text-gray-500">
-                    A web component library that renders QTI items in any web
-                    application. Highly customizable and easy to integrate.
-                  </p>
-                  <div className="mt-6 flex flex-wrap gap-4">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <a
-                          href="https://github.com/citolab/qti-components"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                        >
-                          <GitCommit className="h-5 w-5 mr-2" />
-                          GitHub
-                        </a>
-                      </TooltipTrigger>
-                      <TooltipContent>View source on GitHub</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <a
-                          href="https://www.npmjs.com/package/@citolab/qti-components"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                        >
-                          <Package className="h-5 w-5 mr-2" />
-                          npm
-                        </a>
-                      </TooltipTrigger>
-                      <TooltipContent>Install from npm</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <a
-                          href="https://qti-components.citolab.nl/?path=/docs/%F0%9F%91%8B-hi-qti--docs"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                        >
-                          <Book className="h-5 w-5 mr-2" />
-                          Storybook
-                        </a>
-                      </TooltipTrigger>
-                      <TooltipContent>Browse Storybook docs</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* QTI Convert */}
-              <Card className="hover:-translate-y-1 hover:shadow-md transition-all duration-200">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="inline-flex items-center justify-center p-3 bg-citolab-yellow-500 rounded-md shadow-sm">
-                      <Repeat className="h-6 w-6" />
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className="border-citolab-600/30 text-citolab-600 text-xs"
-                    >
-                      Conversion Engine
-                    </Badge>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 tracking-tight">
-                    QTI Convert
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-base text-gray-500">
-                    A library that enables seamless conversion between QTI 2.x
-                    and QTI 3 formats, ensuring compatibility across different
-                    assessment platforms.
-                  </p>
-                  <div className="mt-6 flex flex-wrap gap-4">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <a
-                          href="https://github.com/citolab/qti-convert"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                        >
-                          <GitCommit className="h-5 w-5 mr-2" />
-                          GitHub
-                        </a>
-                      </TooltipTrigger>
-                      <TooltipContent>View source on GitHub</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <a
-                          href="https://www.npmjs.com/package/@citolab/qti-convert"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                        >
-                          <Package className="h-5 w-5 mr-2" />
-                          npm
-                        </a>
-                      </TooltipTrigger>
-                      <TooltipContent>Install from npm</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* QTI Playground */}
-              <Card className="hover:-translate-y-1 hover:shadow-md transition-all duration-200">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="inline-flex items-center justify-center p-3 bg-citolab-yellow-500 rounded-md shadow-sm">
-                      <FlaskConical className="h-6 w-6" />
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className="border-citolab-600/30 text-citolab-600 text-xs"
-                    >
-                      This App
-                    </Badge>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 tracking-tight">
-                    QTI Playground
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-base text-gray-500">
-                    The application you are seeing now is open source as well
-                  </p>
-                  <div className="mt-6 flex flex-wrap gap-4">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <a
-                          href="https://github.com/citolab/qti-playground"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                        >
-                          <GitCommit className="h-5 w-5 mr-2" />
-                          GitHub
-                        </a>
-                      </TooltipTrigger>
-                      <TooltipContent>View source on GitHub</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* tspci */}
-              <Card className="hover:-translate-y-1 hover:shadow-md transition-all duration-200">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="inline-flex items-center justify-center p-3 bg-citolab-yellow-500 rounded-md shadow-sm">
-                      <Terminal className="h-6 w-6" />
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className="border-citolab-600/30 text-citolab-600 text-xs"
-                    >
-                      PCI Dev Tool
-                    </Badge>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 tracking-tight">
-                    tspci
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-base text-gray-500">
-                    A library and CLI tool for software developers to spin up a
-                    PCI (Portable Custom Interaction) development environment in
-                    a few seconds. It makes it easy to test, develop and debug
-                    custom interactions for QTI Components. The bundling
-                    automatically includes 3rd party libraries and images.
-                  </p>
-                  <div className="mt-6 flex flex-wrap gap-4">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <a
-                          href="https://github.com/citolab/tspci"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                        >
-                          <GitCommit className="h-5 w-5 mr-2" />
-                          GitHub
-                        </a>
-                      </TooltipTrigger>
-                      <TooltipContent>View source on GitHub</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <a
-                          href="https://www.npmjs.com/package/@citolab/tspci"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                        >
-                          <Package className="h-5 w-5 mr-2" />
-                          npm
-                        </a>
-                      </TooltipTrigger>
-                      <TooltipContent>Install from npm</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <a
-                          href="https://github.com/citolab/tspci-examples"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-sm font-medium text-citolab-600 hover:text-citolab-500"
-                        >
-                          <Package className="h-5 w-5 mr-2" />
-                          Examples
-                        </a>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        Browse PCI examples on GitHub
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
-
-        {/* CTA */}
-        <div className="bg-linear-to-r from-citolab-700 to-citolab-teal-700">
-          <div className="max-w-2xl mx-auto text-center py-12 px-4 sm:py-16 sm:px-6 lg:px-8">
-            <h2 className="text-3xl font-extrabold text-white sm:text-4xl">
-              Ready to convert your QTI packages?
-            </h2>
-            <p className="mt-4 text-lg leading-6 text-citolab-200">
-              Start using our converter today - it's free and powered by
-              open-source technology.
-            </p>
-            <Button
-              onClick={() => navigate("/package")}
-              className="mt-8 w-full sm:w-auto bg-white text-citolab-600 hover:bg-gray-100 hover:shadow-lg transition-shadow"
-              size="lg"
+    <div className="min-h-full bg-white">
+      {/* Hero */}
+      <section className="relative overflow-hidden border-b border-gray-100">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_10%,rgba(0,167,72,0.14),transparent_45%),radial-gradient(circle_at_0%_100%,rgba(0,177,169,0.08),transparent_40%)]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(0,65,25,0.08)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]"
+        />
+        <div
+          className={cn(
+            PAGE_CONTAINER,
+            PAGE_GUTTER,
+            "relative grid items-center gap-12 py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:py-24",
+          )}
+        >
+          <div className="min-w-0">
+            <a
+              href="https://site.imsglobal.org/certifications/cito/cito-qti-player"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="animate-fade-in-up inline-flex items-center gap-2 rounded-full border border-citolab-600/25 bg-white/80 py-1 pl-1 pr-3 text-sm font-medium text-citolab-800 shadow-sm backdrop-blur hover:border-citolab-600/50"
             >
-              Get Started
-            </Button>
-          </div>
-        </div>
-
-        {/* Enhanced Features Section */}
-        <div className="py-16 bg-white">
-          <div className={`px-4 sm:px-6 lg:px-8 ${PAGE_CONTAINER}`}>
-            <div className="text-center">
-              <h2 className="text-base font-semibold text-citolab-600 tracking-wide uppercase">
-                Features
-              </h2>
-              <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
-                This application uses powerful open-source libraries developed
-                by CitoLab
-              </p>
-
-              {/* Client-side processing callout */}
-              <div className="mt-6 inline-flex items-center px-4 py-2 rounded-full bg-green-100 text-green-800">
-                <Shield className="h-5 w-5 mr-2" />
-                <span className="font-medium">Client-side Processing</span>
-              </div>
+              <span className="rounded-full bg-citolab-600 px-2 py-0.5 text-xs font-semibold text-white">
+                Open source
+              </span>
+              1EdTech certified QTI 3 player
+              <ArrowRight className="h-3.5 w-3.5" />
+            </a>
+            <h1
+              className="animate-fade-in-up mt-6 font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-gray-950 sm:text-5xl xl:text-6xl"
+              style={{ animationDelay: "80ms" }}
+            >
+              Play, write and convert{" "}
+              <span className="relative whitespace-nowrap text-citolab-600">
+                QTI&nbsp;3
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 200 12"
+                  preserveAspectRatio="none"
+                  className="absolute -bottom-1.5 left-0 h-3 w-full text-citolab-yellow-500"
+                >
+                  <path
+                    d="M2 9 C 50 2, 150 2, 198 8"
+                    stroke="currentColor"
+                    strokeWidth="5"
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                </svg>
+              </span>
+              , right in your browser.
+            </h1>
+            <p
+              className="animate-fade-in-up mt-6 max-w-xl text-lg leading-relaxed text-gray-600"
+              style={{ animationDelay: "160ms" }}
+            >
+              The QTI Playground puts CitoLab&apos;s open-source assessment
+              tooling to work: a certified player built on web components, a
+              visual item editor, and converters for your QTI 2.x packages.
+            </p>
+            <div
+              className="animate-fade-in-up mt-8 flex flex-wrap items-center gap-3"
+              style={{ animationDelay: "240ms" }}
+            >
+              <Link
+                to="/examples"
+                className="inline-flex items-center gap-2 rounded-full bg-citolab-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-citolab-600/25 transition-colors hover:bg-citolab-700"
+              >
+                <Play className="h-4 w-4 fill-current" />
+                Play an example test
+              </Link>
+              <Link
+                to="/edit"
+                className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-800 transition-colors hover:border-citolab-600 hover:text-citolab-700"
+              >
+                <PenLine className="h-4 w-4" />
+                Open the editor
+              </Link>
+              <Link
+                to="/package"
+                className="inline-flex items-center gap-1 px-2 py-3 text-sm font-medium text-gray-600 hover:text-citolab-700"
+              >
+                or play your own package
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
+            <ul
+              className="animate-fade-in-up mt-10 flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-500"
+              style={{ animationDelay: "320ms" }}
+            >
+              <li className="inline-flex items-center gap-2">
+                <Lock className="h-4 w-4 text-citolab-600" />
+                Your content never leaves the browser
+              </li>
+              <li className="inline-flex items-center gap-2">
+                <Layers className="h-4 w-4 text-citolab-600" />
+                QTI 2.x and QTI 3
+              </li>
+              <li className="inline-flex items-center gap-2">
+                <Code2 className="h-4 w-4 text-citolab-600" />
+                GPL-3.0 on GitHub
+              </li>
+            </ul>
+          </div>
+
+          <div
+            className="animate-fade-in-up relative min-w-0"
+            style={{ animationDelay: "200ms" }}
+          >
+            <DemoFrame label="<qti-item> · Journey Through the Solar System">
+              <div className="max-h-[34rem] overflow-auto px-1 py-2 sm:px-6">
+                <qti-item>
+                  <item-container
+                    ref={attachHeroRegistry}
+                    customElementRegistry={heroRegistry}
+                    itemURL={HERO_ITEM_URL}
+                  >
+                    <template
+                      dangerouslySetInnerHTML={{
+                        __html: `<style>${itemCss}</style>`,
+                      }}
+                    ></template>
+                  </item-container>
+                </qti-item>
+              </div>
+            </DemoFrame>
+            <p className="mt-4 text-center text-sm text-gray-500">
+              Go on, answer it. This is the real player, not a screenshot.
+            </p>
           </div>
         </div>
+      </section>
 
-        {/* Contact */}
-        <div className="bg-gray-50">
-          <div className={`py-12 px-4 sm:px-6 lg:py-16 lg:px-8 ${PAGE_CONTAINER}`}>
-            <div className="lg:grid lg:grid-cols-3 lg:gap-8 lg:items-center">
-              <div className="bg-linear-to-br from-citolab-700 to-citolab-teal-700 rounded-xl p-6">
-                <h2 className="text-3xl font-extrabold text-white sm:text-4xl">
-                  Need Help?
-                </h2>
-                <p className="mt-3 text-white text-lg">
-                  Have questions about our QTI tools or need assistance with
-                  your implementation? Our team of developers is ready to help.
-                </p>
-                <div className="mt-8 flex items-center gap-3">
-                  <Mail className="h-6 w-6 text-white shrink-0" />
-                  <p className="text-base text-white">
-                    Contact one of our developers for support or questions
-                  </p>
-                </div>
+      {/* Player */}
+      <section id="player" className="py-20 lg:py-28">
+        <div
+          className={cn(
+            PAGE_CONTAINER,
+            PAGE_GUTTER,
+            "grid items-center gap-12 lg:grid-cols-2 lg:gap-16",
+          )}
+        >
+          <div className="order-2 min-w-0 lg:order-1">
+            <DemoFrame label="<qti-portable-custom-interaction>">
+              <div className="flex justify-center overflow-x-auto bg-gray-50 p-4">
+                <qti-item ref={attachPciItem}>
+                  <item-container
+                    ref={attachPciRegistry}
+                    customElementRegistry={pciRegistry}
+                    itemXML={LANDING_PCI_ITEM_XML}
+                  >
+                    <template
+                      dangerouslySetInnerHTML={{
+                        __html: `<style>${itemCss}</style>`,
+                      }}
+                    ></template>
+                  </item-container>
+                </qti-item>
               </div>
-
-              {/* Team - shows to the right on large screens */}
-              <div className="mt-8 lg:mt-0">
-                <div className="space-y-6">
-                  {[
-                    {
-                      name: "Romy Noordhof",
-                      role: "Head of team prototyping",
-                      email: "romy.noordhof@cito.nl",
-                      initials: "RN",
-                      color: "bg-citolab-100 text-citolab-700",
-                    },
-                    {
-                      name: "Patrick de Klein",
-                      role: "Frontend developer / UX Specialist",
-                      email: "Patrick.deKlein@cito.nl",
-                      initials: "PK",
-                      color: "bg-citolab-teal-100 text-citolab-teal-700",
-                    },
-                    {
-                      name: "Marcel Hoekstra",
-                      role: "Fullstack Developer",
-                      email: "marcel.hoekstra@cito.nl",
-                      initials: "MH",
-                      color: "bg-citolab-yellow-100 text-citolab-yellow-700",
-                    },
-                  ].map(({ name, role, email, initials, color }) => (
-                    <a
-                      key={email}
-                      href={`mailto:${email}`}
-                      className="flex items-center gap-4 group"
-                    >
-                      <div
-                        className={`shrink-0 h-10 w-10 rounded-full ${color} flex items-center justify-center font-semibold text-sm`}
-                      >
-                        {initials}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-base font-medium text-gray-900 group-hover:text-citolab-600 transition-colors">
-                          {name}
-                        </h3>
-                        <p className="text-sm text-gray-500">{role}</p>
-                      </div>
-                      <Mail className="h-4 w-4 text-gray-400 shrink-0 group-hover:text-citolab-500 transition-colors" />
-                    </a>
-                  ))}
-                </div>
-              </div>
-
+            </DemoFrame>
+          </div>
+          <div className="order-1 min-w-0 lg:order-2">
+            <SectionEyebrow>The player</SectionEyebrow>
+            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-gray-950 sm:text-4xl">
+              Every interaction QTI 3 has, and the ones you build yourself.
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-gray-600">
+              Drop in a package and take the test the way a candidate would.
+              QTI 2.x is upgraded on the fly, and Portable Custom Interactions
+              like this brick builder run in their own sandbox.
+            </p>
+            <div className="mt-8">
+              <FeatureList features={PLAYER_FEATURES} />
+            </div>
+            <div className="mt-8 flex flex-wrap items-center gap-6">
+              <Link
+                to="/package"
+                className="inline-flex items-center gap-2 rounded-full bg-gray-950 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-citolab-800"
+              >
+                Open the player
+                <ArrowRight className="h-4 w-4" />
+              </Link>
               <a
                 href="https://site.imsglobal.org/certifications/cito/cito-qti-player"
-                className="shrink-0"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 text-sm text-gray-500 hover:text-gray-800"
               >
                 <img
                   src="/1edtech_trusted-apps-certified.svg"
                   alt="1EdTech Trusted Apps Certified"
-                  className="m-12 block h-24 w-[6.75rem] max-w-[6.75rem] object-contain"
+                  className="h-12 w-auto"
                 />
+                Certified for QTI 3
+                <br className="hidden sm:block" /> delivery by 1EdTech
               </a>
             </div>
           </div>
         </div>
+      </section>
 
-        {/* Footer with improved padding for smaller screens */}
-        <footer className="bg-gray-50">
-          <div className={`py-8 px-4 sm:px-6 lg:py-12 lg:px-8 ${PAGE_CONTAINER}`}>
-            <div className="pb-6 border-b border-gray-200">
-              <p className="text-center text-base text-gray-400">
-                &copy; {new Date().getFullYear()} CitoLab. All rights reserved.
-              </p>
+      {/* Editor */}
+      <section id="editor" className="border-y border-gray-100 bg-gray-50 py-20 lg:py-28">
+        <div
+          className={cn(
+            PAGE_CONTAINER,
+            PAGE_GUTTER,
+            "grid items-center gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16",
+          )}
+        >
+          <div className="min-w-0">
+            <SectionEyebrow>The editor</SectionEyebrow>
+            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-gray-950 sm:text-4xl">
+              Write items like a document. Get QTI&nbsp;3 for free.
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-gray-600">
+              Change the question on the right and watch the XML rewrite
+              itself. The editor is built from our open-source ProseMirror
+              extensions, so you can put it in your own authoring tool.
+            </p>
+            <div className="mt-8">
+              <FeatureList features={EDITOR_FEATURES} />
+            </div>
+            <Link
+              to="/edit"
+              className="mt-8 inline-flex items-center gap-2 rounded-full bg-gray-950 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-citolab-800"
+            >
+              Open the editor
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+
+          <div className="min-w-0 space-y-4">
+            {/* Fixed box, no `overflow-auto`: the editor scrolls its own body, so a second
+                scroller here would put the toolbar out of reach on a long item. */}
+            <div className="relative h-[22rem] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_24px_60px_-20px_rgba(0,65,25,0.25)]">
+              {/* Hangs off the editor's own toolbar, in its empty right end; same chip as
+                  tool-bar.tsx and preview.tsx. */}
+              <span className="pointer-events-none absolute top-5 right-3 z-10 hidden rounded bg-citolab-600/90 sm:block px-1 py-px text-[7px] leading-none font-semibold tracking-wide text-white uppercase">
+                Beta
+              </span>
+              <QtiCitolabEditorPanel
+                active
+                editorSessionKey={LANDING_EDITOR_SESSION_KEY}
+                sourceXml={landingChoiceXml}
+                onSourceChange={setLandingChoiceXml}
+                heightClassName="h-full"
+                className="h-full"
+                normalizeOnLoad
+              />
+            </div>
+            <div className="overflow-hidden rounded-2xl border border-gray-900 bg-[#1e1e1e] shadow-xl">
+              <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2 font-mono text-xs text-gray-400">
+                <FileCode2 className="h-3.5 w-3.5" />
+                item.xml — generated
+              </div>
+              <MonacoEditor
+                height="15rem"
+                language="xml"
+                theme="vs-dark"
+                value={prettyLandingChoiceXml}
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  lineNumbers: "on",
+                  folding: true,
+                  glyphMargin: false,
+                  scrollBeyondLastLine: false,
+                  wordWrap: "off",
+                  renderLineHighlight: "none",
+                }}
+              />
             </div>
           </div>
-        </footer>
-      </div>
-    </TooltipProvider>
+        </div>
+      </section>
+
+      {/* Examples */}
+      <section className="py-20 lg:py-28">
+        <div className={cn(PAGE_CONTAINER, PAGE_GUTTER)}>
+          <div className="flex flex-wrap items-end justify-between gap-6">
+            <div className="max-w-2xl">
+              <SectionEyebrow>Examples</SectionEyebrow>
+              <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-gray-950 sm:text-4xl">
+                Take a test. It only takes a few minutes.
+              </h2>
+              <p className="mt-4 text-lg leading-relaxed text-gray-600">
+                Three short tests, each presented a different way: one
+                question per screen, the whole test as one scrolling booklet,
+                and texts shown once with all of their questions beside them.
+              </p>
+            </div>
+            <Link
+              to="/examples"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-citolab-700 hover:text-citolab-800"
+            >
+              All examples
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <ExampleGallery variant="compact" className="mt-10" />
+        </div>
+      </section>
+
+      {/* Open source */}
+      <section id="open-source" className="bg-citolab-800 py-20 text-white lg:py-28">
+        <div className={cn(PAGE_CONTAINER, PAGE_GUTTER)}>
+          <div className="grid gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-citolab-300">
+                Open source
+              </p>
+              <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+                The building blocks are yours to use.
+              </h2>
+              <p className="mt-4 text-lg leading-relaxed text-white/75">
+                Everything in this playground is built from libraries CitoLab
+                publishes on GitHub and npm. Use the player in your own app with
+                a script tag and a custom element.
+              </p>
+              <div className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+                <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2 font-mono text-xs text-white/50">
+                  <Terminal className="h-3.5 w-3.5" />
+                  index.html
+                </div>
+                <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-citolab-100">
+                  <code>{EMBED_SNIPPET}</code>
+                </pre>
+              </div>
+            </div>
+
+            <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+              {LIBRARIES.map((library) => (
+                <div
+                  key={library.name}
+                  className="flex flex-col rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition-colors hover:border-white/25 hover:bg-white/[0.07]"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-citolab-yellow-500 text-citolab-900">
+                      <library.icon className="h-[18px] w-[18px]" aria-hidden="true" />
+                    </span>
+                    <div>
+                      <h3 className="font-display text-base font-semibold">
+                        {library.name}
+                      </h3>
+                      <p className="text-xs font-medium uppercase tracking-wider text-white/50">
+                        {library.tag}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-3 flex-1 text-sm leading-relaxed text-white/70">
+                    {library.description}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1">
+                    {library.links.map((link) => (
+                      <a
+                        key={link.label}
+                        href={link.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-sm font-medium text-citolab-300 hover:text-white"
+                      >
+                        {link.label === "GitHub" ? (
+                          <GithubMark className="h-3.5 w-3.5" />
+                        ) : null}
+                        {link.label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Contact */}
+      <section className="py-20 lg:py-24">
+        <div
+          className={cn(
+            PAGE_CONTAINER,
+            PAGE_GUTTER,
+            "grid items-center gap-10 lg:grid-cols-2",
+          )}
+        >
+          <div className="min-w-0">
+            <SectionEyebrow>Talk to us</SectionEyebrow>
+            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-gray-950">
+              Building with QTI? We&apos;d love to hear about it.
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-gray-600">
+              Questions about the libraries, a package that doesn&apos;t play
+              right, or an idea for a custom interaction: the developers behind
+              these tools read their own mail.
+            </p>
+          </div>
+          <ul className="grid min-w-0 gap-3">
+            {TEAM.map(({ name, role, email, initials }) => (
+              <li key={email}>
+                <a
+                  href={`mailto:${email}`}
+                  className="group flex items-center gap-4 rounded-2xl border border-gray-200 p-4 transition-colors hover:border-citolab-600"
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-citolab-50 font-display text-sm font-bold text-citolab-700">
+                    {initials}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold text-gray-900">{name}</span>
+                    <span className="block text-sm text-gray-500">{role}</span>
+                  </span>
+                  <Mail className="h-4 w-4 shrink-0 text-gray-400 transition-colors group-hover:text-citolab-600" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <LandingFooter />
+    </div>
   );
 };
+
+function LandingFooter() {
+  const columns: { title: string; links: { label: string; to: string; external?: boolean }[] }[] = [
+    {
+      title: "Playground",
+      links: [
+        { label: "Examples", to: "/examples" },
+        { label: "Player", to: "/package" },
+        { label: "Editor", to: "/edit" },
+      ],
+    },
+    {
+      title: "Tools",
+      links: [
+        { label: "Convert & modify package", to: "/modify" },
+        { label: "Convert item", to: "/convert" },
+        { label: "XML preview", to: "/preview" },
+        { label: "Local AI import (experimental)", to: "/ai-convert" },
+      ],
+    },
+    {
+      title: "Open source",
+      links: [
+        { label: "CitoLab on GitHub", to: "https://github.com/Citolab", external: true },
+        { label: "npm packages", to: "https://www.npmjs.com/org/citolab", external: true },
+        {
+          label: "Component docs",
+          to: "https://qti-components.citolab.nl/",
+          external: true,
+        },
+      ],
+    },
+  ];
+
+  return (
+    <footer className="border-t border-gray-100 bg-gray-50">
+      <div
+        className={cn(
+          PAGE_CONTAINER,
+          PAGE_GUTTER,
+          "grid gap-10 py-14 md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]",
+        )}
+      >
+        <div>
+          <CitolabLogo className="h-8 w-20 text-citolab-600" />
+          <p className="mt-4 max-w-xs text-sm leading-relaxed text-gray-500">
+            CitoLab, part of Cito, builds open-source tooling for digital
+            assessment.
+          </p>
+        </div>
+        {columns.map((column) => (
+          <div key={column.title}>
+            <h3 className="text-sm font-semibold text-gray-900">{column.title}</h3>
+            <ul className="mt-3 space-y-2">
+              {column.links.map((link) => (
+                <li key={link.label}>
+                  {link.external ? (
+                    <a
+                      href={link.to}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-gray-500 hover:text-citolab-700"
+                    >
+                      {link.label}
+                    </a>
+                  ) : (
+                    <Link to={link.to} className="text-sm text-gray-500 hover:text-citolab-700">
+                      {link.label}
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <div className={cn(PAGE_CONTAINER, PAGE_GUTTER, "border-t border-gray-200 py-6")}>
+        <p className="flex items-center gap-2 text-sm text-gray-400">
+          <BookOpenCheck className="h-4 w-4" />
+          &copy; {new Date().getFullYear()} CitoLab
+        </p>
+      </div>
+    </footer>
+  );
+}
 
 export default LandingPage;

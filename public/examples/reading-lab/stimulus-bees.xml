@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-stimulus xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="stimulus-bees" title="Why Bees Dance" xml:lang="en">
+  <qti-stimulus-body>
+    <h3>Why Bees Dance</h3>
+    <p class="qti-align-center">
+      <img src="images/bee-dance.svg" width="320" height="220" alt="A honeybee on a honeycomb, with a dotted figure-of-eight path showing the waggle dance: a straight wiggly run in the middle and a loop back on each side."/>
+    </p>
+    <p>A honeybee hive can be home to tens of thousands of bees. Some of them, called foragers, fly out every day to look for flowers full of nectar and pollen.</p>
+    <p>When a forager finds a good patch of flowers, she flies back to the hive to tell the others. But bees cannot talk. Instead, she dances!</p>
+    <p>On the honeycomb, the bee runs in a straight line while shaking her body from side to side. Then she loops back and does it again, over and over. This is called the waggle dance.</p>
+    <p>The dance is a map. The direction of the straight run shows which way to fly, compared with the Sun. The longer the waggle lasts, the farther away the flowers are.</p>
+    <p>Other bees crowd around the dancer and follow her moves. They also smell the flowers on her body. Then they fly off to find the food themselves.</p>
+    <p>Scientists worked out what the dance means about a hundred years ago, by watching bees in hives with glass walls. One of them, Karl von Frisch, later won a Nobel Prize for the discovery.</p>
+  </qti-stimulus-body>
+</qti-assessment-stimulus>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220" role="img" aria-label="An angle between two straight arms that meet at a point. One arm points to the right, the other points up and to the left, so the angle is wider than a right angle.">
+  <title>An obtuse angle</title>
+  <rect width="360" height="220" rx="22" fill="#eef8f2"/>
+  <!-- shaded angle: vertex (170,180), arms at 0 and 120 degrees -->
+  <path d="M170 180 L222 180 A52 52 0 0 0 144 134.97 Z" fill="#00b1a9" opacity="0.22"/>
+  <path d="M222 180 A52 52 0 0 0 144 134.97" fill="none" stroke="#00b1a9" stroke-width="4" stroke-linecap="round"/>
+  <!-- arms -->
+  <g stroke="#004119" stroke-width="7" stroke-linecap="round">
+    <line x1="170" y1="180" x2="330" y2="180"/>
+    <line x1="170" y1="180" x2="90" y2="41.44"/>
+  </g>
+  <circle cx="330" cy="180" r="8" fill="#00a748"/>
+  <circle cx="90" cy="41.44" r="8" fill="#00a748"/>
+  <circle cx="170" cy="180" r="7" fill="#f6c900" stroke="#004119" stroke-width="3"/>
+  <text x="208" y="138" font-family="Verdana, Arial, sans-serif" font-size="22" font-weight="bold" fill="#00b1a9" text-anchor="middle">?</text>
+</svg>

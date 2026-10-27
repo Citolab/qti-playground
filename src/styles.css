@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* Self-hosted, so no page view reaches a font CDN. */
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/plus-jakarta-sans";
 
 @layer base {
   :root {
@@ -101,8 +104,9 @@
   --color-primary-light: #c6ffe3;
   --color-primary-DEFAULT: #00a748;
   --color-primary-dark: #004119;
-  --font-header: "Poppins", "Roboto", sans-serif;
-  --font-body: "Anonymous", "Verdana", sans-serif;
+  /* Self-hosted from @fontsource-variable (imported at the top of this file). */
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
 }
 
 /* You can add global styles to this file, and also import other style files */
@@ -296,4 +300,132 @@ qti-item {
 .speech-controls > test-tts-play:state(playing)::part(button) {
   background: var(--color-citolab-600, #00a748);
   color: #fff;
+}
+
+/* The player page styles <test-prev>/<test-next> on the host. Since qti-components 10 each also
+   renders a themed `part="button"` of its own (white for prev, black for next), which sat inside
+   the green host as a second button and hid the white "Previous" label. Let the host be the button. */
+test-prev::part(button),
+test-next::part(button) {
+  display: contents;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+/* Player themes (app/qti/session-options.ts). Tailwind 4 utilities read the brand scale through
+   `var(--color-citolab-*)`, so re-pointing the scale on the player root recolours its whole chrome;
+   `--primary`/`--ring` do the same for the shadcn buttons. The items take `--qti-primary` on the
+   <test-container> host itself, for the reason given at the top of the QTI brand tokens above. */
+[data-player-theme="plum"] {
+  --color-citolab-50: #f8f0fb;
+  --color-citolab-100: #efdcf5;
+  --color-citolab-200: #dfb9eb;
+  --color-citolab-300: #c78ad9;
+  --color-citolab-400: #a95cc0;
+  --color-citolab-500: #8c3ba6;
+  --color-citolab-600: #74288c;
+  --color-citolab-700: #581d70;
+  --color-citolab-800: #3f1450;
+  --primary: #74288c;
+  --ring: #74288c;
+}
+
+[data-player-theme="ocean"] {
+  --color-citolab-50: #eff6ff;
+  --color-citolab-100: #dbeafe;
+  --color-citolab-200: #bfdbfe;
+  --color-citolab-300: #93c5fd;
+  --color-citolab-400: #60a5fa;
+  --color-citolab-500: #3b82f6;
+  --color-citolab-600: #2563eb;
+  --color-citolab-700: #1d4ed8;
+  --color-citolab-800: #1e3a8a;
+  --primary: #2563eb;
+  --ring: #2563eb;
+}
+
+[data-player-theme="sunset"] {
+  --color-citolab-50: #fff7ed;
+  --color-citolab-100: #ffedd5;
+  --color-citolab-200: #fed7aa;
+  --color-citolab-300: #fdba74;
+  --color-citolab-400: #fb923c;
+  --color-citolab-500: #f97316;
+  --color-citolab-600: #ea580c;
+  --color-citolab-700: #c2410c;
+  --color-citolab-800: #7c2d12;
+  --primary: #ea580c;
+  --ring: #ea580c;
+}
+
+[data-player-theme] :is(test-container, item-container) {
+  --qti-primary: var(--color-citolab-600);
+  --qti-bg-active: var(--color-citolab-100);
+}
+
+/* Practice-mode coach (components/practice-coach.tsx). */
+@keyframes coach-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes coach-jump {
+  0% { transform: translateY(0) scale(1, 1); }
+  20% { transform: translateY(2px) scale(1.08, 0.9); }
+  45% { transform: translateY(-22px) scale(0.95, 1.06); }
+  70% { transform: translateY(0) scale(1.05, 0.95); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+@keyframes coach-shake {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-7deg); }
+  40% { transform: rotate(6deg); }
+  60% { transform: rotate(-4deg); }
+  80% { transform: rotate(3deg); }
+}
+@keyframes coach-nod {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  30% { transform: translateY(3px) rotate(4deg); }
+  60% { transform: translateY(0) rotate(-2deg); }
+}
+@keyframes coach-tilt {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(6deg); }
+}
+@keyframes coach-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+@keyframes coach-confetti {
+  0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1) rotate(200deg); opacity: 0; }
+}
+@keyframes coach-bubble-in {
+  from { transform: translateY(6px) scale(0.96); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.coach-body { transform-box: fill-box; transform-origin: 50% 100%; }
+.coach-body[data-mood="idle"] { animation: coach-float 3s ease-in-out infinite; }
+.coach-body[data-mood="correct"] { animation: coach-jump 0.7s ease-out 2; }
+.coach-body[data-mood="incorrect"] { animation: coach-shake 0.6s ease-in-out; }
+.coach-body[data-mood="partial"],
+.coach-body[data-mood="open"] { animation: coach-nod 0.8s ease-in-out; }
+.coach-body[data-mood="thinking"],
+.coach-body[data-mood="unanswered"] { animation: coach-tilt 1.6s ease-in-out infinite; }
+.coach-eye { transform-box: fill-box; transform-origin: center; animation: coach-blink 4.5s infinite; }
+.coach-confetti { animation: coach-confetti 1.1s ease-out forwards; }
+.coach-bubble { animation: coach-bubble-in 0.25s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .coach-body,
+  .coach-eye,
+  .coach-confetti,
+  .coach-bubble {
+    animation: none !important;
+  }
+  .coach-confetti { display: none; }
 }

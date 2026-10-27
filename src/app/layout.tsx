@@ -1,195 +1,317 @@
 import { useState } from "react";
-import { Menu, Pencil, Sparkles, X, type LucideIcon } from "lucide-react";
-import { NavLink, useNavigate, useSearchParams } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import {
+  ChevronDown,
+  FlaskConical,
+  LibraryBig,
+  Menu,
+  PenLine,
+  Play,
+  Repeat,
+  Code2,
+  PackageOpen,
+  X,
+  type LucideIcon,
+} from "lucide-react";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { CitolabLogo } from "./components/citolab-logo";
+import { GithubMark } from "./components/github-mark";
 import { PAGE_CONTAINER, PAGE_GUTTER } from "./components/page-shell";
 
 type NavItem = {
   name: string;
   href: string;
-  icon?: LucideIcon;
-  /** Corner sticker drawing the eye to a page that has just landed. */
-  isNew?: boolean;
+  icon: LucideIcon;
+  /** Other routes that belong to this destination, so it stays highlighted there. */
+  matches: string[];
 };
 
-const packageNavigation: NavItem[] = [
-  { name: "Preview package", href: "/package" },
-  { name: "Convert/Modify", href: "/modify" },
-  { name: "Experimental convert", href: "/ai-convert", icon: Sparkles },
+/**
+ * The three things the playground is for. Everything else is a tool you reach
+ * for once you know you need it, and lives in the Tools menu.
+ */
+const primaryNavigation: NavItem[] = [
+  { name: "Examples", href: "/examples", icon: LibraryBig, matches: ["/examples"] },
+  {
+    name: "Player",
+    href: "/package",
+    icon: Play,
+    matches: ["/package", "/assessment"],
+  },
+  { name: "Editor", href: "/edit", icon: PenLine, matches: ["/edit", "/preview"] },
 ];
 
-const itemNavigation: NavItem[] = [
-  { name: "Edit", href: "/edit", icon: Pencil, isNew: true },
-  { name: "Preview", href: "/preview" },
-  { name: "Convert", href: "/convert" },
-];
+type ToolItem = {
+  name: string;
+  description: string;
+  href: string;
+  icon: LucideIcon;
+};
 
-const navigationGroups = [
-  { label: "Package", items: packageNavigation },
-  { label: "Item", items: itemNavigation },
+const tools: ToolItem[] = [
+  {
+    name: "Convert & modify package",
+    description: "QTI 2.x ⇄ 3, strip media, pick items, export to Word or PDF",
+    href: "/modify",
+    icon: PackageOpen,
+  },
+  {
+    name: "Convert item",
+    description: "Paste one item and convert between QTI 2.x and QTI 3",
+    href: "/convert",
+    icon: Repeat,
+  },
+  {
+    name: "XML preview",
+    description: "Hand-edit QTI 3 XML next to a live player",
+    href: "/preview",
+    icon: Code2,
+  },
 ];
-
-const navLinkClassName = ({
-  isActive,
-  isPending,
-}: {
-  isActive: boolean;
-  isPending: boolean;
-}) =>
-  cn(
-    "relative rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-all duration-150",
-    isPending
-      ? "text-citolab-600"
-      : isActive
-        ? "bg-citolab-600 text-white shadow-sm"
-        : "text-gray-600 hover:bg-white hover:text-citolab-700",
-  );
 
 /**
- * Sits on the corner of the nav pill rather than in the label, so "new" reads
- * as a sticker on the tab instead of a chip competing with the label. The white
- * ring keeps it legible where it overlaps the group pill's border.
+ * Kept apart from the tools above on purpose: the local-model import is a
+ * best-effort experiment, and should read as one.
  */
-function NewSticker() {
-  return (
-    <span className="pointer-events-none absolute -top-1.5 -right-1.5 z-10 rounded-full bg-red-500 px-1.5 py-px text-[8px] font-bold uppercase leading-[1.4] tracking-wide text-white shadow-sm ring-2 ring-white">
-      New
-    </span>
-  );
-}
+const labs: ToolItem[] = [
+  {
+    name: "Local AI import",
+    description: "Turn PDF, Word or Excel into QTI with an in-browser model",
+    href: "/ai-convert",
+    icon: FlaskConical,
+  },
+];
 
-function NavItemLink({ item }: { item: NavItem }) {
-  return (
-    <NavLink to={item.href} className={navLinkClassName}>
-      <span className="inline-flex items-center gap-1.5">
-        {item.icon ? <item.icon className="h-3.5 w-3.5 shrink-0" /> : null}
-        {item.name}
-      </span>
-      {item.isNew ? <NewSticker /> : null}
-    </NavLink>
+const isActive = (pathname: string, item: NavItem) =>
+  item.matches.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
-}
 
-function DesktopNavGroup({ label, items }: { label: string; items: NavItem[] }) {
+function ToolsMenu({ pathname }: { pathname: string }) {
+  const toolActive = [...tools, ...labs].some((tool) => tool.href === pathname);
+
   return (
-    <div className="flex items-center gap-2">
-      <span className="hidden lg:inline text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-        {label}
-      </span>
-      <div className="flex items-center gap-0.5 rounded-full border border-gray-200/80 bg-gray-50/90 p-0.5">
-        {items.map((item) => (
-          <NavItemLink key={item.name} item={item} />
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger
+        className={cn(
+          "inline-flex h-9 items-center gap-1 rounded-full px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-citolab-600",
+          toolActive
+            ? "text-citolab-700"
+            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+        )}
+      >
+        Tools
+        <ChevronDown className="h-3.5 w-3.5" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" sideOffset={8} className="w-80 p-1.5">
+        {tools.map((tool) => (
+          <ToolMenuItem key={tool.href} tool={tool} />
         ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="px-2 pb-0.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+          Labs
+        </DropdownMenuLabel>
+        {labs.map((tool) => (
+          <ToolMenuItem key={tool.href} tool={tool} experimental />
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function ToolMenuItem({
+  tool,
+  experimental = false,
+}: {
+  tool: ToolItem;
+  experimental?: boolean;
+}) {
+  return (
+    <DropdownMenuItem asChild className="cursor-pointer items-start gap-3 rounded-md p-2">
+      <Link to={tool.href}>
+        <tool.icon
+          className={cn(
+            "mt-0.5 h-4 w-4 shrink-0",
+            experimental ? "text-gray-400" : "text-citolab-600",
+          )}
+        />
+        <span className="min-w-0">
+          <span className="flex items-center gap-2 text-sm font-medium text-gray-900">
+            {tool.name}
+            {experimental ? (
+              <span className="rounded bg-gray-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                Experimental
+              </span>
+            ) : null}
+          </span>
+          <span className="block text-xs leading-snug text-gray-500">
+            {tool.description}
+          </span>
+        </span>
+      </Link>
+    </DropdownMenuItem>
+  );
+}
+
+function MobileMenu({
+  pathname,
+  onNavigate,
+}: {
+  pathname: string;
+  onNavigate: () => void;
+}) {
+  const linkClass = (active: boolean) =>
+    cn(
+      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium",
+      active
+        ? "bg-citolab-50 text-citolab-800"
+        : "text-gray-700 hover:bg-gray-50",
+    );
+
+  return (
+    <div className="border-t border-gray-100 bg-white md:hidden">
+      <div className={cn(PAGE_GUTTER, "space-y-4 py-3")}>
+        <div className="space-y-0.5">
+          {primaryNavigation.map((item) => (
+            <Link
+              key={item.href}
+              to={item.href}
+              onClick={onNavigate}
+              className={linkClass(isActive(pathname, item))}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.name}
+            </Link>
+          ))}
+        </div>
+        <div>
+          <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+            Tools
+          </p>
+          {[...tools, ...labs].map((tool) => (
+            <Link
+              key={tool.href}
+              to={tool.href}
+              onClick={onNavigate}
+              className={linkClass(pathname === tool.href)}
+            >
+              <tool.icon className="h-4 w-4 text-gray-400" />
+              {tool.name}
+              {labs.includes(tool) ? (
+                <span className="rounded bg-gray-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                  Experimental
+                </span>
+              ) : null}
+            </Link>
+          ))}
+        </div>
+        <a
+          href="https://github.com/Citolab"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={linkClass(false)}
+        >
+          <GithubMark className="h-4 w-4 text-gray-400" />
+          CitoLab on GitHub
+        </a>
       </div>
     </div>
   );
 }
 
-function BrandLogo({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex h-9 shrink-0 items-center rounded-md text-citolab-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citolab-600"
-      aria-label="CitoLab home"
-    >
-      <CitolabLogo className="h-7 w-[4.5rem]" />
-    </button>
-  );
-}
-
 export const PageLayout = ({ children }: { children: React.ReactNode }) => {
-  const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
   const fullScreen = searchParams.get("full")?.toLocaleLowerCase() === "true";
 
   return (
-    <div className="bg-gray-50 flex flex-col h-full">
+    <div className="flex h-full flex-col bg-gray-50">
       {!fullScreen ? (
-        <nav className="w-full bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm sticky top-0 z-50">
-          <div className={cn(PAGE_CONTAINER, PAGE_GUTTER, "flex h-14 items-center gap-3 sm:gap-4")}>
-            <BrandLogo onClick={() => navigate("/")} />
+        <nav className="sticky top-0 z-50 w-full border-b border-gray-200/80 bg-white/90 backdrop-blur-md">
+          <div
+            className={cn(
+              PAGE_CONTAINER,
+              PAGE_GUTTER,
+              "flex h-16 items-center gap-6",
+            )}
+          >
+            <Link
+              to="/"
+              className="flex shrink-0 items-center gap-3 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-citolab-600"
+              aria-label="QTI Playground by CitoLab, home"
+            >
+              <CitolabLogo className="h-7 w-[4.5rem] text-citolab-600" />
+              <span className="hidden h-6 w-px bg-gray-200 sm:block" />
+              <span className="hidden font-display text-[15px] font-semibold tracking-tight text-gray-900 sm:block">
+                QTI Playground
+              </span>
+            </Link>
 
-            <div className="hidden md:block h-6 w-px bg-gray-200 shrink-0" />
-
-            <div className="hidden md:flex min-w-0 flex-1 items-center justify-start gap-3 overflow-x-auto py-2 lg:gap-5">
-              {navigationGroups.map((group, index) => (
-                <div key={group.label} className="flex items-center gap-3 lg:gap-5">
-                  {index > 0 ? (
-                    <div className="h-6 w-px bg-gray-200 shrink-0" />
-                  ) : null}
-                  <DesktopNavGroup label={group.label} items={group.items} />
-                </div>
-              ))}
+            <div className="hidden items-center gap-1 md:flex">
+              {primaryNavigation.map((item) => {
+                const active = isActive(pathname, item);
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-citolab-600 text-white shadow-sm"
+                        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.name}
+                  </Link>
+                );
+              })}
             </div>
 
-            <div className="ml-auto flex md:hidden">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-gray-600 hover:bg-citolab-50 hover:text-citolab-700"
-                  onClick={() => setMobileOpen((open) => !open)}
-                >
-                  <span className="sr-only">Open main menu</span>
-                  {mobileOpen ? (
-                    <X className="h-5 w-5" aria-hidden="true" />
-                  ) : (
-                    <Menu className="h-5 w-5" aria-hidden="true" />
-                  )}
-                </Button>
-              </div>
+            <div className="ml-auto hidden items-center gap-1 md:flex">
+              <ToolsMenu pathname={pathname} />
+              <a
+                href="https://github.com/Citolab"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+                title="CitoLab on GitHub"
+                aria-label="CitoLab on GitHub"
+              >
+                <GithubMark className="h-[18px] w-[18px]" />
+              </a>
+            </div>
+
+            <button
+              type="button"
+              className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 md:hidden"
+              onClick={() => setMobileOpen((open) => !open)}
+              aria-expanded={mobileOpen}
+            >
+              <span className="sr-only">Open main menu</span>
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
           </div>
 
-          <div className="h-0.5 bg-linear-to-r from-citolab-600 via-citolab-teal-500 to-citolab-teal-700" />
-
           {mobileOpen ? (
-            <div className="md:hidden border-t border-gray-100">
-              <div className="space-y-4 px-3 pb-3 pt-2 bg-white">
-                {navigationGroups.map((group) => (
-                  <div key={group.label}>
-                    <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                      {group.label}
-                    </p>
-                    <div className="space-y-0.5">
-                      {group.items.map((item) => (
-                        <NavLink
-                          key={item.name}
-                          to={item.href}
-                          onClick={() => setMobileOpen(false)}
-                          className={({ isActive }) =>
-                            cn(
-                              "block rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                              isActive
-                                ? "bg-citolab-50 text-citolab-700 border-l-2 border-citolab-600"
-                                : "text-gray-600 hover:bg-citolab-50 hover:text-citolab-700",
-                            )
-                          }
-                        >
-                          <span className="inline-flex items-center gap-2">
-                            {item.icon ? (
-                              <item.icon className="h-4 w-4" />
-                            ) : null}
-                            {item.name}
-                            {item.isNew ? (
-                              <span className="rounded-full bg-red-500 px-1.5 py-px text-[8px] font-bold uppercase leading-[1.4] tracking-wide text-white">
-                                New
-                              </span>
-                            ) : null}
-                          </span>
-                        </NavLink>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <MobileMenu
+              pathname={pathname}
+              onNavigate={() => setMobileOpen(false)}
+            />
           ) : null}
         </nav>
       ) : null}
-      <main className="flex-1 min-h-0 overflow-y-auto">{children}</main>
+      <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
     </div>
   );
 };

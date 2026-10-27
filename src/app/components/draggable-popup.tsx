@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { X, Move } from "lucide-react";
+import { X, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface DraggablePopupProps {
@@ -9,6 +9,7 @@ interface DraggablePopupProps {
   children: React.ReactNode;
   title?: string;
   storageKey?: string;
+  defaultSize?: { width: number; height: number };
 }
 
 const DraggablePopup = ({
@@ -17,8 +18,9 @@ const DraggablePopup = ({
   children,
   onClose,
   storageKey = "draggablePopupState", // Default key for localStorage
+  defaultSize = { width: 384, height: 300 }, // 384px = w-96
 }: DraggablePopupProps) => {
-  const popupRef = useRef(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const resizeHandleRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -35,7 +37,7 @@ const DraggablePopup = ({
       ? JSON.parse(savedState)
       : {
           position: { x: 100, y: 100 },
-          size: { width: 384, height: 300 }, // 384px = w-96 default
+          size: defaultSize,
         };
   });
 
@@ -50,10 +52,12 @@ const DraggablePopup = ({
 
   const startDrag = (e: any) => {
     if (popupRef.current) {
+      // From where it is drawn, which the viewport clamp below may have moved.
+      const rect = popupRef.current.getBoundingClientRect();
       setIsDragging(true);
       setDragOffset({
-        x: e.clientX - position.x,
-        y: e.clientY - position.y,
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
       });
     }
   };
@@ -141,18 +145,23 @@ const DraggablePopup = ({
 
   if (!isOpen) return null;
 
+  // A position saved on a bigger window can sit off-screen on this one.
+  const left = Math.max(0, Math.min(position.x, window.innerWidth - size.width));
+  const top = Math.max(0, Math.min(position.y, window.innerHeight - size.height));
+
   return (
     <div
       ref={popupRef}
+      role="dialog"
+      aria-label={title}
       className={`
-        fixed bg-white rounded-lg shadow-lg border border-gray-200 transition-shadow
-        ${isDragging ? "shadow-xl cursor-grabbing" : ""} 
-        ${isResizing ? "shadow-xl" : ""}
-        overflow-hidden
+        fixed flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-50
+        shadow-[0_12px_40px_-8px_rgba(0,0,0,0.25)] ring-1 ring-black/5 transition-shadow
+        ${isDragging || isResizing ? "shadow-[0_20px_50px_-8px_rgba(0,0,0,0.35)] select-none" : ""}
       `}
       style={{
-        left: `${position.x}px`,
-        top: `${position.y}px`,
+        left: `${left}px`,
+        top: `${top}px`,
         width: `${size.width}px`,
         height: `${size.height}px`,
         zIndex: 9999,
@@ -160,44 +169,48 @@ const DraggablePopup = ({
     >
       {/* Header with drag handle */}
       <div
-        className="flex items-center justify-between px-4 py-2 bg-citolab-600 text-white cursor-grab"
+        className={`flex shrink-0 items-center justify-between gap-2 border-b border-gray-200 bg-white py-2 pl-3 pr-2 ${
+          isDragging ? "cursor-grabbing" : "cursor-grab"
+        }`}
         onMouseDown={startDrag}
       >
-        <div className="flex items-center">
-          <Move className="w-4 h-4 mr-2" />
-          <h3 className="text-sm font-medium">{title}</h3>
+        <div className="flex min-w-0 items-center gap-2">
+          <GripVertical className="h-4 w-4 shrink-0 text-gray-400" />
+          <h3 className="truncate text-sm font-semibold text-gray-800">
+            {title}
+          </h3>
         </div>
         <Button
           variant="ghost"
           size="icon"
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={() => onClose()}
-          className="w-6 h-6 rounded-full hover:bg-citolab-700 text-white hover:text-white"
+          className="h-7 w-7 shrink-0 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+          title="Close"
         >
-          <X className="w-4 h-4" />
+          <X className="h-4 w-4" />
         </Button>
       </div>
 
       {/* Content */}
-      <div
-        className="p-4 overflow-y-auto"
-        style={{ height: `calc(100% - 42px)` }}
-      >
-        {children}
-      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
 
       {/* Resize handle - bottom right corner */}
       <div
         ref={resizeHandleRef}
-        className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize"
+        className="absolute bottom-0 right-0 flex h-4 w-4 cursor-nwse-resize items-end justify-end p-0.5 text-gray-400 hover:text-gray-600"
         onMouseDown={startResize}
-        style={{
-          backgroundImage: "radial-gradient(circle, #888 1px, transparent 1px)",
-          backgroundSize: "3px 3px",
-          backgroundPosition: "2px 2px",
-          backgroundRepeat: "no-repeat",
-          opacity: 0.7,
-        }}
-      />
+        aria-hidden
+      >
+        <svg viewBox="0 0 10 10" className="h-2.5 w-2.5" fill="none">
+          <path
+            d="M9 1L1 9M9 5L5 9"
+            stroke="currentColor"
+            strokeWidth="1.25"
+            strokeLinecap="round"
+          />
+        </svg>
+      </div>
     </div>
   );
 };

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-stimulus xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="stimulus-gull" title="The Keeper and the Gull" xml:lang="en">
+  <qti-stimulus-body>
+    <h3>The Keeper and the Gull</h3>
+    <p class="qti-align-center">
+      <img src="images/gull.svg" width="220" height="186" alt="A young seagull with a little plaster on her wing, sitting snugly on a striped towel inside an old biscuit tin."/>
+    </p>
+    <p>On the very edge of Gullstone Point stood a white lighthouse, and in it lived old Mr Pell. Every evening he climbed the hundred and twelve steps to the lamp room, polished the great glass lens and switched on the light, so that ships far out at sea would know where the rocks were.</p>
+    <p>One stormy night, as the wind howled around the tower, something thumped against the window. Mr Pell opened it carefully. A young gull tumbled inside, wet and shivering, one wing held stiffly at her side.</p>
+    <p>&#8220;Well, you look battered,&#8221; said Mr Pell gently. &#8220;The storm has been rough on you.&#8221;</p>
+    <p>He wrapped the bird in a warm towel and made her a bed in an old biscuit tin. He named her Pebble. For two weeks Pebble rested by the stove. She ate sardines for breakfast and squawked crossly whenever the kettle whistled.</p>
+    <p>Slowly her wing grew stronger. One bright morning she hopped onto the windowsill, stretched both wings and gazed out at the glittering sea.</p>
+    <p>Mr Pell knew what that meant. He opened the window wide. Pebble circled the lighthouse three times and then flew away over the waves.</p>
+    <p>The lighthouse felt very quiet that evening. But just before sunset, Mr Pell heard a familiar tap on the glass. There was Pebble, holding a small silver fish, which she dropped proudly at his feet.</p>
+  </qti-stimulus-body>
+</qti-assessment-stimulus>

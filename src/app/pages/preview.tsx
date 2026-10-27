@@ -9,7 +9,7 @@ import {
   CheckCheck,
   Clipboard,
   Code,
-  Eye,
+  Code2,
   FilePlus2,
   Info,
   Pencil,
@@ -22,6 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dropdown } from "../components/dropdown";
 import { iconActionClassName, Panel } from "../components/panel";
 import { PageShell, WORKSPACE_EDITOR_HEIGHT } from "../components/page-shell";
+import { EditorModeSwitch } from "../components/editor-mode-switch";
 import { qtiTransformItem } from "@citolab/qti-components/qti-transformers";
 import { QtiAssessmentItem, QtiItem, itemContext } from "@citolab/qti-components";
 import type { QtiAssessmentItemCorrection } from "@citolab/qti-components/corrections";
@@ -38,6 +39,7 @@ import DraggablePopup from "../components/draggable-popup";
 import { DownloadItemPackageButton } from "../components/download-package-button";
 import {
   ALL_EXAMPLE_ITEMS,
+  groupExamples,
   buildShareUrl,
   decodeSharedParamToXml,
 } from "./item-source";
@@ -555,9 +557,10 @@ export const PreviewPage = () => {
   return (
     <PageShell
       variant="workspace"
-      icon={Eye}
-      title="Preview item"
+      icon={Code2}
+      title="Editor"
       description="Write or paste QTI 3 XML and try the item out in the player."
+      actions={<EditorModeSwitch />}
     >
       <div className="relative grid gap-4 md:grid-cols-2">
         {sharePopupOpen ? (
@@ -603,15 +606,10 @@ export const PreviewPage = () => {
             <Dropdown
               key="examples"
               name="Examples"
-              items={[
-                {
-                  name: "choice",
-                  items: ALL_EXAMPLE_ITEMS,
-                },
-              ]}
+              items={groupExamples(ALL_EXAMPLE_ITEMS)}
               onMenuClick={(name) => {
                 const i = ALL_EXAMPLE_ITEMS.find((i) => i.name === name);
-                loadQti3(`/3${i?.href || ""}`);
+                if (i) loadQti3(i.href);
               }}
             />,
             <div key="actions" className="flex gap-2">
