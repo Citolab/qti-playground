@@ -370,9 +370,15 @@ export default defineConfig(() => {
         exclude: [/@citolab\/prose-qti/, /@citolab\/prose-extensions/, /@qti-components\//],
       },
     },
+    // The XML validation worker (src/app/xml) imports libxml2-wasm, which awaits its wasm at the top level;
+    // that needs a module worker (the default format is iife).
+    worker: {
+      format: "es" as const,
+    },
     optimizeDeps: {
       include: [
         "boolbase",
+        "libxml2-wasm",
         "cheerio",
         "docx",
         "pdf-lib",

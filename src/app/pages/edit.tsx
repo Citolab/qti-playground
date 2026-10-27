@@ -1,4 +1,5 @@
 import { Editor } from "@monaco-editor/react";
+import { setupXmlEditor } from "../xml/monaco-xml";
 import { useDebouncedCallback } from "use-debounce";
 import { useEffect, useRef, useState } from "react";
 import { Clipboard, Eye, FilePlus2, PenLine, Share2 } from "lucide-react";
@@ -253,6 +254,7 @@ export const EditPage = () => {
                     formatOnPaste: false,
                     formatOnType: false,
                   }}
+                  onMount={setupXmlEditor}
                   width="100%"
                   height={WORKSPACE_EDITOR_HEIGHT}
                   value={qti3 || ""}

@@ -1,4 +1,5 @@
 import { Editor } from "@monaco-editor/react";
+import { setupXmlEditor } from "../xml/monaco-xml";
 import { useDebouncedCallback } from "use-debounce";
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
@@ -205,8 +206,9 @@ export const ConvertPage = () => {
                 width="100%"
                 height={WORKSPACE_EDITOR_HEIGHT}
                 options={config}
-                onMount={(editor) => {
+                onMount={(editor, monaco) => {
                   sourceEditor.current = editor;
+                  setupXmlEditor(editor, monaco);
                   if (fillSource) {
                     sourceEditor.current?.setValue(qtiInput || "");
                   }
@@ -253,8 +255,9 @@ export const ConvertPage = () => {
                   formatOnPaste: true,
                   formatOnType: true,
                 }}
-                onMount={(editor) => {
+                onMount={(editor, monaco) => {
                   resultEditor.current = editor;
+                  setupXmlEditor(editor, monaco);
                 }}
                 width="100%"
                 height={

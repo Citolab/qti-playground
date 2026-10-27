@@ -1,4 +1,5 @@
 import { Editor } from "@monaco-editor/react";
+import { setupXmlEditor } from "../xml/monaco-xml";
 import { useDebouncedCallback } from "use-debounce";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store/store";
@@ -672,8 +673,9 @@ export const PreviewPage = () => {
               <div className="rounded-lg overflow-hidden">
                 <Editor
                   options={editorOptions}
-                  onMount={(editor) => {
+                  onMount={(editor, monaco) => {
                     sourceEditor.current = editor;
+                    setupXmlEditor(editor, monaco);
                     setIsEditorReady(true);
                   }}
                   onChange={(value) => {
@@ -799,7 +801,7 @@ export const PreviewPage = () => {
         >
           <>
             {qti3ForPreview ? (
-              <qti-item ref={qtiItemRef}>
+              <qti-item ref={qtiItemRef} className="block px-8 py-6">
                 <item-container
                   ref={attachScopedObserver}
                   itemDoc={previewItemDoc ?? undefined}
