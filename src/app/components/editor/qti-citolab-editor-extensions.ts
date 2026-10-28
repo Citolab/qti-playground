@@ -33,6 +33,7 @@ import {
   qtiLayoutDivNodeSpec,
   qtiPasteRescuePlugin,
 } from "@citolab/prose-qti/schema";
+import { defineQtiPreserveExtension } from "./qti-preserve-extension";
 import {
   deleteBlockSelection,
   moveBlockSelection,
@@ -78,15 +79,20 @@ function defineQtiPlaygroundInteractionsExtension() {
         src: { default: null },
         alt: { default: null },
         title: { default: null },
-        width: { default: null },
-        height: { default: null },
+        // The authored values, which are strings; ProseKit's own spec only admits a number.
+        width: { default: null, validate: "string|number|null" },
+        height: { default: null, validate: "string|number|null" },
       },
       parseDOM: [
         {
+          // ProseKit's rule for the same tag stays in the list and reads only `src`, so this one
+          // has to outrank it -- tied, the first registered wins, and alt/width/height were lost.
           tag: "img[src]",
+          priority: 60,
           getAttrs: (element) => ({
             src: element.getAttribute("src") || null,
-            alt: element.getAttribute("alt") || null,
+            // `alt=""` marks a decorative image, which is not the same as having no alt.
+            alt: element.getAttribute("alt"),
             title: element.getAttribute("title") || null,
             width: element.getAttribute("width") || null,
             height: element.getAttribute("height") || null,
@@ -314,6 +320,7 @@ export function defineQtiPlaygroundExtension() {
     defineQtiPlaygroundInteractionsExtension(),
     defineQtiPlaygroundDecorationsExtension(),
     defineQtiLayoutExtension(),
+    defineQtiPreserveExtension(),
     // "Opmaak wissen": a `clearFormatting` command plus `Mod-\`. Opt-in upstream, like the
     // decorators, because it is an authoring affordance.
     defineClearFormattingExtension(),

@@ -16,7 +16,8 @@ export type ContentLossCode =
   | "text-changed"
   | "attribute-removed"
   | "media-changed"
-  | "response-changed";
+  | "response-changed"
+  | "scoring-changed";
 
 export type ContentLoss = {
   code: ContentLossCode;
@@ -31,6 +32,7 @@ export const CONTENT_LOSS_LABELS: Record<ContentLossCode, string> = {
   "attribute-removed": "Attributes would be dropped",
   "media-changed": "Media references would change",
   "response-changed": "Correct responses would change",
+  "scoring-changed": "Scoring would change",
 };
 
 const XML_NS = "http://www.w3.org/XML/1998/namespace";
@@ -205,6 +207,23 @@ export function findContentLoss(
     losses.push({ code: "media-changed", detail: "src" });
   }
 
+  // An image has no identifier, but its src is as good as one: the alt text and the size it was
+  // given must come back on the image with the same src.
+  const imagesAfter = descendants(bodyAfter).filter((element) => element.localName === "img");
+  for (const image of descendants(bodyBefore).filter((element) => element.localName === "img")) {
+    const src = image.getAttribute("src");
+    const index = imagesAfter.findIndex((other) => other.getAttribute("src") === src);
+    if (index < 0) continue;
+    const [other] = imagesAfter.splice(index, 1);
+    for (const attribute of Array.from(image.attributes)) {
+      if (other.getAttribute(attribute.name) === attribute.value) continue;
+      losses.push({
+        code: "attribute-removed",
+        detail: `img[src=${src}] @${attribute.name}`,
+      });
+    }
+  }
+
   const declarationsAfter = new Map(
     childElements(saved.documentElement, "qti-response-declaration").map(
       (declaration) => [declaration.getAttribute("identifier") ?? "", declaration],
@@ -229,6 +248,11 @@ export function findContentLoss(
         detail: `${id}: ${before} → ${correctValues(other) || "∅"}`,
       });
     }
+    for (const mapping of ["qti-mapping", "qti-area-mapping"]) {
+      if (mappingOf(declaration, mapping) !== mappingOf(other, mapping)) {
+        losses.push({ code: "scoring-changed", detail: `${id} <${mapping}>` });
+      }
+    }
     for (const name of ["cardinality", "base-type"]) {
       if (declaration.getAttribute(name) !== other.getAttribute(name)) {
         losses.push({
@@ -239,5 +263,83 @@ export function findContentLoss(
     }
   }
 
+  const processingBefore = processingOf(original.documentElement);
+  if (processingBefore !== processingOf(saved.documentElement)) {
+    losses.push({ code: "scoring-changed", detail: "qti-response-processing" });
+  }
+  for (const outcome of ["SCORE", "MAXSCORE"]) {
+    const before = outcomeDefault(original.documentElement, outcome);
+    const after = outcomeDefault(saved.documentElement, outcome);
+    if (before !== null && before !== after) {
+      losses.push({ code: "scoring-changed", detail: `${outcome}: ${before} → ${after ?? "∅"}` });
+    }
+  }
+
+  // Everything else on the item -- the shared stimulus it references, its stylesheets, its own
+  // outcomes -- lives outside the body and must still be there.
+  const keptParts = new Set(
+    Array.from(saved.documentElement.children).map(partKey),
+  );
+  for (const part of Array.from(original.documentElement.children)) {
+    if (OWNED_PARTS.has(part.localName)) continue;
+    // SCORE and MAXSCORE are compared by value above.
+    if (["SCORE", "MAXSCORE"].includes(part.getAttribute("identifier") ?? "")) continue;
+    if (!keptParts.has(partKey(part))) {
+      losses.push({ code: "element-removed", detail: partKey(part) });
+    }
+  }
+
   return losses;
+}
+
+/** Parts of the item that the checks above compare in their own way. */
+const OWNED_PARTS = new Set([
+  "qti-item-body",
+  "qti-response-declaration",
+  "qti-response-processing",
+]);
+
+const partKey = (part: Element) => {
+  const name =
+    part.getAttribute("identifier") ?? part.getAttribute("href") ?? "";
+  return name ? `<${part.localName} ${name}>` : `<${part.localName}>`;
+};
+
+/** A mapping as its entries and bounds, in a fixed order. */
+function mappingOf(declaration: Element, localName: string): string {
+  const mapping = firstChild(declaration, localName);
+  if (!mapping) return "";
+  const attributes = (element: Element) =>
+    Array.from(element.attributes)
+      .map((attribute) => `${attribute.name}=${attribute.value}`)
+      .sort()
+      .join(",");
+  return [
+    attributes(mapping),
+    ...Array.from(mapping.children).map(attributes).sort(),
+  ].join(";");
+}
+
+/**
+ * The response processing, as its template (with or without `.xml`, which name the same one) or
+ * else its rules.
+ */
+function processingOf(root: Element): string {
+  const processing = firstChild(root, "qti-response-processing");
+  if (!processing) return "";
+  const template = processing.getAttribute("template");
+  if (template) return template.replace(/\.xml$/, "");
+  return new XMLSerializer()
+    .serializeToString(processing)
+    .replace(/\s+/g, " ")
+    .replace(/> </g, "><");
+}
+
+function outcomeDefault(root: Element, identifier: string): string | null {
+  const outcome = childElements(root, "qti-outcome-declaration").find(
+    (element) => element.getAttribute("identifier") === identifier,
+  );
+  if (!outcome) return null;
+  const value = firstChild(outcome, "qti-default-value");
+  return value ? (value.textContent ?? "").trim() : "";
 }

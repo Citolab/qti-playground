@@ -264,7 +264,13 @@ const ToolbarDivider = () => <div className="mx-1 h-5 w-px bg-gray-200" />;
  * tool, not as part of the item. It dims while the author is elsewhere on the page and lights up
  * on focus, hover, or while one of its menus is open (`group/editor` on the editor root).
  */
-function QtiCitolabEditorToolbar({ editor }: { editor: Editor }) {
+function QtiCitolabEditorToolbar({
+  editor,
+  sticky,
+}: {
+  editor: Editor;
+  sticky?: boolean;
+}) {
   const formatState = useFormatState(editor);
   const commands = editor.commands as MarkCommands;
 
@@ -274,7 +280,9 @@ function QtiCitolabEditorToolbar({ editor }: { editor: Editor }) {
   };
 
   return (
-    <div className="flex justify-center bg-white px-3 pt-3 pb-1">
+    <div
+      className={`flex justify-center bg-white px-3 pt-3 pb-1 ${sticky ? "sticky top-0 z-10" : ""}`}
+    >
       <div
         className="flex flex-wrap items-center gap-0.5 rounded-xl border border-gray-200 bg-white/95 px-1.5 py-1 shadow-sm backdrop-blur transition-opacity duration-200 opacity-70 group-focus-within/editor:opacity-100 hover:opacity-100 has-[[data-state=open]]:opacity-100"
         onMouseDown={(event) => event.preventDefault()}
@@ -425,6 +433,12 @@ type Props = {
    * and the refusal then only explains.
    */
   onEditXml?: () => void;
+  /**
+   * Keep the toolbar at the top of the host's scroll area while the item scrolls under it. For
+   * hosts that stack several editors in one page (the whole-test editor) and so give the editor
+   * no height of its own: the item grows, and the host scrolls instead of the editor.
+   */
+  stickyToolbar?: boolean;
 };
 
 export function QtiCitolabEditor({
@@ -438,6 +452,7 @@ export function QtiCitolabEditor({
   heightClassName = "min-h-[75vh]",
   normalizeOnLoad = false,
   onEditXml,
+  stickyToolbar = false,
 }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Editor | null>(null);
@@ -483,7 +498,7 @@ export function QtiCitolabEditor({
 
     try {
       const xml = restoreAuthoredAssetUrls(
-        exportItem(nextEditor.state.doc, itemIdentityRef.current),
+        exportItem(nextEditor.state.doc, itemIdentityRef.current, initialXmlRef.current),
         assetOriginalsRef.current,
       );
       if (xml === lastEmittedXmlRef.current) return;
@@ -548,7 +563,7 @@ export function QtiCitolabEditor({
         const losses = findContentLoss(
           initialXml,
           restoreAuthoredAssetUrls(
-            exportItem(doc, itemIdentityRef.current),
+            exportItem(doc, itemIdentityRef.current, initialXml),
             assetOriginals,
           ),
         );
@@ -591,7 +606,7 @@ export function QtiCitolabEditor({
         if (!normalizeOnLoadRef.current) return;
         try {
           const normalizedXml = restoreAuthoredAssetUrls(
-            exportItem(nextEditor.state.doc, itemIdentityRef.current),
+            exportItem(nextEditor.state.doc, itemIdentityRef.current, initialXmlRef.current),
             assetOriginalsRef.current,
           );
           if (normalizedXml === lastEmittedXmlRef.current) return;
@@ -687,7 +702,9 @@ export function QtiCitolabEditor({
     <div
       className={`qti-citolab-editor group/editor flex ${heightClassName} flex-col ${className ?? ""}`}
     >
-      {editor ? <QtiCitolabEditorToolbar editor={editor} /> : null}
+      {editor ? (
+        <QtiCitolabEditorToolbar editor={editor} sticky={stickyToolbar} />
+      ) : null}
       <div
         className={`min-h-0 flex-1 overflow-y-auto bg-white ${surfaceClassName}`}
       >

@@ -118,8 +118,8 @@ export function ToolBar({
           aria-pressed={editing ?? false}
           title={
             editing
-              ? "Close the QTI editor and go back to the item"
-              : "Edit this item in the QTI editor (beta)"
+              ? "Close the QTI editor and go back to the test"
+              : "Edit the whole test in the QTI editor, starting at this item (beta)"
           }
           className={cn(
             "h-10 rounded-full border shadow-sm px-3",

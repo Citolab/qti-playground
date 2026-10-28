@@ -46,7 +46,7 @@ import ModeSwitch from "../components/mode-switcher";
 import { Button } from "@/components/ui/button";
 import { ToolBar } from "../components/tool-bar";
 import { DownloadPackageButton } from "../components/download-package-button";
-import { QtiCitolabEditorPanel } from "../components/editor/qti-citolab-editor-panel";
+import type { TestDocumentItem } from "../components/editor/test-document-editor";
 import { NavigationBar } from "./nav-list";
 import { AssessmentOverviewPage } from "./assessment-overview";
 import {
@@ -67,7 +67,6 @@ import { PracticeCoach, type CoachMood } from "../components/practice-coach";
 import { checkPage, showAnswers } from "../qti/practice-check";
 import { assessmentTitleOf } from "../qti/assessment-title";
 import { ExtendedItemContext, ExtendedTestContext } from "@citolab/qti-api";
-import { useDebouncedCallback } from "use-debounce";
 import { PlayerOptionsMenu } from "../components/player-options-menu";
 import {
   AssessmentLayoutMode,
@@ -114,6 +113,13 @@ import {
 } from "../qti/media-volume";
 import { PageLoadingSkeleton } from "../components/page-loading-skeleton";
 import { VerticalNavigationPane } from "../components/vertical-navigation-pane";
+
+// Loaded on first edit: the editor brings prosekit and its node views, which a reader never needs.
+const TestDocumentEditor = React.lazy(() =>
+  import("../components/editor/test-document-editor").then((module) => ({
+    default: module.TestDocumentEditor,
+  })),
+);
 
 /* React */
 declare module "react" {
@@ -294,7 +300,8 @@ export const AssessmentPage: React.FC = () => {
   /** A question asked for before the booklet had rendered it. */
   const pendingScrollTargetRef = useRef<string | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [editorSessionKey, setEditorSessionKey] = useState(0);
+  /** The question the editor opened on. */
+  const [editorStartItemRefId, setEditorStartItemRefId] = useState("");
   const initialZoomRef = useRef<string>("");
 
   useEffect(() => {
@@ -323,13 +330,7 @@ export const AssessmentPage: React.FC = () => {
   // Zustand store - use selectors for optimal re-renders
   const assessments = useStore((state) => state.assessments);
   const itemsPerAssessment = useStore((state) => state.itemsPerAssessment);
-  const editItem = useStore((state) => state.editItem);
   const saveEditedItem = useStore((state) => state.saveEditedItem);
-  const editorSourceXml = useStore((state) => state.qti3);
-  // The item's own package URL. Its asset paths are relative to it, not to this
-  // page, so the editor needs it to render the item's images.
-  const editorAssetBaseHref = useStore((state) => state.previewItemHref);
-  const setQti3 = useStore((state) => state.setQti3);
   const testContexts = useStore((state) => state.testContexts);
   const updateTestContext = useStore((state) => state.updateTestContext);
 
@@ -1122,96 +1123,6 @@ export const AssessmentPage: React.FC = () => {
     sectionOf,
   ]);
 
-  // Navigation handlers
-  // Editing happens in place: the editor is rendered as an overlay on top of
-  // the item content, so the test itself stays mounted (and keeps its state).
-
-  // Which item the open editor belongs to. Read instead of `currentItemIdentifier` because a
-  // pending edit is flushed *after* the player has already moved on to another item, and the
-  // flush must still write to the file it was editing.
-  const editingItemIdentifierRef = useRef("");
-  const editingItemRefIdentifierRef = useRef("");
-  // The last write of the edited item to the package cache. `_loadItems` re-fetches
-  // `item.href` on every navigation, so the reload below has to wait for that write --
-  // otherwise the player races it and re-reads the pre-edit XML.
-  const pendingItemSaveRef = useRef<Promise<boolean>>(Promise.resolve(false));
-  const editedInSessionRef = useRef(false);
-
-  const pushEditorSource = useDebouncedCallback((nextXml: string) => {
-    void setQti3(nextXml);
-    const identifier = editingItemIdentifierRef.current;
-    if (!identifier) return;
-    editedInSessionRef.current = true;
-    pendingItemSaveRef.current = saveEditedItem(identifier, nextXml);
-  }, 1000);
-
-  // Gets every pending edit into the package cache. The editor flushes its own export
-  // debounce while it tears down, so the last keystrokes only reach `pushEditorSource`
-  // once it has unmounted -- hence the yield before flushing ours.
-  const flushPendingEdit = useCallback(async () => {
-    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
-    pushEditorSource.flush();
-    await pendingItemSaveRef.current;
-  }, [pushEditorSource]);
-
-  const closeEditor = useCallback(async () => {
-    setIsEditorOpen(false);
-    await flushPendingEdit();
-    if (!editedInSessionRef.current) return;
-    editedInSessionRef.current = false;
-    // Reload the item so the player picks the edit up from the package cache. Navigating
-    // to the item it is already on is allowed even in linear mode.
-    const itemRefId = editingItemRefIdentifierRef.current;
-    if (itemRefId) {
-      qtiTestRef.current?.navigateTo("item", itemRefId);
-    }
-  }, [flushPendingEdit]);
-
-  const onToggleEditor = useCallback(async () => {
-    if (isEditorOpen) {
-      await closeEditor();
-      return;
-    }
-    try {
-      await editItem(currentItemIdentifier);
-      editingItemIdentifierRef.current = currentItemIdentifier;
-      editingItemRefIdentifierRef.current = currentItemRefIdentifier;
-      editedInSessionRef.current = false;
-      setEditorSessionKey((current) => current + 1);
-      setIsEditorOpen(true);
-    } catch (error) {
-      console.error("Edit item error:", error);
-    }
-  }, [
-    closeEditor,
-    currentItemIdentifier,
-    currentItemRefIdentifier,
-    editItem,
-    isEditorOpen,
-  ]);
-
-  // Navigating to another item closes the in-place editor. The pending edit still has to
-  // land in the package cache, so it is flushed rather than cancelled -- the item the
-  // player navigates to re-fetches its own XML anyway.
-  const editorItemIdentifierRef = useRef(currentItemIdentifier);
-  useEffect(() => {
-    if (editorItemIdentifierRef.current === currentItemIdentifier) return;
-    editorItemIdentifierRef.current = currentItemIdentifier;
-    setIsEditorOpen(false);
-    void flushPendingEdit().then(() => {
-      // No reload here: the player has already moved on, and the edited item re-fetches
-      // its own XML the next time it is navigated to.
-      editedInSessionRef.current = false;
-    });
-  }, [currentItemIdentifier, flushPendingEdit]);
-
-  // Leaving the page (back, exit) must not strand an edit in the debounce either.
-  useEffect(() => {
-    return () => {
-      pushEditorSource.flush();
-    };
-  }, [pushEditorSource]);
-
   const handleBackNavigation = useCallback(() => {
     navigate("/package");
   }, [navigate]);
@@ -1380,6 +1291,97 @@ export const AssessmentPage: React.FC = () => {
     : groupsSharedStimuli
       ? (activeSectionItemRefIds[0] ?? "")
       : currentItemRefIdentifier;
+
+  // The whole-test editor. It covers the player rather than replacing it, so the test stays
+  // mounted underneath and keeps its state; edits reach the player through the package cache.
+
+  // Every write of an edited item to the package cache, in order. The player re-fetches
+  // `item.href` when it navigates, so the reload on close has to wait for the last of them --
+  // otherwise it races the write and re-reads the pre-edit XML.
+  const itemSavesRef = useRef<Promise<unknown>>(Promise.resolve());
+  const editedInSessionRef = useRef(false);
+  /** The item at the top of the editor, as the author scrolls: where closing takes the player. */
+  const editorItemRefIdRef = useRef("");
+
+  const handleEditorItemChange = useCallback(
+    (identifier: string, xml: string) => {
+      editedInSessionRef.current = true;
+      itemSavesRef.current = itemSavesRef.current.then(() =>
+        saveEditedItem(identifier, xml),
+      );
+    },
+    [saveEditedItem],
+  );
+
+  const editorItems = useMemo(() => {
+    const seen = new Set<string>();
+    const result: TestDocumentItem[] = [];
+    for (const item of items) {
+      // An item placed twice is still one file: it is edited once, where it first appears.
+      if (seen.has(item.identifier)) continue;
+      seen.add(item.identifier);
+      const number = displayNumbers.get(itemKey(item));
+      result.push({
+        key: itemKey(item),
+        identifier: item.identifier,
+        href: item.href,
+        label: number ? `Question ${number}` : "Info",
+        title: item.title,
+      });
+    }
+    return result;
+  }, [displayNumbers, items]);
+
+  /** Shows the player `itemRefId`, re-reading what was edited on the way. */
+  const reloadPlayerAt = useCallback(
+    (itemRefId: string) => {
+      // A booklet page is a section, and navigating to it again reloads every item on it. In
+      // vertical mode `goToItem` would only scroll, and leave the pre-edit items up.
+      const sectionId = isBookletLayout ? sectionOf(itemRefId) : null;
+      if (!sectionId) {
+        qtiTestRef.current?.navigateTo("item", itemRefId);
+        return;
+      }
+      if (isVerticalLayout) {
+        setScrolledItemRefIdentifier(itemRefId);
+        pendingScrollTargetRef.current = itemRefId;
+      }
+      qtiTestRef.current?.navigateTo("section", sectionId);
+    },
+    [isBookletLayout, isVerticalLayout, sectionOf],
+  );
+
+  const closeEditor = useCallback(async () => {
+    setIsEditorOpen(false);
+    // The editors flush their own export debounce while they unmount, so the last keystrokes
+    // only reach `handleEditorItemChange` once they have -- hence the yield before waiting.
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    await itemSavesRef.current;
+    const itemRefId = editorItemRefIdRef.current;
+    const edited = editedInSessionRef.current;
+    editedInSessionRef.current = false;
+    if (!itemRefId) return;
+    if (edited) reloadPlayerAt(itemRefId);
+    else if (itemRefId !== currentPositionItemRefId) goToItem(itemRefId);
+  }, [currentPositionItemRefId, goToItem, reloadPlayerAt]);
+
+  const onToggleEditor = useCallback(async () => {
+    if (isEditorOpen) {
+      await closeEditor();
+      return;
+    }
+    // Open on the question the reader is on. A second placement of an item opens on its first,
+    // which is the one the editor holds.
+    const current = items.find((item) => itemKey(item) === currentPositionItemRefId);
+    const start =
+      editorItems.find((item) => item.identifier === current?.identifier)?.key ??
+      editorItems[0]?.key ??
+      "";
+    editedInSessionRef.current = false;
+    editorItemRefIdRef.current = start;
+    setEditorStartItemRefId(start);
+    setIsEditorOpen(true);
+  }, [closeEditor, currentPositionItemRefId, editorItems, isEditorOpen, items]);
 
   /**
    * The page stays hidden while the runner assembles it — items connecting,
@@ -2287,12 +2289,7 @@ export const AssessmentPage: React.FC = () => {
                         zoomLevel={zoomLevel}
                         editing={isEditorOpen}
                         onToggleEdit={
-                          // The in-place editor edits "the current item", which
-                          // a page holding three of them cannot name. Hidden
-                          // there, as it already is on the intro and overview.
-                          showIntro || isOverviewOpen || isBookletLayout
-                            ? undefined
-                            : onToggleEditor
+                          showIntro || isOverviewOpen ? undefined : onToggleEditor
                         }
                       />
                       <DownloadPackageButton
@@ -2486,28 +2483,30 @@ export const AssessmentPage: React.FC = () => {
                       />
                     )}
 
-                  {/* In-place editor: replaces the item content without
+                  {/* The whole-test editor: covers the item content without
                       unmounting the test underneath. */}
                   {isEditorOpen && !showIntro && !isOverviewOpen && (
                     <div className="absolute inset-0 z-20 flex flex-col bg-white">
-                      <div className="flex flex-shrink-0 items-center border-b border-gray-200 px-4 py-2">
-                        <span className="text-sm font-medium text-gray-700">
-                          Editing {currentItemIdentifier || "item"}
+                      <div className="flex flex-shrink-0 items-center gap-2 border-b border-gray-200 px-4 py-2 text-sm">
+                        <span className="font-medium text-gray-700">
+                          Editing {assessmentTitle || "the test"}
+                        </span>
+                        <span className="text-gray-400">
+                          {editorItems.length}{" "}
+                          {editorItems.length === 1 ? "item" : "items"}
                         </span>
                       </div>
-                      <div className="min-h-0 flex-1 overflow-auto">
-                        {/* Same wrapper the test-container above gets, so the item keeps its
-                            column when the editor covers it. */}
-                        <QtiCitolabEditorPanel
-                          key={editorSessionKey}
-                          editorSessionKey={editorSessionKey}
-                          active
-                          sourceXml={editorSourceXml || ""}
-                          assetBaseHref={editorAssetBaseHref}
-                          onSourceChange={pushEditorSource}
-                          surfaceClassName="flex justify-center p-6"
-                          contentClassName="max-w-4xl"
-                        />
+                      <div className="min-h-0 flex-1">
+                        <React.Suspense fallback={null}>
+                          <TestDocumentEditor
+                            items={editorItems}
+                            initialKey={editorStartItemRefId}
+                            onItemChange={handleEditorItemChange}
+                            onVisibleItemChange={(key) => {
+                              editorItemRefIdRef.current = key;
+                            }}
+                          />
+                        </React.Suspense>
                       </div>
                     </div>
                   )}
@@ -2516,7 +2515,7 @@ export const AssessmentPage: React.FC = () => {
                 {/* Fixed bottom navigation. Absent in vertical mode: the left
                     pane is the navigation there, and a booklet has no pages to
                     step through. */}
-                {!showIntro && !showVerticalPane && !overviewShown && (
+                {!showIntro && !showVerticalPane && !overviewShown && !isEditorOpen && (
                   <div className="flex-shrink-0 border-t bg-white">
                     <nav className="flex items-center justify-between px-6 py-4 w-full min-w-0">
                       {isOverviewOpen ? (

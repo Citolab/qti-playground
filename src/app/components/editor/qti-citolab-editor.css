@@ -146,3 +146,25 @@
   outline-offset: 3px;
   border-radius: 0.375rem;
 }
+
+/*
+ * The shared-stimulus placeholder is an empty div in the item: the player fills it with the text
+ * the item's stimulus ref points at. In the editor there is nothing to fill it with, so it would be
+ * an invisible block an author can delete without knowing. Name it instead.
+ */
+.qti-citolab-editor .ProseMirror div[data-stimulus-idref] {
+  padding: 1rem;
+  border: 1px dashed #d8dbe0;
+  border-radius: 0.375rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.qti-citolab-editor .ProseMirror div[data-stimulus-idref]::before {
+  content: "Shared text: " attr(data-stimulus-idref);
+}
+
+.qti-citolab-editor .ProseMirror div[data-stimulus-idref].ProseMirror-selectednode {
+  outline: 2px solid var(--qti-primary, #16a34a);
+}

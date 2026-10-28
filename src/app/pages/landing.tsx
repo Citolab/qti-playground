@@ -677,7 +677,7 @@ export const LandingPage: React.FC = () => {
             <DemoFrame label="<qti-item> · Journey Through the Solar System">
               <div
                 ref={attachHeroFeedback}
-                className="max-h-[34rem] overflow-auto px-1 py-2 sm:px-6"
+                className="px-1 py-2 sm:px-6"
               >
                 <qti-item>
                   <item-container

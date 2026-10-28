@@ -118,6 +118,9 @@ export const groupExamples = (items: ExampleItem[]) =>
  */
 export const EDITOR_SUPPORTED_INTERACTIONS = [
   "qti-choice-interaction",
+  "qti-extended-text-interaction",
+  "qti-gap-match-interaction",
+  "qti-hottext-interaction",
   "qti-inline-choice-interaction",
   "qti-match-interaction",
   "qti-order-interaction",
