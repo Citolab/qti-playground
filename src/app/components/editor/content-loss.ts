@@ -149,6 +149,21 @@ function attributeBag(body: Element | null): AttributeBag {
   return bag;
 }
 
+/**
+ * `<u>` is not a QTI 3 element; the editor writes underline as `span.qti-underline`, QTI's own
+ * spelling. Rewrite the original the same way before comparing, so that conversion to valid QTI
+ * is not reported as a lost element.
+ */
+function spellUnderlineAsQti(body: Element | null) {
+  for (const u of descendants(body).filter((element) => element.localName === "u")) {
+    const span = u.ownerDocument.createElementNS(u.namespaceURI, "span");
+    for (const attribute of Array.from(u.attributes)) span.setAttribute(attribute.name, attribute.value);
+    span.setAttribute("class", `${u.getAttribute("class") ?? ""} qti-underline`.trim());
+    while (u.firstChild) span.appendChild(u.firstChild);
+    u.replaceWith(span);
+  }
+}
+
 /** Compares a stored item with what the editor saves for it when nothing was edited. */
 export function findContentLoss(
   originalXml: string,
@@ -160,6 +175,7 @@ export function findContentLoss(
 
   const losses: ContentLoss[] = [];
   const bodyBefore = firstChild(original.documentElement, "qti-item-body");
+  spellUnderlineAsQti(bodyBefore);
   const bodyAfter = firstChild(saved.documentElement, "qti-item-body");
 
   const after = countTags(bodyAfter);

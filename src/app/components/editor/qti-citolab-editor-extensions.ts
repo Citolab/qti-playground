@@ -1,15 +1,36 @@
 import "@citolab/prose-qti/components/register";
-import { defineBasicExtension } from "prosekit/basic";
 import {
+  defineBaseCommands,
+  defineBaseKeymap,
+  defineHistory,
   defineKeymap,
+  defineMarkSpec,
   defineNodeSpec,
   definePlugin,
   Priority,
   union,
   withPriority,
 } from "prosekit/core";
+import { defineBlockquote } from "prosekit/extensions/blockquote";
+import { defineBold } from "prosekit/extensions/bold";
+import { defineCode } from "prosekit/extensions/code";
+import { defineCodeBlock } from "prosekit/extensions/code-block";
+import { defineDoc } from "prosekit/extensions/doc";
+import { defineGapCursor } from "prosekit/extensions/gap-cursor";
+import { defineHardBreak } from "prosekit/extensions/hard-break";
+import { defineHeading } from "prosekit/extensions/heading";
+import { defineHorizontalRule } from "prosekit/extensions/horizontal-rule";
+import { defineImage } from "prosekit/extensions/image";
+import { defineItalic } from "prosekit/extensions/italic";
+import { defineLink } from "prosekit/extensions/link";
+import { defineList } from "prosekit/extensions/list";
+import { defineModClickPrevention } from "prosekit/extensions/mod-click-prevention";
+import { defineParagraph } from "prosekit/extensions/paragraph";
 import { definePlaceholder } from "prosekit/extensions/placeholder";
-import { isCellSelection } from "prosekit/extensions/table";
+import { defineTable, isCellSelection } from "prosekit/extensions/table";
+import { defineText } from "prosekit/extensions/text";
+import { defineUnderline } from "prosekit/extensions/underline";
+import { defineVirtualSelection } from "prosekit/extensions/virtual-selection";
 import { createSemanticPastePlugin } from "@citolab/prose-extensions/paste-semantic-html";
 import {
   blockSelectExtension,
@@ -313,9 +334,55 @@ function defineSlashPlaceholder() {
   });
 }
 
+/*
+ * `prosekit/basic`'s `defineBasicExtension()`, in its own order, with the two marks QTI 3 has no
+ * element for put right. ProseKit suggests copying it to customise it; patching from outside can't
+ * take a mark away.
+ *
+ * - Underline: ProseKit writes `<u>`, which is not a QTI 3 element, so every underline made here
+ *   produced an item that fails the XSD. QTI's shared vocabulary spells it `span.qti-underline` (the
+ *   theme styles it), so that is what it writes. An imported `<u>` still reads as underline and comes
+ *   back as the span; the loss check counts that as the same mark (content-loss.ts).
+ * - Strike: left out. ProseKit writes `<s>`, and QTI has neither an element nor a class for it, so
+ *   there is nothing valid to write. An imported `<s>` is therefore not kept, and the loss check
+ *   says so rather than the editor writing invalid QTI back.
+ */
+function defineQtiBasicExtension() {
+  return union(
+    defineDoc(),
+    defineText(),
+    defineParagraph(),
+    defineHeading(),
+    defineList(),
+    defineBlockquote(),
+    defineImage(),
+    defineHorizontalRule(),
+    defineHardBreak(),
+    defineTable(),
+    defineCodeBlock(),
+    defineItalic(),
+    defineBold(),
+    defineUnderline(),
+    defineMarkSpec({
+      name: "underline",
+      // Ahead of the generic span handling, so the class never ends up as a stray span.
+      parseDOM: [{ tag: "span.qti-underline", priority: 60 }],
+      toDOM: () => ["span", { class: "qti-underline" }, 0],
+    }),
+    defineCode(),
+    defineLink(),
+    defineBaseKeymap(),
+    defineBaseCommands(),
+    defineHistory(),
+    defineGapCursor(),
+    defineVirtualSelection(),
+    defineModClickPrevention(),
+  );
+}
+
 export function defineQtiPlaygroundExtension() {
   return union(
-    defineBasicExtension(),
+    defineQtiBasicExtension(),
     defineTableDeletion(),
     defineQtiPlaygroundInteractionsExtension(),
     defineQtiPlaygroundDecorationsExtension(),

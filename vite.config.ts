@@ -81,6 +81,16 @@ const qtiEditorOptimizeDepsInclude = [
   "prosekit/pm/view",
   "prosekit/pm/keymap",
   "prosekit/pm/inputrules",
+  // The editor composes prosekit/basic's extensions itself (qti-citolab-editor-extensions.ts), so
+  // each subpath is a dependency of its own; unlisted, the first editor load re-optimises and reloads.
+  "prosekit/extensions/blockquote",
+  "prosekit/extensions/bold",
+  "prosekit/extensions/code",
+  "prosekit/extensions/code-block",
+  "prosekit/extensions/horizontal-rule",
+  "prosekit/extensions/italic",
+  "prosekit/extensions/link",
+  "prosekit/extensions/underline",
   "prosekit/extensions/doc",
   "prosekit/extensions/gap-cursor",
   "prosekit/extensions/hard-break",
