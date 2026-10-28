@@ -61,7 +61,7 @@ export const EXAMPLE_PACKAGES: ExamplePackage[] = [
     mode: "practice",
     coach: "martian",
     presentation: "One question per screen, with a practice coach",
-    pitch: "Practice with a coach that reacts to every answer.",
+    pitch: "A coach at your side, one question at a time.",
     backdropColors: ["#1d3466", "#0a142b"],
   },
   {
@@ -81,7 +81,7 @@ export const EXAMPLE_PACKAGES: ExamplePackage[] = [
     ],
     layout: "vertical",
     presentation: "The whole test on one scrolling page",
-    pitch: "Scroll through the whole test like a paper booklet.",
+    pitch: "Scroll through it like paper.",
     backdropColors: ["#00b85a", "#00913f"],
   },
   {
@@ -101,7 +101,7 @@ export const EXAMPLE_PACKAGES: ExamplePackage[] = [
     ],
     layout: "classic",
     presentation: "One page per text, with its questions",
-    pitch: "Read the text once. Answer everything beside it.",
+    pitch: "Read once, answer many.",
     backdropColors: ["#0f4c5c", "#138a95"],
   },
   {
@@ -124,7 +124,7 @@ export const EXAMPLE_PACKAGES: ExamplePackage[] = [
     ],
     layout: "classic",
     presentation: "One question per screen, in three scored parts",
-    pitch: "A real exam, in parts, with a score for each.",
+    pitch: "A real exam, scored part by part.",
     backdropColors: ["#3730a3", "#1e1b4b"],
   },
 ];

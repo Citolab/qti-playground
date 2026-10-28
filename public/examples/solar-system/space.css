@@ -86,3 +86,40 @@ qti-simple-choice:is(:hover, :focus-visible) .globe-map {
     animation: none;
   }
 }
+
+/*
+ * Lining up the planets: the bank on the left, the five slots underneath each
+ * other on the right, numbered so it is plain which one comes first.
+ */
+.planet-order::part(drops) {
+  counter-reset: planet-slot;
+  padding-inline-start: 2rem;
+}
+
+.planet-order::part(drop) {
+  position: relative;
+  counter-increment: planet-slot;
+}
+
+.planet-order::part(drop)::before {
+  content: counter(planet-slot);
+  position: absolute;
+  inset-inline-end: calc(100% + 0.6rem);
+  top: 50%;
+  translate: 0 -50%;
+  font-weight: 700;
+  color: #64748b;
+}
+
+/* A flex chip drops the space before the name, so the picture gets its own. */
+.planet-order qti-simple-choice img {
+  margin-inline-end: 0.6rem;
+}
+
+/*
+ * The hole a placed chip leaves behind hides its name but not its picture, so
+ * a planet seemed to sit in the bank and in its slot at once.
+ */
+.planet-order qti-simple-choice:is(:state(placeholder), [data-state~="placeholder"], :state(dragging), [data-state~="dragging"]) img {
+  visibility: hidden;
+}

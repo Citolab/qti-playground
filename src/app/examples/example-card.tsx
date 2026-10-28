@@ -107,7 +107,7 @@ export function ExampleCard({
           // On the landing page the card sells the player, so what it does leads
           // and the test itself is only the example.
           <div>
-            <h3 className="font-display text-lg font-semibold leading-snug tracking-tight text-gray-900">
+            <h3 className="font-display text-lg font-semibold leading-snug tracking-tight text-balance text-gray-900 sm:min-h-[2lh]">
               {example.pitch}
             </h3>
             <p className="mt-2 flex items-center gap-2 text-sm font-medium text-citolab-700">

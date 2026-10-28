@@ -22,9 +22,10 @@
       <qti-value>1</qti-value>
     </qti-default-value>
   </qti-outcome-declaration>
+  <qti-stylesheet href="space.css" type="text/css"/>
   <qti-item-body>
     <p>Each planet travels around the Sun on its own path, called an <strong>orbit</strong>. Some planets stay close to the Sun, others are very far away.</p>
-    <qti-order-interaction response-identifier="RESPONSE" shuffle="true">
+    <qti-order-interaction response-identifier="RESPONSE" shuffle="true" orientation="vertical" class="qti-choices-left planet-order">
       <qti-prompt>Put these planets in order of their distance from the Sun. Start with the planet that is <strong>closest</strong> to the Sun.</qti-prompt>
       <qti-simple-choice identifier="EARTH"><img src="images/earth.svg" width="48" height="48" alt=""/> Earth</qti-simple-choice>
       <qti-simple-choice identifier="JUPITER"><img src="images/jupiter.svg" width="48" height="48" alt=""/> Jupiter</qti-simple-choice>
