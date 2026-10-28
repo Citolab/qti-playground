@@ -7,6 +7,10 @@
  * the body (see prose-qti's `buildAssessmentItemXml`), so declaring them up
  * front for a body that has no interaction yet would only produce an item whose
  * declarations contradict its content until the first export overwrote them.
+ *
+ * The body is one empty paragraph rather than an instruction: text in the item
+ * is content, and an author who did not delete it shipped it. The editor shows
+ * the hint as a placeholder instead (qti-citolab-editor-extensions.ts).
  */
 export const BLANK_ITEM_IDENTIFIER = "new-item";
 
@@ -16,7 +20,7 @@ export const blankItemXml = (
 ) => `<?xml version="1.0" encoding="UTF-8"?>
 <qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd" identifier="${identifier}" title="${title}" adaptive="false" time-dependent="false" xml:lang="en">
   <qti-item-body>
-    <p>Type your question here, then use Insert to add an interaction.</p>
+    <p></p>
   </qti-item-body>
 </qti-assessment-item>
 `;

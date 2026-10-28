@@ -2,7 +2,10 @@ import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../store/store";
 import { DEFAULT_LAYOUT_MODE } from "../qti/layout-mode";
-import { DEFAULT_PLAYER_MODE } from "../qti/session-options";
+import {
+  DEFAULT_COACH_CHARACTER,
+  DEFAULT_PLAYER_MODE,
+} from "../qti/session-options";
 import { buildExamplePackage, EXAMPLE_PACKAGES } from "./catalog";
 
 /**
@@ -43,6 +46,9 @@ export function useOpenExample() {
           }
           if (example?.mode && example.mode !== DEFAULT_PLAYER_MODE) {
             params.set("mode", example.mode);
+          }
+          if (example?.coach && example.coach !== DEFAULT_COACH_CHARACTER) {
+            params.set("coach", example.coach);
           }
           navigate(`/assessment/${assessmentId}?${params.toString()}`);
         } else {

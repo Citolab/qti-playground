@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowDown,
   ArrowUp,
   Bold,
   Columns2,
   GripVertical,
+  Italic,
   List,
-  Plus,
   Redo2,
   RemoveFormatting,
   Square,
@@ -14,13 +14,7 @@ import {
   Underline,
   Undo2,
 } from "lucide-react";
-import {
-  createEditor,
-  defineFocusChangeHandler,
-  defineUpdateHandler,
-  isMarkActive,
-  type Editor,
-} from "prosekit/core";
+import { createEditor, defineUpdateHandler, type Editor } from "prosekit/core";
 import { redo, undo } from "prosekit/pm/history";
 import {
   BlockHandlePositioner,
@@ -31,22 +25,13 @@ import {
   deleteBlockSelection,
   moveBlockSelection,
 } from "./block-select-commands";
-import {
-  qtiItemFromProsemirror,
-  type QtiComposeContext,
-} from "@citolab/prose-qti/integration/save-qti-item";
-import { roundtripXmlToPm } from "@citolab/prose-qti/components/shared";
-import { roundtripQtiItem } from "@citolab/prose-qti/qti3-item-import/roundtrip-qti-item";
-import { listInteractionDescriptors } from "@citolab/prose-qti/core/interactions/composer";
-import type { InteractionDescriptor } from "@citolab/prose-qti/interfaces";
+import type { QtiComposeContext } from "@citolab/prose-qti/item-export/pm-qti-item";
 import { useDebouncedCallback } from "use-debounce";
 
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -55,20 +40,28 @@ import {
   findUnsupportedItemFeatures,
   type UnsupportedItemFeature,
 } from "./unsupported-interactions";
-import { InteractionIcon } from "./interaction-icons";
 import {
-  isInLayoutRow,
-  makeOneColumn,
-  makeTwoColumns,
-} from "./qti-layout-commands";
+  CONTENT_LOSS_LABELS,
+  findContentLoss,
+  type ContentLoss,
+} from "./content-loss";
+import { EditorGuardPanel } from "./editor-guard-panel";
+import { makeOneColumn, makeTwoColumns } from "./qti-layout-commands";
+import {
+  exportItem,
+  importItemDoc,
+  readItemIdentity,
+} from "./editor-roundtrip";
+import { useFormatState, type MarkCommands } from "./editor-format-state";
+import { INSERT_ENTRIES } from "./insert-entries";
+import { InsertMenu } from "./insert-menu";
+import { SlashMenu } from "./slash-menu";
+import { SelectionBubble } from "./selection-bubble";
+import { EditorContextMenu } from "./editor-context-menu";
 import {
   createItemAssetResolver,
   mapItemAssetUrls,
 } from "../../qti/asset-urls";
-import {
-  EDITOR_SUPPORTED_BLOCKS,
-  EDITOR_SUPPORTED_INTERACTIONS,
-} from "../../pages/item-source";
 
 // prosekit's structural sheet only. Its sibling `typography.css` is a general-purpose prose
 // theme -- 16px paragraphs with their own padding, px-sized headings, a bar down the side of
@@ -91,27 +84,6 @@ import "@citolab/prose-qti/decorations.css";
 import "../../qti/item.css";
 import "./qti-citolab-editor.css";
 
-// The importer only carries the item BODY into ProseMirror, so the identity on the
-// `<qti-assessment-item>` root is not in the document the exporter sees. Without it the exporter
-// mints a fresh `item-xxxxxx` identifier and the title "Untitled Item" on the first keystroke --
-// which, for an item inside a package, silently orphans it from the manifest and from any test
-// that references it. Read the identity off the source once and hand it back on every export.
-function readItemIdentity(xml: string): QtiComposeContext {
-  const root = new DOMParser()
-    .parseFromString(xml, "application/xml")
-    .querySelector("qti-assessment-item");
-  if (!root) return {};
-
-  const identity: QtiComposeContext = {};
-  const identifier = root.getAttribute("identifier");
-  const title = root.getAttribute("title");
-  const lang = root.getAttribute("xml:lang") ?? root.getAttribute("lang");
-  if (identifier) identity.identifier = identifier;
-  if (title) identity.title = title;
-  if (lang) identity.lang = lang;
-  return identity;
-}
-
 /**
  * ProseMirror renders the item into the app's own document, so an asset path that
  * is relative to the item file ("../img/pic.jpg") is resolved by the browser
@@ -130,148 +102,6 @@ function restoreAuthoredAssetUrls(
 ): string {
   if (assetOriginals.size === 0) return xml;
   return mapItemAssetUrls(xml, (value) => assetOriginals.get(value) ?? value);
-}
-
-type InsertableInteraction = InteractionDescriptor & {
-  insertCommand: NonNullable<InteractionDescriptor["insertCommand"]>;
-};
-
-// The published package ships the insert commands but no menu UI, so the menu
-// is ours: one entry per registered descriptor that can insert itself.
-const INTERACTION_LABELS: Record<string, string> = {
-  qtiChoiceInteraction: "Choice",
-  qtiExtendedTextInteraction: "Extended text",
-  qtiGapMatchInteraction: "Gap match",
-  qtiHottextInteraction: "Hottext",
-  qtiInlineChoiceInteraction: "Inline choice",
-  qtiMatchInteraction: "Match",
-  qtiMatchInteractionTabular: "Match (tabular)",
-  qtiOrderInteraction: "Order",
-  qtiSelectPointInteraction: "Select point",
-  qtiTextEntryInteraction: "Text entry",
-  qtiRubricBlock: "Rubric block",
-};
-
-function interactionLabel(descriptor: InteractionDescriptor): string {
-  return (
-    INTERACTION_LABELS[descriptor.nodeTypeName] ??
-    descriptor.tagName
-      .replace(/^qti-/, "")
-      .replace(/-interaction$/, "")
-      .replace(/-/g, " ")
-      .replace(/^./, (character) => character.toUpperCase())
-  );
-}
-
-// Registry order is alphabetical by package, which scatters related
-// interactions across the grid. Group them by family instead; anything
-// registered upstream that we don't list yet lands at the end.
-const INTERACTION_ORDER = [
-  "qtiChoiceInteraction",
-  "qtiTextEntryInteraction",
-  "qtiInlineChoiceInteraction",
-  "qtiExtendedTextInteraction",
-  "qtiOrderInteraction",
-  "qtiMatchInteraction",
-  "qtiMatchInteractionTabular",
-  "qtiGapMatchInteraction",
-  "qtiHottextInteraction",
-  "qtiSelectPointInteraction",
-];
-
-function displayRank(descriptor: InteractionDescriptor): number {
-  const index = INTERACTION_ORDER.indexOf(descriptor.nodeTypeName);
-  return index === -1 ? INTERACTION_ORDER.length : index;
-}
-
-/**
- * What the Insert menu offers: the registry, narrowed to what the editor is
- * allowed to open again.
- *
- * The allowlist has to apply here too, not just at the door. Offering an
- * interaction the gate refuses lets an author insert one, save it into the
- * package, and then be locked out of the item they just wrote -- the one failure
- * mode the gate exists to prevent, reached from inside the editor.
- *
- * Filtered on `tagName`, so match and its tabular variant both survive: they are
- * two descriptors over one tag, and each is its own menu entry.
- */
-const EDITOR_SUPPORTED_TAGS = new Set([
-  ...EDITOR_SUPPORTED_INTERACTIONS,
-  ...EDITOR_SUPPORTED_BLOCKS,
-]);
-
-const INSERTABLE_INTERACTIONS = listInteractionDescriptors()
-  .filter(
-    (descriptor): descriptor is InsertableInteraction =>
-      descriptor.insertCommand != null &&
-      EDITOR_SUPPORTED_TAGS.has(descriptor.tagName.toLowerCase()),
-  )
-  .sort((left, right) => displayRank(left) - displayRank(right));
-
-function InsertInteractionMenu({ editor }: { editor: Editor }) {
-  const interactions = INSERTABLE_INTERACTIONS.filter(
-    (descriptor) => descriptor.nodeTypeName !== "qtiRubricBlock",
-  );
-  const blocks = INSERTABLE_INTERACTIONS.filter(
-    (descriptor) => descriptor.nodeTypeName === "qtiRubricBlock",
-  );
-
-  // Tiles rather than rows: at grid size the glyph carries the meaning, and
-  // eleven entries fit in one popover without paging.
-  const renderTile = (descriptor: InsertableInteraction) => {
-    const command = descriptor.insertCommand;
-    return (
-      <DropdownMenuItem
-        key={descriptor.nodeTypeName}
-        disabled={!editor.canExec(command)}
-        title={`Insert ${descriptor.tagName}`}
-        onSelect={() => {
-          editor.focus();
-          editor.exec(command);
-        }}
-        className="h-auto cursor-pointer flex-col items-center gap-1.5 px-1 py-2 text-center [&_svg]:size-7"
-      >
-        <InteractionIcon
-          nodeTypeName={descriptor.nodeTypeName}
-          className="text-gray-600"
-        />
-        <span className="text-[11px] leading-tight font-medium">
-          {interactionLabel(descriptor)}
-        </span>
-      </DropdownMenuItem>
-    );
-  };
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button type="button" size="sm" variant="ghost" title="Insert">
-          <Plus className="mr-1 h-4 w-4" />
-          Insert
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[19rem] p-2">
-        <DropdownMenuLabel className="px-1 py-1 text-xs text-gray-500">
-          Interactions
-        </DropdownMenuLabel>
-        <div className="grid grid-cols-3 gap-1">
-          {interactions.map(renderTile)}
-        </div>
-        {blocks.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="px-1 py-1 text-xs text-gray-500">
-              Blocks
-            </DropdownMenuLabel>
-            <div className="grid grid-cols-3 gap-1">
-              {blocks.map(renderTile)}
-            </div>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
 }
 
 /**
@@ -330,7 +160,15 @@ function BlockSelectHandle({ editor }: { editor: Editor }) {
       {/* Hoisted because both of the editor's own wrappers clip: the body scrolls on
           `overflow-y-auto`, and the landing page's frame adds `overflow-hidden`. Hoisting puts the
           grip in the top layer, and the positioner's autoUpdate keeps it with its block on scroll. */}
-      <BlockHandlePositioner placement="left" hoist offset={6}>
+      {/* Hidden while closed: before the first hover the positioner sits at the page's top-left
+          corner and painted a stray grip there. Kept visible while its own menu is open, because
+          that is exactly when Radix takes the pointer away and prosekit reports it closed. */}
+      <BlockHandlePositioner
+        placement="left"
+        hoist
+        offset={6}
+        className="data-[state=closed]:not-has-[[data-state=open]]:invisible"
+      >
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
             <button
@@ -391,53 +229,44 @@ function BlockSelectHandle({ editor }: { editor: Editor }) {
   );
 }
 
-type FormatToolbarState = {
-  bold: boolean;
-  underline: boolean;
-  bulletList: boolean;
-  twoColumns: boolean;
-};
-
-function readFormatToolbarState(editor: Editor): FormatToolbarState {
-  const nodes = editor.nodes as {
-    list?: { isActive: (attrs?: { kind?: string }) => boolean };
-  };
-
-  return {
-    bold: isMarkActive(editor.state, "bold"),
-    underline: isMarkActive(editor.state, "underline"),
-    bulletList: nodes.list?.isActive({ kind: "bullet" }) ?? false,
-    twoColumns: isInLayoutRow(editor.state.doc, editor.state.selection.from),
-  };
+function ToolbarButton({
+  label,
+  pressed,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  pressed?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={pressed}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="flex size-8 cursor-pointer items-center justify-center rounded-md text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:pointer-events-none disabled:opacity-40 aria-pressed:bg-citolab-50 aria-pressed:text-citolab-800 [&_svg]:size-4"
+    >
+      {children}
+    </button>
+  );
 }
 
-function useFormatToolbarState(editor: Editor | null) {
-  const [, setRevision] = useState(0);
+const ToolbarDivider = () => <div className="mx-1 h-5 w-px bg-gray-200" />;
 
-  useEffect(() => {
-    if (!editor) return;
-
-    const bump = () => setRevision((value) => value + 1);
-    const removeUpdateListener = editor.use(defineUpdateHandler(bump));
-    const removeFocusListener = editor.use(defineFocusChangeHandler(bump));
-
-    return () => {
-      removeUpdateListener();
-      removeFocusListener();
-    };
-  }, [editor]);
-
-  return editor ? readFormatToolbarState(editor) : null;
-}
-
+/**
+ * A floating bar over the top of the item rather than a strip across the frame: it reads as a
+ * tool, not as part of the item. It dims while the author is elsewhere on the page and lights up
+ * on focus, hover, or while one of its menus is open (`group/editor` on the editor root).
+ */
 function QtiCitolabEditorToolbar({ editor }: { editor: Editor }) {
-  const formatState = useFormatToolbarState(editor);
-  const commands = editor.commands as {
-    toggleBold?: () => boolean;
-    toggleUnderline?: () => boolean;
-    toggleList?: (attrs?: { kind?: "bullet" }) => boolean;
-    clearFormatting?: () => boolean;
-  };
+  const formatState = useFormatState(editor);
+  const commands = editor.commands as MarkCommands;
 
   const runCommand = (command?: () => boolean) => {
     editor.focus();
@@ -445,111 +274,94 @@ function QtiCitolabEditorToolbar({ editor }: { editor: Editor }) {
   };
 
   return (
-    <div
-      className="flex flex-wrap items-center gap-1 border-b border-gray-200 bg-white px-3 py-2"
-      onMouseDown={(event) => event.preventDefault()}
-    >
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        disabled={!editor.canExec(undo)}
-        onClick={() => editor.exec(undo)}
-        aria-label="Undo"
+    <div className="flex justify-center bg-white px-3 pt-3 pb-1">
+      <div
+        className="flex flex-wrap items-center gap-0.5 rounded-xl border border-gray-200 bg-white/95 px-1.5 py-1 shadow-sm backdrop-blur transition-opacity duration-200 opacity-70 group-focus-within/editor:opacity-100 hover:opacity-100 has-[[data-state=open]]:opacity-100"
+        onMouseDown={(event) => event.preventDefault()}
+        data-testid="editor-toolbar"
       >
-        <Undo2 className="h-4 w-4" />
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        disabled={!editor.canExec(redo)}
-        onClick={() => editor.exec(redo)}
-        aria-label="Redo"
-      >
-        <Redo2 className="h-4 w-4" />
-      </Button>
+        <InsertMenu editor={editor} entries={INSERT_ENTRIES} />
 
-      <div className="mx-1 h-5 w-px bg-gray-200" />
+        <ToolbarDivider />
 
-      <Button
-        type="button"
-        size="sm"
-        variant={formatState?.bold ? "secondary" : "ghost"}
-        aria-label="Bold"
-        aria-pressed={formatState?.bold ?? false}
-        onClick={() => runCommand(commands.toggleBold)}
-      >
-        <Bold className="h-4 w-4" />
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant={formatState?.underline ? "secondary" : "ghost"}
-        aria-label="Underline"
-        aria-pressed={formatState?.underline ?? false}
-        onClick={() => runCommand(commands.toggleUnderline)}
-      >
-        <Underline className="h-4 w-4" />
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant={formatState?.bulletList ? "secondary" : "ghost"}
-        aria-label="Bullet list"
-        aria-pressed={formatState?.bulletList ?? false}
-        onClick={() =>
-          runCommand(() => commands.toggleList?.({ kind: "bullet" }) ?? false)
-        }
-      >
-        <List className="h-4 w-4" />
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        aria-label="Clear formatting"
-        title="Clear formatting (Ctrl/Cmd+\)"
-        onClick={() => runCommand(commands.clearFormatting)}
-      >
-        <RemoveFormatting className="h-4 w-4" />
-      </Button>
+        <ToolbarButton
+          label="Undo"
+          disabled={!editor.canExec(undo)}
+          onClick={() => editor.exec(undo)}
+        >
+          <Undo2 />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Redo"
+          disabled={!editor.canExec(redo)}
+          onClick={() => editor.exec(redo)}
+        >
+          <Redo2 />
+        </ToolbarButton>
 
-      <div className="mx-1 h-5 w-px bg-gray-200" />
+        <ToolbarDivider />
 
-      {/* One column / two columns, as a state rather than an action: the pressed button is the
-          layout the caret is in, so the pair doubles as a read-out of where you are. Only these
-          two, and only 6/6 -- an imported item's other widths are preserved but not authored here.
-          Each stays enabled while its command reports it can run, which is what makes "one column"
-          dead outside a row and "two columns" dead inside one. */}
-      <Button
-        type="button"
-        size="sm"
-        variant={formatState && !formatState.twoColumns ? "secondary" : "ghost"}
-        disabled={!editor.canExec(makeOneColumn) && !!formatState?.twoColumns}
-        aria-label="One column"
-        aria-pressed={formatState ? !formatState.twoColumns : true}
-        title="One column"
-        onClick={() => runCommand(() => editor.exec(makeOneColumn))}
-      >
-        <Square className="h-4 w-4" />
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant={formatState?.twoColumns ? "secondary" : "ghost"}
-        disabled={!editor.canExec(makeTwoColumns) && !formatState?.twoColumns}
-        aria-label="Two columns"
-        aria-pressed={formatState?.twoColumns ?? false}
-        title="Two columns"
-        onClick={() => runCommand(() => editor.exec(makeTwoColumns))}
-      >
-        <Columns2 className="h-4 w-4" />
-      </Button>
+        <ToolbarButton
+          label="Bold"
+          pressed={formatState?.bold ?? false}
+          onClick={() => runCommand(commands.toggleBold)}
+        >
+          <Bold />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Italic"
+          pressed={formatState?.italic ?? false}
+          onClick={() => runCommand(commands.toggleItalic)}
+        >
+          <Italic />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Underline"
+          pressed={formatState?.underline ?? false}
+          onClick={() => runCommand(commands.toggleUnderline)}
+        >
+          <Underline />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Bullet list"
+          pressed={formatState?.bulletList ?? false}
+          onClick={() =>
+            runCommand(() => commands.toggleList?.({ kind: "bullet" }) ?? false)
+          }
+        >
+          <List />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Clear formatting (Ctrl/Cmd+\)"
+          onClick={() => runCommand(commands.clearFormatting)}
+        >
+          <RemoveFormatting />
+        </ToolbarButton>
 
-      <div className="mx-1 h-5 w-px bg-gray-200" />
+        <ToolbarDivider />
 
-      <InsertInteractionMenu editor={editor} />
+        {/* One column / two columns, as a state rather than an action: the pressed button is the
+            layout the caret is in, so the pair doubles as a read-out of where you are. Only these
+            two, and only 6/6 -- an imported item's other widths are preserved but not authored
+            here. Each stays enabled while its command reports it can run, which is what makes "one
+            column" dead outside a row and "two columns" dead inside one. */}
+        <ToolbarButton
+          label="One column"
+          pressed={formatState ? !formatState.twoColumns : true}
+          disabled={!editor.canExec(makeOneColumn) && !!formatState?.twoColumns}
+          onClick={() => runCommand(() => editor.exec(makeOneColumn))}
+        >
+          <Square />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Two columns"
+          pressed={formatState?.twoColumns ?? false}
+          disabled={!editor.canExec(makeTwoColumns) && !formatState?.twoColumns}
+          onClick={() => runCommand(() => editor.exec(makeTwoColumns))}
+        >
+          <Columns2 />
+        </ToolbarButton>
+      </div>
     </div>
   );
 }
@@ -607,6 +419,12 @@ type Props = {
    * the package) would record an edit for merely opening the editor.
    */
   normalizeOnLoad?: boolean;
+  /**
+   * Where to send the author when the item cannot be edited here without losing content: the
+   * host's XML editor for the same item. Omitted where the host has none (the assessment page),
+   * and the refusal then only explains.
+   */
+  onEditXml?: () => void;
 };
 
 export function QtiCitolabEditor({
@@ -619,6 +437,7 @@ export function QtiCitolabEditor({
   contentClassName = "",
   heightClassName = "min-h-[75vh]",
   normalizeOnLoad = false,
+  onEditXml,
 }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Editor | null>(null);
@@ -638,6 +457,10 @@ export function QtiCitolabEditor({
   const [unsupportedFeatures, setUnsupportedFeatures] = useState<
     UnsupportedItemFeature[]
   >([]);
+  // What a load-and-save of this item would lose (content-loss.ts), and whether the author chose
+  // to edit it anyway. Both belong to one item: the hosts remount the editor per session key.
+  const [contentLosses, setContentLosses] = useState<ContentLoss[]>([]);
+  const [editDespiteLosses, setEditDespiteLosses] = useState(false);
 
   onSourceChangeRef.current = onSourceChange;
 
@@ -660,7 +483,7 @@ export function QtiCitolabEditor({
 
     try {
       const xml = restoreAuthoredAssetUrls(
-        qtiItemFromProsemirror(nextEditor.state.doc, itemIdentityRef.current),
+        exportItem(nextEditor.state.doc, itemIdentityRef.current),
         assetOriginalsRef.current,
       );
       if (xml === lastEmittedXmlRef.current) return;
@@ -714,9 +537,25 @@ export function QtiCitolabEditor({
           )
         : initialXml;
       assetOriginalsRef.current = assetOriginals;
-      const itemBodyXml = roundtripQtiItem(displayXml);
-      const xmlDoc = new DOMParser().parseFromString(itemBodyXml, "application/xml");
-      const doc = roundtripXmlToPm(xmlDoc, schema);
+      const doc = importItemDoc(displayXml, schema);
+
+      // The allowlist above knows tags; this knows outcomes. Save the document straight back
+      // and compare: an attribute without a slot in the schema, MathML, a class the theme reads,
+      // a correct response the exporter derives differently -- each survives opening and is gone
+      // on the first keystroke, because every edit re-exports the whole item. Checked before the
+      // editor mounts, so a refused item is never written back.
+      if (!editDespiteLosses) {
+        const losses = findContentLoss(
+          initialXml,
+          restoreAuthoredAssetUrls(
+            exportItem(doc, itemIdentityRef.current),
+            assetOriginals,
+          ),
+        );
+        setContentLosses(losses);
+        if (losses.length > 0) return undefined;
+      }
+
       const nextEditor = createEditor({
         extension,
         defaultContent: doc.toJSON(),
@@ -752,10 +591,7 @@ export function QtiCitolabEditor({
         if (!normalizeOnLoadRef.current) return;
         try {
           const normalizedXml = restoreAuthoredAssetUrls(
-            qtiItemFromProsemirror(
-              nextEditor.state.doc,
-              itemIdentityRef.current,
-            ),
+            exportItem(nextEditor.state.doc, itemIdentityRef.current),
             assetOriginalsRef.current,
           );
           if (normalizedXml === lastEmittedXmlRef.current) return;
@@ -790,7 +626,7 @@ export function QtiCitolabEditor({
       editorRef.current = null;
       setEditor(null);
     };
-  }, [editorSessionKey, extension]);
+  }, [editorSessionKey, extension, editDespiteLosses]);
 
   useEffect(() => {
     return () => {
@@ -798,62 +634,79 @@ export function QtiCitolabEditor({
     };
   }, [debouncedExport]);
 
+  const guardClassName = `qti-citolab-editor flex ${heightClassName} items-center justify-center overflow-y-auto p-6 ${className ?? ""}`;
+
   if (unsupportedFeatures.length > 0) {
     return (
-      <div
-        className={`qti-citolab-editor flex ${heightClassName} items-center justify-center p-6 ${className ?? ""}`}
-      >
-        <div className="max-w-md rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <p className="font-semibold">Unsupported item</p>
-          <p className="mt-1">This item uses QTI the editor cannot edit yet:</p>
-          {/* Each entry names what was found and what saving would do to it: the
-              tag alone reads as a missing feature rather than as data loss. */}
-          <ul className="mt-1 space-y-1 text-xs">
-            {unsupportedFeatures.map((feature) => (
-              <li key={feature.label}>
-                <span className="font-mono">{feature.label}</span>
-                <span className="text-amber-800"> — {feature.detail}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-amber-800">
-            Editing it here would drop that content, so this item can only be
-            changed in its XML.
-          </p>
-        </div>
-      </div>
+      <EditorGuardPanel
+        className={guardClassName}
+        title="This item can't be edited visually"
+        intro="It uses QTI the editor cannot edit yet:"
+        // Each entry names what was found and what saving would do to it: the tag alone reads
+        // as a missing feature rather than as data loss.
+        items={unsupportedFeatures.map((feature) => ({
+          label: feature.label,
+          detail: feature.detail,
+        }))}
+        outro="Editing it here would drop that content, so change it in its XML instead."
+        onEditXml={onEditXml}
+      />
+    );
+  }
+
+  if (contentLosses.length > 0 && !editDespiteLosses) {
+    return (
+      <EditorGuardPanel
+        className={guardClassName}
+        title="Editing this item here would change it"
+        intro="The editor would save this item without some of what it contains:"
+        items={contentLosses.map((loss) => ({
+          label: CONTENT_LOSS_LABELS[loss.code],
+          detail: loss.detail,
+        }))}
+        outro="Edit it in the XML editor to keep everything as it is."
+        onEditXml={onEditXml}
+        onEditAnyway={() => setEditDespiteLosses(true)}
+      />
     );
   }
 
   if (importError) {
     return (
-      <div
-        className={`qti-citolab-editor flex ${heightClassName} items-center justify-center p-6 ${className ?? ""}`}
-      >
-        <div className="max-w-md rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <p className="font-semibold">QTI editor unavailable</p>
-          <p className="mt-1">{importError}</p>
-          <p className="mt-2 text-amber-800">
-            Switch back to the XML editor to keep editing this item.
-          </p>
-        </div>
-      </div>
+      <EditorGuardPanel
+        className={guardClassName}
+        title="QTI editor unavailable"
+        intro={importError}
+        outro="Switch to the XML editor to keep editing this item."
+        onEditXml={onEditXml}
+      />
     );
   }
 
   return (
     <div
-      className={`qti-citolab-editor flex ${heightClassName} flex-col ${className ?? ""}`}
+      className={`qti-citolab-editor group/editor flex ${heightClassName} flex-col ${className ?? ""}`}
     >
       {editor ? <QtiCitolabEditorToolbar editor={editor} /> : null}
       <div
         className={`min-h-0 flex-1 overflow-y-auto bg-white ${surfaceClassName}`}
       >
-        <div
-          ref={mountRef}
-          className={`ProseMirror-host w-full ${contentClassName}`}
-        />
-        {editor ? <BlockSelectHandle editor={editor} /> : null}
+        {/* Rendered before the editor exists too, so the mount div keeps its place in the tree:
+            wrapping it only once the editor is up would make React replace the div ProseMirror
+            just mounted into. */}
+        <EditorContextMenu editor={editor} entries={INSERT_ENTRIES}>
+          <div
+            ref={mountRef}
+            className={`ProseMirror-host w-full ${contentClassName}`}
+          />
+        </EditorContextMenu>
+        {editor ? (
+          <>
+            <BlockSelectHandle editor={editor} />
+            <SlashMenu editor={editor} entries={INSERT_ENTRIES} />
+            <SelectionBubble editor={editor} />
+          </>
+        ) : null}
       </div>
     </div>
   );

@@ -2,7 +2,14 @@ import { Editor } from "@monaco-editor/react";
 import { setupXmlEditor } from "../xml/monaco-xml";
 import { useDebouncedCallback } from "use-debounce";
 import { useEffect, useRef, useState } from "react";
-import { Clipboard, Eye, FilePlus2, PenLine, Share2 } from "lucide-react";
+import {
+  Clipboard,
+  Code2,
+  Eye,
+  FilePlus2,
+  PenLine,
+  Share2,
+} from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +38,9 @@ export const EditPage = () => {
   const [copyTooltipOpen, setCopyTooltipOpen] = useState(false);
   const [shareTooltipOpen, setShareTooltipOpen] = useState(false);
   const [sharePopupOpen, setSharePopupOpen] = useState(false);
+  // The XML is a read-out, not where the work happens, so it starts hidden and the editor gets the
+  // full width. Showing it mounts Monaco, which also keeps its download off the default path.
+  const [showXml, setShowXml] = useState(false);
   const hasLoadedSharedItem = useRef(false);
   const hasLoadedItemFromQuery = useRef(false);
   const hasSeededBlankItem = useRef(false);
@@ -123,10 +133,12 @@ export const EditPage = () => {
       icon={PenLine}
       title="Editor"
       badge="Beta"
-      description="Build a QTI 3 item visually — the XML on the right is generated as you type."
+      description="Build a QTI 3 item visually. Type / in the item to insert, and show the XML to watch it being generated."
       actions={<EditorModeSwitch />}
     >
-      <div className="relative grid gap-4 md:grid-cols-2">
+      <div
+        className={`relative grid gap-4 ${showXml ? "md:grid-cols-2" : ""}`}
+      >
         {sharePopupOpen ? (
           <div className="fixed top-4 right-4 z-50 rounded-md bg-citolab-700 px-4 py-2 text-white shadow-lg">
             Shareable URL copied to clipboard
@@ -161,6 +173,17 @@ export const EditPage = () => {
                 }}
               />,
               <div key="actions" className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant={showXml ? "secondary" : "outline"}
+                  className={iconActionClassName}
+                  aria-pressed={showXml}
+                  onClick={() => setShowXml((value) => !value)}
+                  title={showXml ? "Hide the QTI 3 XML" : "Show the QTI 3 XML"}
+                  aria-label="Show the QTI 3 XML"
+                >
+                  <Code2 className="h-4 w-4" aria-hidden="true" />
+                </Button>
                 <Button
                   size="sm"
                   variant="outline"
@@ -211,71 +234,76 @@ export const EditPage = () => {
               assetBaseHref={itemHref}
               onSourceChange={(nextXml) => debouncedSource(nextXml)}
               normalizeOnLoad
+              // The XML mode of this same Editor: /preview edits the item in the store.
+              onEditXml={() => navigate("/preview")}
             />
           </Panel>
         </div>
 
-        <div className="min-h-0 min-w-0">
-          <Panel
-            title="QTI 3 XML"
-            actionComponents={[
-              <span key="readonly-hint" className="text-xs text-gray-500">
-                Read-only — generated from the editor
-              </span>,
-              <TooltipProvider key="copy">
-                <Tooltip open={copyTooltipOpen}>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="sm"
-                      className={iconActionClassName}
-                      disabled={!qti3}
-                      onClick={() => {
-                        navigator.clipboard.writeText(qti3 || "");
-                        setCopyTooltipOpen(true);
-                        setTimeout(() => setCopyTooltipOpen(false), 2000);
-                      }}
-                      title="Copy the QTI 3 source"
-                      aria-label="Copy the QTI 3 source"
-                    >
-                      <Clipboard className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>QTI copied to clipboard!</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>,
-            ]}
-          >
-            <div className="p-3 pt-0">
-              <div className="rounded-lg overflow-hidden">
-                <Editor
-                  options={{
-                    minimap: { enabled: false },
-                    readOnly: true,
-                    domReadOnly: true,
-                    autoIndent: "full" as const,
-                    formatOnPaste: false,
-                    formatOnType: false,
-                  }}
-                  onMount={setupXmlEditor}
-                  width="100%"
-                  height={WORKSPACE_EDITOR_HEIGHT}
-                  value={qti3 || ""}
-                  defaultLanguage="xml"
-                  language="xml"
-                  theme="vs-dark"
-                />
-              </div>
-            </div>
-            {errorMessage ? (
-              <div className="w-full bg-red-200 bg-opacity-50 flex justify-center items-center p-2">
-                <div className="text-red-900">
-                  Oops, an error occurred: {errorMessage}
+        {showXml ? (
+          <div className="min-h-0 min-w-0">
+            <Panel
+              title="QTI 3 XML"
+              actionComponents={[
+                <span key="readonly-hint" className="text-xs text-gray-500">
+                  Read-only — generated from the editor
+                </span>,
+                <TooltipProvider key="copy">
+                  <Tooltip open={copyTooltipOpen}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        className={iconActionClassName}
+                        disabled={!qti3}
+                        onClick={() => {
+                          navigator.clipboard.writeText(qti3 || "");
+                          setCopyTooltipOpen(true);
+                          setTimeout(() => setCopyTooltipOpen(false), 2000);
+                        }}
+                        title="Copy the QTI 3 source"
+                        aria-label="Copy the QTI 3 source"
+                      >
+                        <Clipboard className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>QTI copied to clipboard!</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>,
+              ]}
+            >
+              <div className="p-3 pt-0">
+                <div className="rounded-lg overflow-hidden">
+                  <Editor
+                    options={{
+                      minimap: { enabled: false },
+                      readOnly: true,
+                      domReadOnly: true,
+                      autoIndent: "full" as const,
+                      formatOnPaste: false,
+                      formatOnType: false,
+                    }}
+                    onMount={setupXmlEditor}
+                    width="100%"
+                    height={WORKSPACE_EDITOR_HEIGHT}
+                    value={qti3 || ""}
+                    defaultLanguage="xml"
+                    language="xml"
+                    theme="vs-dark"
+                  />
                 </div>
               </div>
-            ) : null}
-          </Panel>
-        </div>
+            </Panel>
+          </div>
+        ) : null}
       </div>
+      {/* Outside the XML panel, so a failed load still says so while the XML is hidden. */}
+      {errorMessage ? (
+        <div className="mt-4 w-full bg-red-200 bg-opacity-50 flex justify-center items-center p-2">
+          <div className="text-red-900">
+            Oops, an error occurred: {errorMessage}
+          </div>
+        </div>
+      ) : null}
     </PageShell>
   );
 };

@@ -1,0 +1,15 @@
+/*
+ * Picture choices in this package: a picked planet keeps its own tile and gets a
+ * thick yellow ring, instead of the theme's selected fill washing over the image.
+ *
+ * Only the theme's button slots are switched, so geometry never changes: the
+ * ring is a box-shadow on top of the recoloured border, and `initial` drops the
+ * fill and text colour back to the resting tile.
+ */
+qti-choice-interaction.qti-input-control-hidden
+  qti-simple-choice:is(:state(checked), [data-state~="checked"]) {
+  --button-background-color: initial;
+  --button-color: initial;
+  --button-border-color: #f6c900;
+  --button-box-shadow: 0 0 0 3px #f6c900;
+}

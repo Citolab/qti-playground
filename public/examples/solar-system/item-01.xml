@@ -18,6 +18,7 @@
       <qti-value>1</qti-value>
     </qti-default-value>
   </qti-outcome-declaration>
+  <qti-stylesheet href="space.css" type="text/css"/>
   <qti-item-body>
     <p>Mars is often called <em>the Red Planet</em>. Its surface is covered in dust that contains a lot of iron oxide &#8211; the same stuff that makes rust.</p>
     <qti-choice-interaction response-identifier="RESPONSE" shuffle="true" max-choices="1" class="qti-choices-stacking-2 qti-input-control-hidden">

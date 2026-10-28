@@ -36,6 +36,26 @@ export const PLAYER_MODES: {
 export const parsePlayerMode = (value: string | null | undefined): PlayerMode =>
   value === "practice" ? "practice" : DEFAULT_PLAYER_MODE;
 
+/**
+ * Who coaches a practice run. Not on the intro: an example picks the one that
+ * suits it (the Solar System gets Blob the martian) and passes it in the URL.
+ */
+export type CoachCharacter = "sprout" | "martian";
+
+export const DEFAULT_COACH_CHARACTER: CoachCharacter = "sprout";
+
+/** What the coach calls itself in its greeting. */
+export const COACH_NAMES: Record<CoachCharacter, string> = {
+  sprout: "Sprout",
+  martian: "Blob",
+};
+
+export const parseCoachCharacter = (
+  value: string | null | undefined,
+): CoachCharacter =>
+  // "astronaut" is what Blob replaced; links shared before the swap still ask for it.
+  value === "martian" || value === "astronaut" ? "martian" : DEFAULT_COACH_CHARACTER;
+
 export type PlayerTheme = "citolab" | "plum" | "ocean" | "sunset";
 
 export const DEFAULT_PLAYER_THEME: PlayerTheme = "citolab";

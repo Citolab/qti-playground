@@ -403,6 +403,11 @@ test-next::part(button) {
   15% { opacity: 1; }
   100% { transform: translate(var(--dx), var(--dy)) scale(1) rotate(200deg); opacity: 0; }
 }
+@keyframes coach-gaze-look {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
 @keyframes coach-bubble-in {
   from { transform: translateY(6px) scale(0.96); opacity: 0; }
   to { transform: none; opacity: 1; }
@@ -417,12 +422,15 @@ test-next::part(button) {
 .coach-body[data-mood="thinking"],
 .coach-body[data-mood="unanswered"] { animation: coach-tilt 1.6s ease-in-out infinite; }
 .coach-eye { transform-box: fill-box; transform-origin: center; animation: coach-blink 4.5s infinite; }
+/* Blob's pupil glances about while it waits for an answer. */
+.coach-gaze[data-mood="idle"] { animation: coach-gaze-look 4s ease-in-out infinite; }
 .coach-confetti { animation: coach-confetti 1.1s ease-out forwards; }
 .coach-bubble { animation: coach-bubble-in 0.25s ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
   .coach-body,
   .coach-eye,
+  .coach-gaze,
   .coach-confetti,
   .coach-bubble {
     animation: none !important;

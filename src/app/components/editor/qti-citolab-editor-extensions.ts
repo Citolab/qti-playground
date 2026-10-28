@@ -4,13 +4,18 @@ import {
   defineKeymap,
   defineNodeSpec,
   definePlugin,
+  Priority,
   union,
+  withPriority,
 } from "prosekit/core";
+import { definePlaceholder } from "prosekit/extensions/placeholder";
+import { isCellSelection } from "prosekit/extensions/table";
+import { createSemanticPastePlugin } from "@citolab/prose-extensions/paste-semantic-html";
 import {
   blockSelectExtension,
   nodeAttrsSyncExtension,
 } from "@citolab/prose-extensions/prosekit-extensions";
-import type { Command } from "prosekit/pm/state";
+import { Plugin, PluginKey, type Command } from "prosekit/pm/state";
 import {
   listInteractionDecoratorPluginFactories,
   listInteractionDescriptors,
@@ -24,7 +29,10 @@ import {
   constrainedShiftEnd,
   constrainedShiftHome,
 } from "@citolab/prose-qti/components/shared";
-import { qtiLayoutDivNodeSpec } from "@citolab/prose-qti/schema";
+import {
+  qtiLayoutDivNodeSpec,
+  qtiPasteRescuePlugin,
+} from "@citolab/prose-qti/schema";
 import {
   deleteBlockSelection,
   moveBlockSelection,
@@ -199,18 +207,121 @@ function defineQtiPlaygroundDecorationsExtension() {
   );
 }
 
+/*
+ * Backspace / Delete on a cell selection that covers the whole table deletes the table. A smaller
+ * selection falls through to the table plugin, which clears the selected cells -- without this, a
+ * fully selected table could only be emptied, never removed.
+ */
+const deleteSelectedTable: Command = (state, dispatch) => {
+  const selection = state.selection;
+  if (
+    !isCellSelection(selection) ||
+    !selection.isRowSelection() ||
+    !selection.isColSelection()
+  ) {
+    return false;
+  }
+  const $cell = selection.$anchorCell;
+  for (let depth = $cell.depth; depth > 0; depth--) {
+    if ($cell.node(depth).type.spec.tableRole !== "table") continue;
+    dispatch?.(
+      state.tr.delete($cell.before(depth), $cell.after(depth)).scrollIntoView(),
+    );
+    return true;
+  }
+  return false;
+};
+
+function defineTableDeletion() {
+  // Ahead of the table plugin's own Backspace / Delete.
+  return withPriority(
+    defineKeymap({ Backspace: deleteSelectedTable, Delete: deleteSelectedTable }),
+    Priority.high,
+  );
+}
+
+/*
+ * A paste from another application (Word, a web page) into an interaction's prompt takes only the
+ * text, its lines joined with a space: the prompt holds one block, and Word's styled blocks do not
+ * fit it, so nothing was pasted at all. A copy from this editor (ProseMirror marks it with
+ * `data-pm-slice`) keeps its marks. Must come before the semantic paste, whose `handlePaste` would
+ * otherwise take the event first.
+ */
+function promptPlainPastePlugin() {
+  return new Plugin({
+    key: new PluginKey("qtiPromptPlainPaste"),
+    props: {
+      handlePaste(view, event) {
+        const { $from } = view.state.selection;
+        let inPrompt = false;
+        for (let depth = $from.depth; depth > 0 && !inPrompt; depth--) {
+          inPrompt = $from.node(depth).type.name === "qtiPrompt";
+        }
+        if (!inPrompt) return false;
+        const html = event.clipboardData?.getData("text/html") ?? "";
+        if (!html || html.includes("data-pm-slice")) return false;
+        const text = (event.clipboardData?.getData("text/plain") ?? "")
+          .replace(/\s*\n\s*/g, " ")
+          .trim();
+        if (text) view.dispatch(view.state.tr.insertText(text).scrollIntoView());
+        return true;
+      },
+    },
+  });
+}
+
+/*
+ * Pasting, in the order the plugins get the event: plain text into a prompt; Word / Google Docs
+ * HTML made semantic (real lists, headings and bold instead of styled spans, clipboard images
+ * kept); and a multi-block paste into a choice or prompt kept inside its interaction rather than
+ * splitting it.
+ */
+function definePasteExtension() {
+  return union(
+    definePlugin(() => promptPlainPastePlugin()),
+    definePlugin(() => createSemanticPastePlugin()),
+    definePlugin(qtiPasteRescuePlugin),
+  );
+}
+
+/*
+ * The hint in an empty block. A node that names its own placeholder (a prompt, a choice) keeps it;
+ * everywhere else the hint points at the "/" menu, which has no other way of being discovered.
+ * An empty item gets the longer version: it is what a new item opens on, and it stands in for the
+ * instruction the blank item used to carry as real text (see store/blank-item.ts).
+ */
+function defineSlashPlaceholder() {
+  return definePlaceholder({
+    placeholder: (state) => {
+      const $pos = state.selection.$anchor;
+      for (let depth = $pos.depth; depth > 0; depth--) {
+        const own = $pos.node(depth).type.spec.placeholder as string | undefined;
+        if (own) return own;
+      }
+      const { doc } = state;
+      if (doc.childCount === 1 && doc.firstChild?.content.size === 0) {
+        return "Type your question here, or type / to insert an interaction";
+      }
+      return "Type / to insert an interaction, heading, list…";
+    },
+  });
+}
+
 export function defineQtiPlaygroundExtension() {
   return union(
     defineBasicExtension(),
+    defineTableDeletion(),
     defineQtiPlaygroundInteractionsExtension(),
     defineQtiPlaygroundDecorationsExtension(),
     defineQtiLayoutExtension(),
     // "Opmaak wissen": a `clearFormatting` command plus `Mod-\`. Opt-in upstream, like the
     // decorators, because it is an authoring affordance.
     defineClearFormattingExtension(),
+    definePasteExtension(),
     // Shift+arrows / mouse drag select whole blocks (e.g. a full interaction),
     // matching the qti-editor apps.
     blockSelectExtension,
     nodeAttrsSyncExtension,
+    defineSlashPlaceholder(),
   );
 }

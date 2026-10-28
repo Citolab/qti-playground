@@ -60,6 +60,8 @@ import {
   parsePlayerDevice,
   parsePlayerMode,
   parsePlayerTheme,
+  parseCoachCharacter,
+  COACH_NAMES,
 } from "../qti/session-options";
 import { PracticeCoach, type CoachMood } from "../components/practice-coach";
 import { checkPage, showAnswers } from "../qti/practice-check";
@@ -261,6 +263,7 @@ export const AssessmentPage: React.FC = () => {
   /** Test or practice, and the colour theme: chosen on the intro, kept in the URL like the layout. */
   const playerMode = parsePlayerMode(queryParams.get("mode"));
   const playerTheme = parsePlayerTheme(queryParams.get("theme"));
+  const coachCharacter = parseCoachCharacter(queryParams.get("coach"));
   /**
    * Inside the device preview's iframe the page is the device's screen: the
    * frame around it has its own way out, so the player's own close button goes.
@@ -1625,8 +1628,7 @@ export const AssessmentPage: React.FC = () => {
     wrongItems: Parameters<typeof showAnswers>[0];
   }>({
     mood: "idle",
-    message:
-      "Hi, I'm Sprout! Answer the question, then press Check and I'll tell you how you did.",
+    message: `Hi, I'm ${COACH_NAMES[coachCharacter]}! Answer the question, then press Check and I'll tell you how you did.`,
     bubbleVisible: true,
     checkCount: 0,
     busy: false,
@@ -2458,6 +2460,7 @@ export const AssessmentPage: React.FC = () => {
                     !isOverviewOpen &&
                     !isEditorOpen && (
                       <PracticeCoach
+                        character={coachCharacter}
                         mood={coach.mood}
                         message={coach.message}
                         bubbleVisible={coach.bubbleVisible}

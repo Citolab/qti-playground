@@ -14,6 +14,8 @@ type EditorProps = {
   heightClassName?: string;
   /** Emit the editor's own serialisation once at open -- see QtiCitolabEditor's Props. */
   normalizeOnLoad?: boolean;
+  /** The host's XML editor for this item, offered when the item can't be edited here -- see QtiCitolabEditor's Props. */
+  onEditXml?: () => void;
 };
 
 export function QtiCitolabEditorPanel({
@@ -26,6 +28,7 @@ export function QtiCitolabEditorPanel({
   contentClassName,
   heightClassName = "min-h-[75vh]",
   normalizeOnLoad,
+  onEditXml,
   active,
 }: EditorProps & { active: boolean }) {
   const [Editor, setEditor] = useState<ComponentType<EditorProps> | null>(null);
@@ -90,6 +93,7 @@ export function QtiCitolabEditorPanel({
       contentClassName={contentClassName}
       heightClassName={heightClassName}
       normalizeOnLoad={normalizeOnLoad}
+      onEditXml={onEditXml}
     />
   );
 }

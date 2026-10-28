@@ -29,6 +29,7 @@ import { useScopedQtiRegistry } from "../use-scoped-registry";
 import { QtiAssessmentItem } from "@citolab/qti-components";
 import { PAGE_CONTAINER, PAGE_GUTTER } from "../components/page-shell";
 import { CitolabLogo } from "../components/citolab-logo";
+import { CoachAvatar, type CoachMood } from "../components/practice-coach";
 import { GithubMark } from "../components/github-mark";
 import { ExampleGallery } from "../examples/example-gallery";
 import { cn } from "@/lib/utils";
@@ -422,7 +423,89 @@ function DemoFrame({
   );
 }
 
+// What Blob says about each planet in the hero item. Keyed on the
+// choice identifiers of HERO_ITEM_URL, so they move with it.
+const HERO_WRONG_PICKS: Record<string, string> = {
+  VENUS: "That's Venus, hiding under yellow clouds. Mars is the rusty red one!",
+  NEPTUNE: "That's Neptune, the deep blue ice giant. Look for something rusty red.",
+  JUPITER: "That's Jupiter! Its big spot is red, but Mars is red all over.",
+};
+
+type HeroFeedback = { mood: CoachMood; message: string; count: number };
+
+const HERO_GREETING: HeroFeedback = {
+  mood: "idle",
+  message: "Go on, pick a planet! This is the real player, not a screenshot.",
+  count: 0,
+};
+
+// `getResponse` is protected in the typings but the only place the correct
+// response survives: `variables` leaves it out, and the declaration's own
+// <qti-value> is consumed when the item renders.
+type HeroItem = HTMLElement & {
+  getResponse?: (
+    identifier: string,
+  ) => { correctResponse?: string | string[] | null } | undefined;
+};
+
+const asList = (value: unknown) =>
+  (Array.isArray(value) ? value : value ? [value] : []).map(String).sort();
+
+/**
+ * Blob the martian under the hero item, reacting to every pick. It listens on a
+ * wrapper rather than the item: item-container swaps its item on load. Not on
+ * `qti-interaction-response` either -- the item stops that one and re-announces
+ * it as the composed `qti-interaction-changed`, after updating its variables.
+ */
+function useHeroFeedback() {
+  const [feedback, setFeedback] = useState(HERO_GREETING);
+  const cleanupRef = useRef<(() => void) | null>(null);
+  const attach = useCallback((element: HTMLElement | null) => {
+    cleanupRef.current?.();
+    cleanupRef.current = null;
+    if (!element) return;
+    const onResponse = (event: Event) => {
+      const { responseIdentifier, response } = (
+        event as CustomEvent<{ responseIdentifier: string; response: unknown }>
+      ).detail;
+      const item = event
+        .composedPath()
+        .find(
+          (node): node is HeroItem =>
+            node instanceof HTMLElement && node.localName === "qti-assessment-item",
+        );
+      const picked = asList(response);
+      const correct = asList(
+        item?.getResponse?.(responseIdentifier)?.correctResponse,
+      );
+      setFeedback((current) => {
+        const count = current.count + 1;
+        if (picked.length === 0) return { ...HERO_GREETING, count };
+        if (picked.join() === correct.join()) {
+          return {
+            mood: "correct",
+            message: "Yes, that's Mars! All that rusty dust is what makes it red.",
+            count,
+          };
+        }
+        return {
+          mood: "incorrect",
+          message:
+            HERO_WRONG_PICKS[picked[0]] ?? "Not quite. Look for the rusty red planet!",
+          count,
+        };
+      });
+    };
+    element.addEventListener("qti-interaction-changed", onResponse);
+    cleanupRef.current = () =>
+      element.removeEventListener("qti-interaction-changed", onResponse);
+  }, []);
+  return { feedback, attach };
+}
+
 export const LandingPage: React.FC = () => {
+  const { feedback: heroFeedback, attach: attachHeroFeedback } =
+    useHeroFeedback();
   const [landingChoiceXml, setLandingChoiceXml] = useState(
     LANDING_CHOICE_ITEM_XML,
   );
@@ -592,7 +675,10 @@ export const LandingPage: React.FC = () => {
             style={{ animationDelay: "200ms" }}
           >
             <DemoFrame label="<qti-item> · Journey Through the Solar System">
-              <div className="max-h-[34rem] overflow-auto px-1 py-2 sm:px-6">
+              <div
+                ref={attachHeroFeedback}
+                className="max-h-[34rem] overflow-auto px-1 py-2 sm:px-6"
+              >
                 <qti-item>
                   <item-container
                     ref={attachHeroRegistry}
@@ -608,9 +694,23 @@ export const LandingPage: React.FC = () => {
                 </qti-item>
               </div>
             </DemoFrame>
-            <p className="mt-4 text-center text-sm text-gray-500">
-              Go on, answer it. This is the real player, not a screenshot.
-            </p>
+            <div className="mt-3 flex items-end justify-end gap-2 pr-1">
+              <p
+                key={`bubble-${heroFeedback.count}`}
+                role="status"
+                aria-live="polite"
+                className="coach-bubble relative mb-6 max-w-72 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm leading-snug text-gray-700 shadow-md"
+              >
+                {heroFeedback.message}
+                <span className="absolute -right-2 bottom-4 h-4 w-4 rotate-45 border-t border-r border-gray-200 bg-white" />
+              </p>
+              <div
+                key={`coach-${heroFeedback.count}`}
+                className="h-36 w-27 shrink-0"
+              >
+                <CoachAvatar character="martian" mood={heroFeedback.mood} />
+              </div>
+            </div>
           </div>
         </div>
       </section>

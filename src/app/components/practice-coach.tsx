@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import { Check, Eye, EyeOff, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { CoachCharacter } from "../qti/session-options";
 
 export type CoachMood =
   | "idle"
@@ -101,7 +102,133 @@ function Sprout({ mood }: { mood: CoachMood }) {
 
 const CONFETTI_COLOURS = ["#f6c900", "#00b1a9", "#ff6b8b", "#7c5cff", "#00a748", "#ff9f1c"];
 
-function Confetti() {
+/** Blob's dome: a half circle on a rounded-off column, in a 120x150 box. */
+const MARTIAN_BODY =
+  "M10 70a50 50 0 0 1 100 0v54q0 14 -14 14H24q-14 0 -14 -14z";
+
+/**
+ * Blob the martian, from Woordmars: a teal dome with one big glossy eye, lit from the upper left
+ * like the planets there. Drawn in fixed colours rather than the brand scale -- the teal is who
+ * Blob is. Woordmars' Blob has no mouth; this one gets a small one, because a coach has to show
+ * "well done" and "not quite" at a glance, and one eye alone reads too subtly for that.
+ */
+function Martian({ mood }: { mood: CoachMood }) {
+  const happy = mood === "correct";
+  const sad = mood === "incorrect";
+  const unsure = mood === "thinking" || mood === "unanswered";
+
+  // Several coaches can be on screen at once, and svg ids are global: without this they would all
+  // paint with the first instance's gradients.
+  const uid = useId().replace(/:/g, "");
+  const id = (name: string) => `${name}-${uid}`;
+
+  // Where the pupil looks: up and away while it thinks, down when it got one wrong.
+  const gaze = unsure ? { x: 5, y: -7 } : sad ? { x: 0, y: 6 } : { x: 0, y: 0 };
+
+  // Mouth per mood, a little right of the eye so the face keeps Blob's lopsided look.
+  const mouth = happy
+    ? "M50 96 Q62 110 74 96 Z"
+    : sad
+      ? "M52 104 Q57 98 62 102 Q67 106 72 100"
+      : unsure
+        ? "M55 101 H69"
+        : "M52 98 Q62 106 72 98";
+
+  return (
+    <svg viewBox="0 0 120 150" className="h-full w-full overflow-visible" aria-hidden="true">
+      <defs>
+        <clipPath id={id("body")}>
+          <path d={MARTIAN_BODY} />
+        </clipPath>
+        <radialGradient id={id("skin")} cx="32%" cy="24%" r="88%">
+          <stop offset="0%" stopColor="#A7F7E6" />
+          <stop offset="45%" stopColor="#5EEAD4" />
+          <stop offset="100%" stopColor="#23B9A3" />
+        </radialGradient>
+        <radialGradient id={id("sclera")} cx="50%" cy="34%" r="72%">
+          <stop offset="55%" stopColor="#FFFFFF" />
+          <stop offset="100%" stopColor="#C6E4DF" />
+        </radialGradient>
+        {/* darker at the rim, so the iris reads as a dish rather than a disc */}
+        <radialGradient id={id("iris")} cx="50%" cy="66%" r="62%">
+          <stop offset="0%" stopColor="#2A8F82" />
+          <stop offset="68%" stopColor="#134E4A" />
+          <stop offset="100%" stopColor="#0A2F2C" />
+        </radialGradient>
+        <mask id={id("eye")}>
+          <circle cx="50" cy="60" r="20" fill="white" />
+        </mask>
+      </defs>
+
+      {happy ? <Confetti cx={60} cy={55} /> : null}
+      <ellipse cx="60" cy="144" rx="44" ry="5" fill="#0A2F2C" opacity="0.14" />
+      <g className="coach-body" data-mood={mood}>
+        <path d={MARTIAN_BODY} fill={`url(#${id("skin")})`} />
+        <g clipPath={`url(#${id("body")})`}>
+          {/* the shadow side, falling away from the light */}
+          <ellipse cx="120" cy="88" rx="62" ry="88" fill="#0F766E" opacity="0.3" />
+          {/* rim light picking out the lit edge */}
+          <ellipse cx="23" cy="64" rx="9" ry="30" fill="#D5FFF6" opacity="0.35" transform="rotate(-18 23 64)" />
+          {/* mottled skin, in the spirit of the craters on Mars */}
+          <ellipse cx="86" cy="122" rx="11" ry="7" fill="#2FC9B2" opacity="0.45" transform="rotate(-20 86 122)" />
+          <ellipse cx="32" cy="126" rx="8" ry="5" fill="#2FC9B2" opacity="0.35" />
+          <ellipse cx="72" cy="35" rx="7" ry="4.5" fill="#8CF2E0" opacity="0.4" />
+        </g>
+        {/* socket: a touch of shadow so the eye sits in the head -- not around a closed eye,
+            where it reads as an empty hole */}
+        {happy ? null : <circle cx="50" cy="60" r="21.5" fill="#0F766E" opacity="0.25" />}
+        {happy ? (
+          // Eye closed in a smile: the lid line where the eye was.
+          <path d="M34 64 Q50 46 66 64" stroke="#0A2F2C" strokeWidth="4.5" fill="none" strokeLinecap="round" />
+        ) : (
+          <g className="coach-eye">
+            <circle cx="50" cy="60" r="20" fill={`url(#${id("sclera")})`} />
+            <g mask={`url(#${id("eye")})`}>
+              <g className="coach-gaze" data-mood={mood}>
+                <circle cx={50 + gaze.x} cy={60 + gaze.y} r="14" fill={`url(#${id("iris")})`} />
+                <circle cx={50 + gaze.x} cy={60 + gaze.y} r="6.5" fill="#06211F" />
+              </g>
+              {/* brow shadow cast down onto the eyeball */}
+              <ellipse cx="50" cy="39" rx="23" ry="12" fill="#0A2F2C" opacity="0.28" />
+              {sad ? (
+                // A heavy, slanted lid: "oh no".
+                <path d="M28 36 H72 V50 L28 58 Z" fill="#3fd8c0" />
+              ) : null}
+            </g>
+            {sad ? (
+              <path d="M30 58 L70 50" stroke="#0A2F2C" strokeWidth="2.5" strokeLinecap="round" opacity="0.6" />
+            ) : null}
+            {/* Corneal reflections sit still while the pupil moves: they follow the light, not the gaze. */}
+            <circle cx="42.5" cy="51" r="5" fill="#fff" opacity="0.92" />
+            <circle cx="57" cy="68" r="2.4" fill="#fff" opacity="0.45" />
+          </g>
+        )}
+
+        <path
+          d={mouth}
+          stroke="#0A2F2C"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill={happy ? "#0F5C55" : "none"}
+        />
+      </g>
+    </svg>
+  );
+}
+
+/** The coach on its own, for surfaces that bring their own bubble (the landing hero). */
+export function CoachAvatar({
+  character,
+  mood,
+}: {
+  character: CoachCharacter;
+  mood: CoachMood;
+}) {
+  return character === "martian" ? <Martian mood={mood} /> : <Sprout mood={mood} />;
+}
+
+function Confetti({ cx = 60, cy = 60, scale = 1 }: { cx?: number; cy?: number; scale?: number }) {
   // Fixed rather than random so a re-render does not reshuffle mid-flight.
   const pieces = useMemo(
     () =>
@@ -119,7 +246,7 @@ function Confetti() {
     [],
   );
   return (
-    <g transform="translate(60 60)">
+    <g transform={`translate(${cx} ${cy}) scale(${scale})`}>
       {pieces.map((piece, index) =>
         piece.square ? (
           <rect
@@ -156,6 +283,7 @@ function Confetti() {
 }
 
 export function PracticeCoach({
+  character = "sprout",
   mood,
   message,
   bubbleVisible,
@@ -168,6 +296,7 @@ export function PracticeCoach({
   onToggleAnswer,
   onDismiss,
 }: {
+  character?: CoachCharacter;
   mood: CoachMood;
   message: string;
   bubbleVisible: boolean;
@@ -230,7 +359,7 @@ export function PracticeCoach({
         key={`sprout-${checkCount}`}
         className="h-20 w-16 shrink-0 sm:h-28 sm:w-24"
       >
-        <Sprout mood={busy ? "thinking" : mood} />
+        <CoachAvatar character={character} mood={busy ? "thinking" : mood} />
       </div>
     </div>
   );

@@ -30,6 +30,7 @@
       <dependency identifierref="IMG-MARS"/>
       <dependency identifierref="IMG-NEPTUNE"/>
       <dependency identifierref="IMG-JUPITER"/>
+      <dependency identifierref="CSS-SPACE"/>
     </resource>
     <resource identifier="solar-02" type="imsqti_item_xmlv3p0" href="item-02.xml">
       <file href="item-02.xml"/>
@@ -89,6 +90,9 @@
     </resource>
     <resource identifier="IMG-DAY-NIGHT" type="webcontent" href="images/day-night.svg">
       <file href="images/day-night.svg"/>
+    </resource>
+    <resource identifier="CSS-SPACE" type="webcontent" href="space.css">
+      <file href="space.css"/>
     </resource>
   </resources>
 </manifest>

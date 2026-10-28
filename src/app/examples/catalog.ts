@@ -7,7 +7,7 @@
  * example exercises exactly what a user's own package would.
  */
 import type { AssessmentLayoutMode } from "../qti/layout-mode";
-import type { PlayerMode } from "../qti/session-options";
+import type { CoachCharacter, PlayerMode } from "../qti/session-options";
 
 export type ExamplePackage = {
   id: string;
@@ -24,6 +24,8 @@ export type ExamplePackage = {
   layout: AssessmentLayoutMode;
   /** Practice mode brings the coach; left out, the example plays as a test. */
   mode?: PlayerMode;
+  /** Who coaches in practice mode; Sprout when left out. */
+  coach?: CoachCharacter;
   /** How the test is presented, in words, for the card. */
   presentation: string;
 };
@@ -47,6 +49,7 @@ export const EXAMPLE_PACKAGES: ExamplePackage[] = [
     ],
     layout: "classic",
     mode: "practice",
+    coach: "martian",
     presentation: "One question per screen, with a practice coach",
   },
   {
