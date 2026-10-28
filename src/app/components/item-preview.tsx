@@ -247,7 +247,7 @@ export const ItemPreview: React.FC<ItemPreviewProps> = memo(
           }
 
           // Resolve relative asset URLs (images, object data, etc) against the item location.
-          // In the assessment flow, qti-components resolves these via item/test base URLs; in the /package
+          // In the assessment flow, qti-components resolves these via item/test base URLs; in the /assessment-player
           // grid preview we need to do it ourselves to avoid broken images.
           if (packageRootUrl && itemDirUrl) {
             transformer.fnCh(($) => {

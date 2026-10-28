@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="560" viewBox="0 0 560 560" role="img" aria-label="Letters, open books, seagulls and stars">
+  <g fill="#ffffff">
+    <circle cx="455.2" cy="451.6" r="1.8" opacity="0.3"/>
+    <circle cx="422.9" cy="537.8" r="0.9" opacity="0.4"/>
+    <circle cx="384.9" cy="162.4" r="1.7" opacity="0.6"/>
+    <circle cx="479.5" cy="95.3" r="1.5" opacity="0.5"/>
+    <circle cx="469.2" cy="366.9" r="1" opacity="0.5"/>
+    <circle cx="453.2" cy="261.9" r="1.6" opacity="0.3"/>
+    <circle cx="29.3" cy="133" r="1.6" opacity="0.5"/>
+    <circle cx="113.1" cy="18.8" r="1.4" opacity="0.6"/>
+    <circle cx="322.5" cy="450.9" r="1.1" opacity="0.3"/>
+    <circle cx="119.7" cy="314.2" r="1.5" opacity="0.5"/>
+    <circle cx="257.9" cy="217.6" r="1.4" opacity="0.5"/>
+    <circle cx="279.8" cy="140.1" r="1.5" opacity="0.3"/>
+    <circle cx="391.4" cy="428.9" r="1.5" opacity="0.6"/>
+    <circle cx="169" cy="145.5" r="1.6" opacity="0.5"/>
+    <circle cx="342.5" cy="308.3" r="1.4" opacity="0.3"/>
+    <circle cx="520.1" cy="317.5" r="1.4" opacity="0.5"/>
+    <circle cx="179.3" cy="334.9" r="1.2" opacity="0.3"/>
+    <circle cx="320.3" cy="354.4" r="1.7" opacity="0.5"/>
+    <circle cx="319" cy="94.5" r="1.8" opacity="0.4"/>
+    <circle cx="120.4" cy="70.8" r="1.5" opacity="0.6"/>
+    <circle cx="224.2" cy="74.8" r="1.4" opacity="0.5"/>
+    <circle cx="56.1" cy="353.6" r="1" opacity="0.3"/>
+    <circle cx="60.5" cy="466.5" r="1.2" opacity="0.4"/>
+    <circle cx="275.8" cy="481.1" r="0.8" opacity="0.5"/>
+    <circle cx="381" cy="72.1" r="1.6" opacity="0.6"/>
+    <circle cx="536" cy="165.2" r="0.9" opacity="0.4"/>
+  </g>
+  <g fill="#ffffff" fill-opacity="0.22" font-family="Georgia, 'Times New Roman', serif" font-weight="700" text-anchor="middle">
+    <text x="90" y="110" font-size="44">Aa</text>
+    <text x="400" y="80" font-size="40">“</text>
+    <text x="300" y="300" font-size="36">b</text>
+    <text x="470" y="400" font-size="40">?</text>
+    <text x="120" y="440" font-size="34">c</text>
+    <text x="240" y="510" font-size="38">”</text>
+  </g>
+  <g fill="#fff4b8" fill-opacity="0.18" stroke="#fff4b8" stroke-opacity="0.4" stroke-width="2" stroke-linejoin="round">
+    <g transform="translate(250 150)"><path d="M0 0 Q-14 -6 -28 -2 V16 Q-14 12 0 18 Q14 12 28 16 V-2 Q14 -6 0 0 Z"/><path d="M0 0 V18"/></g>
+    <g transform="translate(460 250)"><path d="M0 0 Q-14 -6 -28 -2 V16 Q-14 12 0 18 Q14 12 28 16 V-2 Q14 -6 0 0 Z"/><path d="M0 0 V18"/></g>
+    <g transform="translate(60 280)"><path d="M0 0 Q-14 -6 -28 -2 V16 Q-14 12 0 18 Q14 12 28 16 V-2 Q14 -6 0 0 Z"/><path d="M0 0 V18"/></g>
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.45" stroke-width="2.5" stroke-linecap="round">
+    <path d="M168 210 Q174 203 180 210 Q186 203 192 210"/>
+    <path d="M341 200 Q345.5 194.75 350 200 Q354.5 194.75 359 200"/>
+    <path d="M378 500 Q384 493 390 500 Q396 493 402 500"/>
+    <path d="M492.8 140 Q496.4 135.8 500 140 Q503.6 135.8 507.2 140"/>
+  </g>
+</svg>

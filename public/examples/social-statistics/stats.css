@@ -1,0 +1,94 @@
+/*
+ * The statistics exam: output tables that read like a stats package's, a
+ * callout for formulas, and a little room for the inline choices that sit in
+ * running sentences.
+ */
+.stats-kicker {
+  margin-top: -0.5em;
+  font-size: 0.85em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4f46e5;
+}
+
+.stats-note {
+  font-size: 0.85em;
+  color: #64748b;
+}
+
+.stats-sentence {
+  line-height: 2.4;
+}
+
+.stats-formula {
+  margin: 1em 0;
+  padding: 0.25em 1.25em;
+  border-left: 4px solid #4f46e5;
+  border-radius: 0 12px 12px 0;
+  background: #eef2ff;
+}
+
+.stats-formula math {
+  font-size: 1.15em;
+}
+
+/* Output tables: hairlines only, numbers right-aligned, like SPSS or R output. */
+table.stats-output {
+  width: auto;
+  margin: 1em 0 1.5em;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+table.stats-output caption {
+  padding-bottom: 0.5em;
+  text-align: left;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+table.stats-output th,
+table.stats-output td {
+  padding: 0.45em 0.9em;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: right;
+  vertical-align: middle;
+}
+
+table.stats-output thead th {
+  border-bottom: 2px solid #1e293b;
+  font-size: 0.85em;
+  color: #475569;
+}
+
+table.stats-output thead th:first-child,
+table.stats-output th[scope="row"] {
+  text-align: left;
+  font-weight: 600;
+}
+
+table.stats-output tfoot td {
+  border-bottom: none;
+  padding-top: 0.6em;
+  text-align: left;
+  font-size: 0.9em;
+  color: #475569;
+}
+
+/* Scatterplots to put in order: picture on top, its name underneath. */
+.stats-plot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25em;
+}
+
+.stats-plot img {
+  display: block;
+  border-radius: 8px;
+}
+
+.stats-plot-label {
+  font-weight: 600;
+}

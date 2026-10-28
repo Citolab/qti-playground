@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="stats-05" title="Ranking correlations" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="ordered" base-type="identifier">
+    <qti-correct-response>
+      <qti-value>S2</qti-value>
+      <qti-value>S4</qti-value>
+      <qti-value>S1</qti-value>
+      <qti-value>S3</qti-value>
+    </qti-correct-response>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>1</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-stylesheet href="stats.css" type="text/css"/>
+  <qti-item-body>
+    <p>The Pearson correlation <em>r</em> runs from −1 (a perfect negative linear relation) through 0 (no linear relation) to +1 (a perfect positive linear relation).</p>
+    <qti-order-interaction response-identifier="RESPONSE" shuffle="false" orientation="horizontal" class="stats-plots">
+      <qti-prompt>Put the scatterplots in order of their correlation, from the <strong>most negative</strong> to the <strong>most positive</strong>.</qti-prompt>
+      <qti-simple-choice identifier="S1"><span class="stats-plot"><img src="images/scatter-c.svg" width="160" height="120" alt="Plot 1: thirty points that only loosely follow a line that rises from left to right."/><span class="stats-plot-label">Plot 1</span></span></qti-simple-choice>
+      <qti-simple-choice identifier="S2"><span class="stats-plot"><img src="images/scatter-a.svg" width="160" height="120" alt="Plot 2: thirty points that tightly follow a line that falls from left to right."/><span class="stats-plot-label">Plot 2</span></span></qti-simple-choice>
+      <qti-simple-choice identifier="S3"><span class="stats-plot"><img src="images/scatter-d.svg" width="160" height="120" alt="Plot 3: thirty points that tightly follow a line that rises from left to right."/><span class="stats-plot-label">Plot 3</span></span></qti-simple-choice>
+      <qti-simple-choice identifier="S4"><span class="stats-plot"><img src="images/scatter-b.svg" width="160" height="120" alt="Plot 4: thirty points that only loosely follow a line that falls from left to right."/><span class="stats-plot-label">Plot 4</span></span></qti-simple-choice>
+    </qti-order-interaction>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/match_correct.xml"/>
+</qti-assessment-item>

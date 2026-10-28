@@ -1,26 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  ChevronDown,
-  FlaskConical,
-  LibraryBig,
   Menu,
   PenLine,
   Play,
-  Repeat,
-  Code2,
-  PackageOpen,
+  Wrench,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { CitolabLogo } from "./components/citolab-logo";
 import { GithubMark } from "./components/github-mark";
@@ -35,131 +22,57 @@ type NavItem = {
 };
 
 /**
- * The three things the playground is for. Everything else is a tool you reach
- * for once you know you need it, and lives in the Tools menu.
+ * The two things the playground is for, plus Tools: everything you reach for
+ * once you know you need it. The Tools page lists them, together with the
+ * libraries and CLIs that live outside the playground.
  */
 const primaryNavigation: NavItem[] = [
-  { name: "Examples", href: "/examples", icon: LibraryBig, matches: ["/examples"] },
   {
-    name: "Player",
-    href: "/package",
+    name: "Assessment player",
+    href: "/assessment-player",
     icon: Play,
-    matches: ["/package", "/assessment"],
+    matches: ["/assessment-player", "/assessment"],
   },
   { name: "Editor", href: "/edit", icon: PenLine, matches: ["/edit", "/preview"] },
-];
-
-type ToolItem = {
-  name: string;
-  description: string;
-  href: string;
-  icon: LucideIcon;
-};
-
-const tools: ToolItem[] = [
   {
-    name: "Convert & modify package",
-    description: "QTI 2.x ⇄ 3, strip media, pick items, export to Word or PDF",
-    href: "/modify",
-    icon: PackageOpen,
-  },
-  {
-    name: "Convert item",
-    description: "Paste one item and convert between QTI 2.x and QTI 3",
-    href: "/convert",
-    icon: Repeat,
-  },
-  {
-    name: "XML preview",
-    description: "Hand-edit QTI 3 XML next to a live player",
-    href: "/preview",
-    icon: Code2,
+    name: "Tools",
+    href: "/tools",
+    icon: Wrench,
+    matches: ["/tools", "/modify", "/convert", "/ai-convert"],
   },
 ];
 
 /**
- * Kept apart from the tools above on purpose: the local-model import is a
- * best-effort experiment, and should read as one.
+ * The browser tab title per route, which is also what search results show. The
+ * player's says "assessment player" because that is what people search for.
  */
-const labs: ToolItem[] = [
-  {
-    name: "Local AI import",
-    description: "Turn PDF, Word or Excel into QTI with an in-browser model",
-    href: "/ai-convert",
-    icon: FlaskConical,
-  },
+const SITE_TITLE = "QTI Playground";
+const pageTitles: { prefix: string; title: string }[] = [
+  { prefix: "/assessment-player", title: "QTI assessment player" },
+  { prefix: "/assessment", title: "QTI assessment player" },
+  { prefix: "/edit", title: "QTI item editor" },
+  { prefix: "/preview", title: "QTI XML editor" },
+  { prefix: "/tools", title: "QTI tools" },
+  { prefix: "/modify", title: "Modify a QTI package" },
+  { prefix: "/convert", title: "Convert QTI 2.x to QTI 3" },
+  { prefix: "/ai-convert", title: "Convert documents to QTI" },
 ];
+
+function useDocumentTitle(pathname: string) {
+  useEffect(() => {
+    const page = pageTitles.find(
+      ({ prefix }) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    );
+    document.title = page
+      ? `${page.title} · ${SITE_TITLE}`
+      : `${SITE_TITLE} · Open-source QTI 3 assessment player and editor`;
+  }, [pathname]);
+}
 
 const isActive = (pathname: string, item: NavItem) =>
   item.matches.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
-
-function ToolsMenu({ pathname }: { pathname: string }) {
-  const toolActive = [...tools, ...labs].some((tool) => tool.href === pathname);
-
-  return (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger
-        className={cn(
-          "inline-flex h-9 items-center gap-1 rounded-full px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-citolab-600",
-          toolActive
-            ? "text-citolab-700"
-            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
-        )}
-      >
-        Tools
-        <ChevronDown className="h-3.5 w-3.5" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8} className="w-80 p-1.5">
-        {tools.map((tool) => (
-          <ToolMenuItem key={tool.href} tool={tool} />
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel className="px-2 pb-0.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-          Labs
-        </DropdownMenuLabel>
-        {labs.map((tool) => (
-          <ToolMenuItem key={tool.href} tool={tool} experimental />
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function ToolMenuItem({
-  tool,
-  experimental = false,
-}: {
-  tool: ToolItem;
-  experimental?: boolean;
-}) {
-  return (
-    <DropdownMenuItem asChild className="cursor-pointer items-start gap-3 rounded-md p-2">
-      <Link to={tool.href}>
-        <tool.icon
-          className={cn(
-            "mt-0.5 h-4 w-4 shrink-0",
-            experimental ? "text-gray-400" : "text-citolab-600",
-          )}
-        />
-        <span className="min-w-0">
-          <span className="flex items-center gap-2 text-sm font-medium text-gray-900">
-            {tool.name}
-            {experimental ? (
-              <span className="rounded bg-gray-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                Experimental
-              </span>
-            ) : null}
-          </span>
-          <span className="block text-xs leading-snug text-gray-500">
-            {tool.description}
-          </span>
-        </span>
-      </Link>
-    </DropdownMenuItem>
-  );
-}
 
 function MobileMenu({
   pathname,
@@ -192,27 +105,6 @@ function MobileMenu({
             </Link>
           ))}
         </div>
-        <div>
-          <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-            Tools
-          </p>
-          {[...tools, ...labs].map((tool) => (
-            <Link
-              key={tool.href}
-              to={tool.href}
-              onClick={onNavigate}
-              className={linkClass(pathname === tool.href)}
-            >
-              <tool.icon className="h-4 w-4 text-gray-400" />
-              {tool.name}
-              {labs.includes(tool) ? (
-                <span className="rounded bg-gray-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                  Experimental
-                </span>
-              ) : null}
-            </Link>
-          ))}
-        </div>
         <a
           href="https://github.com/Citolab"
           target="_blank"
@@ -231,6 +123,7 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
+  useDocumentTitle(pathname);
   const fullScreen = searchParams.get("full")?.toLocaleLowerCase() === "true";
 
   return (
@@ -265,13 +158,14 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
                     to={item.href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-medium transition-colors",
+                      "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-full px-3.5 text-sm font-medium transition-colors",
                       active
                         ? "bg-citolab-600 text-white shadow-sm"
                         : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
                     )}
                   >
-                    <item.icon className="h-4 w-4" />
+                    {/* Below lg the labels alone only just fit next to the logo. */}
+                    <item.icon className="hidden h-4 w-4 lg:block" />
                     {item.name}
                   </Link>
                 );
@@ -279,7 +173,6 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
             </div>
 
             <div className="ml-auto hidden items-center gap-1 md:flex">
-              <ToolsMenu pathname={pathname} />
               <a
                 href="https://github.com/Citolab"
                 target="_blank"

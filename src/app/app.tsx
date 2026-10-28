@@ -32,11 +32,11 @@ const ModifyPackagePage = lazy(() =>
 const AiConvertPage = lazy(() =>
   import("./pages/ai-convert").then((m) => ({ default: m.AiConvertPage })),
 );
-const ExamplesPage = lazy(() =>
-  import("./pages/examples").then((m) => ({ default: m.ExamplesPage })),
-);
 const AssessmentPage = lazy(() =>
   import("./pages/assessment").then((m) => ({ default: m.AssessmentPage })),
+);
+const ToolsPage = lazy(() =>
+  import("./pages/tools").then((m) => ({ default: m.ToolsPage })),
 );
 const DevicePreview = lazy(() =>
   import("./pages/device-preview").then((m) => ({ default: m.DevicePreview })),
@@ -61,15 +61,17 @@ export function App() {
       <Suspense fallback={<LoadingIndicator />}>
         <Routes>
           <Route path="/landing" element={<LandingPage />} />
-          <Route path="/examples" element={<ExamplesPage />} />
-          <Route path="/package" element={<UploadPage />} />
-          <Route path="/player" element={<Navigate to="/package" replace />} />
-          <Route path="/upload" element={<Navigate to="/package" replace />} />
+          <Route path="/examples" element={<Navigate to="/assessment-player" replace />} />
+          <Route path="/assessment-player" element={<UploadPage />} />
+          <Route path="/package" element={<Navigate to="/assessment-player" replace />} />
+          <Route path="/player" element={<Navigate to="/assessment-player" replace />} />
+          <Route path="/upload" element={<Navigate to="/assessment-player" replace />} />
           <Route path="/convert" element={<ConvertPage />} />
           <Route path="/edit" element={<EditPage />} />
           <Route path="/preview" element={<PreviewPage />} />
           <Route path="/modify" element={<ModifyPackagePage />} />
           <Route path="/ai-convert" element={<AiConvertPage />} />
+          <Route path="/tools" element={<ToolsPage />} />
           <Route path="/assessment" element={<AssessmentRoute />} />
           <Route path="/assessment/:assessmentId" element={<AssessmentRoute />} />
           <Route path="/" element={<Navigate to="/landing" />} />

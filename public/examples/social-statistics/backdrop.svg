@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="480" viewBox="0 0 480 480" role="img" aria-label="Graph paper with statistical symbols">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0 H0 V40" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="1.5"/>
+    </pattern>
+  </defs>
+  <rect width="480" height="480" fill="url(#grid)"/>
+  <g fill="#ffffff" fill-opacity="0.18" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="34">
+    <text x="50" y="90">σ</text>
+    <text x="290" y="70">μ</text>
+    <text x="400" y="210">r</text>
+    <text x="170" y="250">Σ</text>
+    <text x="40" y="330">χ²</text>
+    <text x="320" y="430">H₀</text>
+    <text x="210" y="400">p</text>
+  </g>
+  <path d="M250 330 C280 328 300 270 330 270 C360 270 380 328 410 330" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3" stroke-linecap="round"/>
+  <g fill="#ffffff" fill-opacity="0.16">
+    <circle cx="90" cy="190" r="4"/><circle cx="106" cy="176" r="4"/><circle cx="122" cy="182" r="4"/><circle cx="138" cy="160" r="4"/><circle cx="154" cy="150" r="4"/>
+  </g>
+</svg>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="stats-04" title="The biggest residual" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="identifier">
+    <qti-correct-response>
+      <qti-value>P10</qti-value>
+    </qti-correct-response>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>1</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-stylesheet href="stats.css" type="text/css"/>
+  <qti-item-body>
+    <p>For 15 students, a researcher measured attention during a lecture and performance on the exam that followed. The line is the least-squares regression line; the dashed lines are the residuals.</p>
+    <qti-hotspot-interaction response-identifier="RESPONSE" max-choices="1">
+      <qti-prompt>Click the observation that contributes most to the residual sum of squares, <em>SSE</em>.</qti-prompt>
+      <img src="images/residuals.svg" width="520" height="362" alt="A scatterplot of Attention, from 0 to 50, against Performance, from 0 to 60, with fifteen observations and a fitted regression line rising from left to right. Dashed vertical lines connect each observation to the line. Most observations lie close to the line. One observation, at an attention score of 30, lies far below the line. Another, at about 38, lies somewhat above it."/>
+      <qti-hotspot-choice identifier="P01" shape="circle" coords="108,240,11"/>
+      <qti-hotspot-choice identifier="P02" shape="circle" coords="134,235,11"/>
+      <qti-hotspot-choice identifier="P03" shape="circle" coords="151,216,11"/>
+      <qti-hotspot-choice identifier="P04" shape="circle" coords="169,221,11"/>
+      <qti-hotspot-choice identifier="P05" shape="circle" coords="195,197,11"/>
+      <qti-hotspot-choice identifier="P06" shape="circle" coords="221,202,11"/>
+      <qti-hotspot-choice identifier="P07" shape="circle" coords="247,173,11"/>
+      <qti-hotspot-choice identifier="P08" shape="circle" coords="273,163,11"/>
+      <qti-hotspot-choice identifier="P09" shape="circle" coords="299,173,11"/>
+      <qti-hotspot-choice identifier="P10" shape="circle" coords="326,230,11"/>
+      <qti-hotspot-choice identifier="P11" shape="circle" coords="352,134,11"/>
+      <qti-hotspot-choice identifier="P12" shape="circle" coords="378,120,11"/>
+      <qti-hotspot-choice identifier="P13" shape="circle" coords="395,77,11"/>
+      <qti-hotspot-choice identifier="P14" shape="circle" coords="430,106,11"/>
+      <qti-hotspot-choice identifier="P15" shape="circle" coords="456,86,11"/>
+    </qti-hotspot-interaction>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/match_correct.xml"/>
+</qti-assessment-item>

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="336" height="84" viewBox="0 0 336 84">
+  <!-- Two turns of the planet side by side: sliding the image by half its width spins it once. -->
+  <defs>
+    <linearGradient id="cloud" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e6d6ad"/>
+      <stop offset="0.5" stop-color="#efd99c"/>
+      <stop offset="1" stop-color="#e3cfa2"/>
+    </linearGradient>
+    <filter id="swirl" x="0" y="0" width="336" height="84" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.0357 0.095" numOctaves="4" seed="21" stitchTiles="stitch" x="0" y="0" width="168" height="84"/>
+      <feTile x="0" y="0" width="336" height="84" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="14" xChannelSelector="R" yChannelSelector="B" result="warped"/>
+      <feGaussianBlur in="warped" stdDeviation="1.6" result="soft"/>
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0.62  0 0 0 0 0.48  0 0 0 0 0.24  1.1 0 0 0 -0.5" result="dark"/>
+      <feMerge>
+        <feMergeNode in="soft"/>
+        <feMergeNode in="dark"/>
+      </feMerge>
+    </filter>
+    <g id="surface" fill="none" stroke-linecap="round">
+      <!-- the sideways Y the cloud tops make, opening westwards -->
+      <path d="M8 18 q30 10 44 24 q-14 14 -44 24" stroke="#bb9450" stroke-width="5" opacity="0.7"/>
+      <path d="M52 42 h40" stroke="#c4a160" stroke-width="4" opacity="0.55"/>
+      <path d="M20 26 q20 8 28 16 q-8 8 -28 16" stroke="#f9ecc8" stroke-width="3" opacity="0.7"/>
+      <path d="M100 14 q26 12 40 28 q-14 16 -40 28" stroke="#cfae6e" stroke-width="4" opacity="0.5"/>
+      <path d="M118 30 q10 6 14 12 q-4 6 -14 12" stroke="#fbf0d2" stroke-width="2.5" opacity="0.7"/>
+      <path d="M0 8 h168" stroke="#d3b67c" stroke-width="3" opacity="0.5"/>
+      <path d="M0 76 h168" stroke="#d3b67c" stroke-width="3" opacity="0.5"/>
+    </g>
+  </defs>
+  <rect width="336" height="84" fill="#e9d6a4"/>
+  <g filter="url(#swirl)">
+    <rect x="-20" y="-12" width="376" height="108" fill="url(#cloud)"/>
+    <use href="#surface" x="-168"/>
+    <use href="#surface"/>
+    <use href="#surface" x="168"/>
+    <use href="#surface" x="336"/>
+  </g>
+</svg>

@@ -311,7 +311,10 @@ export function PracticeCoach({
   onDismiss: () => void;
 }) {
   return (
-    <div className="pointer-events-none absolute right-3 bottom-3 z-30 flex max-w-[calc(100%-1.5rem)] items-end gap-2 sm:right-6 sm:bottom-6">
+    <div
+      data-tour="practice-coach"
+      className="pointer-events-none absolute right-3 bottom-3 z-30 flex max-w-[calc(100%-1.5rem)] items-end gap-2 sm:right-6 sm:bottom-6"
+    >
       <div className="flex min-w-0 flex-col items-end gap-2">
         {bubbleVisible ? (
           <div

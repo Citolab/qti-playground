@@ -79,7 +79,7 @@ const FILE_EXPLANATION_STEPS = [
     icon: FileArchive,
     title: "We build a downloadable QTI package",
     description:
-      "Generated items are assembled into a QTI3 ZIP so you can download it or open it immediately in the player.",
+      "Generated items are assembled into a QTI3 ZIP so you can download it or open it immediately in the assessment player.",
   },
 ];
 
@@ -497,7 +497,7 @@ export const AiConvertPage: React.FC = () => {
       setUploadProgress(100);
       const firstAssessmentId = result.assessments?.[0]?.id;
       navigate(
-        firstAssessmentId ? `/assessment/${firstAssessmentId}` : "/package",
+        firstAssessmentId ? `/assessment/${firstAssessmentId}` : "/assessment-player",
       );
     } catch (caughtError) {
       console.error(caughtError);

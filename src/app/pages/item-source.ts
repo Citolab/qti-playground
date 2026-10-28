@@ -64,6 +64,7 @@ const example = (
 const SOLAR = "Journey Through the Solar System";
 const MATHS = "Everyday Maths";
 const READING = "Reading Lab";
+const STATS = "Statistics for the Social Sciences";
 
 const EXAMPLES: ExampleItem[] = [
   example(SOLAR, "solar-system", "item-01.xml", "The Red Planet", "qti-choice-interaction"),
@@ -85,11 +86,21 @@ const EXAMPLES: ExampleItem[] = [
   example(READING, "reading-lab", "item-04.xml", "Reading the dance", "qti-choice-interaction"),
   example(READING, "reading-lab", "item-05.xml", "Find the evidence", "qti-hottext-interaction"),
   example(READING, "reading-lab", "item-06.xml", "Dance like a bee", "qti-extended-text-interaction"),
+  example(STATS, "social-statistics", "item-01.xml", "Reading boxplots", "qti-inline-choice-interaction"),
+  example(STATS, "social-statistics", "item-02.xml", "Muffins and the standard deviation", "qti-text-entry-interaction"),
+  example(STATS, "social-statistics", "item-03.xml", "IQ and the normal curve", "qti-match-interaction"),
+  example(STATS, "social-statistics", "item-04.xml", "The biggest residual", "qti-hotspot-interaction"),
+  example(STATS, "social-statistics", "item-05.xml", "Ranking correlations", "qti-order-interaction"),
+  example(STATS, "social-statistics", "item-06.xml", "Police, crime and population", "qti-graphic-gap-match-interaction"),
+  example(STATS, "social-statistics", "item-07.xml", "Letter to the editor", "qti-extended-text-interaction"),
+  example(STATS, "social-statistics", "item-08.xml", "Complete the ANOVA table", "qti-text-entry-interaction"),
+  example(STATS, "social-statistics", "item-09.xml", "Type I or Type II?", "qti-match-interaction"),
+  example(STATS, "social-statistics", "item-10.xml", "Skewed data, normal means", "qti-choice-interaction"),
 ];
 
 /** Examples grouped by the package they come from, in the shape `Dropdown` takes. */
 export const groupExamples = (items: ExampleItem[]) =>
-  [SOLAR, MATHS, READING]
+  [SOLAR, MATHS, READING, STATS]
     .map((group) => ({
       name: group,
       items: items.filter((item) => item.group === group),

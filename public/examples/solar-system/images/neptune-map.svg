@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="336" height="84" viewBox="0 0 336 84">
+  <!-- Two turns of the planet side by side: sliding the image by half its width spins it once. -->
+  <defs>
+    <linearGradient id="deep" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22418f"/>
+      <stop offset="0.3" stop-color="#3563c9"/>
+      <stop offset="0.5" stop-color="#4a7ce0"/>
+      <stop offset="0.72" stop-color="#3563c9"/>
+      <stop offset="1" stop-color="#1f3b86"/>
+    </linearGradient>
+    <filter id="haze" x="0" y="0" width="336" height="84" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.0238 0.14" numOctaves="4" seed="4" stitchTiles="stitch" x="0" y="0" width="168" height="84"/>
+      <feTile x="0" y="0" width="336" height="84" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G" result="warped"/>
+      <feGaussianBlur in="warped" stdDeviation="0.6" result="soft"/>
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0.05  0 0 0 0 0.12  0 0 0 0 0.35  1 0 0 0 -0.45" result="dark"/>
+      <feMerge>
+        <feMergeNode in="soft"/>
+        <feMergeNode in="dark"/>
+      </feMerge>
+    </filter>
+    <g id="surface">
+      <!-- the Great Dark Spot with its bright companion cloud -->
+      <ellipse cx="34" cy="53" rx="10" ry="5.5" fill="#152d6e"/>
+      <ellipse cx="35" cy="52.6" rx="6" ry="3" fill="#1d3a85"/>
+      <ellipse cx="36" cy="60" rx="7" ry="1.6" fill="#eef4ff" opacity="0.85"/>
+      <ellipse cx="22" cy="48.6" rx="5" ry="1" fill="#dfeaff" opacity="0.7"/>
+      <!-- high methane streaks -->
+      <g fill="#f4f8ff">
+        <ellipse cx="74" cy="25" rx="16" ry="1.1" opacity="0.8"/>
+        <ellipse cx="90" cy="28.5" rx="10" ry="0.8" opacity="0.6"/>
+        <ellipse cx="138" cy="22" rx="12" ry="1" opacity="0.7"/>
+        <ellipse cx="120" cy="64" rx="5" ry="1.8" opacity="0.85"/>
+        <ellipse cx="150" cy="70" rx="9" ry="0.9" opacity="0.6"/>
+      </g>
+      <!-- the small dark spot -->
+      <ellipse cx="100" cy="70" rx="4" ry="2.2" fill="#18326f"/>
+      <ellipse cx="100.5" cy="69.8" rx="1.4" ry="0.8" fill="#dfeaff" opacity="0.8"/>
+    </g>
+  </defs>
+  <rect width="336" height="84" fill="#3563c9"/>
+  <g filter="url(#haze)">
+    <rect x="-20" y="-12" width="376" height="108" fill="url(#deep)"/>
+    <rect x="-20" y="16" width="376" height="3" fill="#5b8cec" opacity="0.5"/>
+    <rect x="-20" y="34" width="376" height="2" fill="#2c55b4" opacity="0.6"/>
+    <rect x="-20" y="66" width="376" height="3" fill="#2a4ea8" opacity="0.6"/>
+    <use href="#surface" x="-168"/>
+    <use href="#surface"/>
+    <use href="#surface" x="168"/>
+    <use href="#surface" x="336"/>
+  </g>
+</svg>

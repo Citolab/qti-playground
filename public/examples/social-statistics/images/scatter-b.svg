@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120" viewBox="0 0 160 120" role="img" aria-label="Scatterplot B: thirty points that only loosely follow a line that falls from left to right.">
+  <rect width="160" height="120" rx="12" fill="#ffffff"/>
+  <rect x="10" y="10" width="140" height="100" fill="none" stroke="#e2e8f0"/>
+  <circle cx="93" cy="72.4" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="109.8" cy="80.3" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="113.1" cy="72.3" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="89.9" cy="75.1" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="133" cy="69.4" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="96.8" cy="96" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="59.8" cy="62.9" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="100.3" cy="57.5" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="64.8" cy="64.7" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="64.9" cy="28.9" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="95.2" cy="33.6" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="118.2" cy="40.2" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="55.5" cy="51.6" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="91.6" cy="56.4" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="72.1" cy="50.1" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="86.1" cy="61" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="123.8" cy="63.6" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="91.2" cy="72" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="87.8" cy="64.8" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="96.6" cy="80.5" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="32.2" cy="46.4" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="79.7" cy="57.9" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="91.7" cy="72.5" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="57.1" cy="49.1" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="102.1" cy="68.7" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="92.1" cy="54.7" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="111.8" cy="68" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="85" cy="56.8" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="125.1" cy="44.2" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+  <circle cx="53.6" cy="39.5" r="3.6" fill="#4f46e5" fill-opacity="0.75"/>
+</svg>

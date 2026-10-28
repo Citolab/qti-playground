@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="stats-07" title="Letter to the editor" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string"/>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-stylesheet href="stats.css" type="text/css"/>
+  <qti-item-body>
+    <p>The student newspaper ran this story about a survey among 400 students.</p>
+    <p class="qti-align-center">
+      <img src="images/headline.svg" width="520" height="300" alt="A newspaper clipping from The Campus Courier. The headline reads: Coffee makes students smarter, study proves. The subheading reads: Students who drink more coffee get higher grades, r = .32, n = 400, p &lt; .001. Next to the text is a small scatterplot of cups of coffee per day against exam grade, with a rising trend line."/>
+    </p>
+    <qti-extended-text-interaction response-identifier="RESPONSE" expected-lines="6" expected-length="600" placeholder-text="Dear editor, ...">
+      <qti-prompt>Write a short letter to the editor (three to five sentences). Explain why this survey does not prove that coffee makes students smarter, and give at least one other explanation for the correlation.</qti-prompt>
+    </qti-extended-text-interaction>
+  </qti-item-body>
+</qti-assessment-item>

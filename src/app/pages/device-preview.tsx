@@ -91,7 +91,7 @@ export function DevicePreview() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate("/package")}
+          onClick={() => navigate("/assessment-player")}
           title="Back"
           className="text-gray-600 hover:text-gray-900"
         >

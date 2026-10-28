@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450" role="img" aria-label="A histogram with a bell curve over it, a scatterplot with a regression line and a boxplot, with statistical symbols, on a dark indigo background">
+  <title>Statistics for the Social Sciences</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3730a3"/>
+      <stop offset="1" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0 H0 V40" fill="none" stroke="#ffffff" stroke-opacity="0.07" stroke-width="1.5"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="450" fill="url(#bg)"/>
+  <rect width="800" height="450" fill="url(#grid)"/>
+
+  <!-- symbols -->
+  <g fill="#ffffff" fill-opacity="0.22" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="40">
+    <text x="60" y="80">σ</text>
+    <text x="700" y="96">μ</text>
+    <text x="620" y="410">r</text>
+    <text x="40" y="400">Σ</text>
+    <text x="360" y="64">H₀</text>
+  </g>
+
+  <!-- histogram with bell curve -->
+  <g transform="translate(70 120)">
+    <g fill="#14b8a6">
+      <rect x="0" y="230" width="34" height="30" rx="3" fill-opacity="0.55"/>
+      <rect x="38" y="190" width="34" height="70" rx="3" fill-opacity="0.65"/>
+      <rect x="76" y="128" width="34" height="132" rx="3" fill-opacity="0.75"/>
+      <rect x="114" y="86" width="34" height="174" rx="3" fill-opacity="0.85"/>
+      <rect x="152" y="96" width="34" height="164" rx="3" fill-opacity="0.85"/>
+      <rect x="190" y="142" width="34" height="118" rx="3" fill-opacity="0.75"/>
+      <rect x="228" y="196" width="34" height="64" rx="3" fill-opacity="0.65"/>
+      <rect x="266" y="234" width="34" height="26" rx="3" fill-opacity="0.55"/>
+    </g>
+    <path d="M232 260 L232 196 C252 222 270 246 300 256 L300 260 Z" fill="#fbbf24" fill-opacity="0.85"/>
+    <path d="M-10 258 C40 254 90 70 150 70 C210 70 260 254 310 258" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+    <line x1="-14" y1="262" x2="314" y2="262" stroke="#ffffff" stroke-opacity="0.8" stroke-width="3" stroke-linecap="round"/>
+    <text x="262" y="186" font-family="Georgia, 'Times New Roman', serif" font-size="26" font-style="italic" font-weight="700" fill="#fbbf24">p</text>
+  </g>
+
+  <!-- scatterplot card -->
+  <g transform="translate(450 70) rotate(4)">
+    <rect width="270" height="200" rx="18" fill="#ffffff"/>
+    <g fill="#4f46e5" fill-opacity="0.8">
+      <circle cx="40" cy="160" r="6"/><circle cx="58" cy="140" r="6"/><circle cx="74" cy="152" r="6"/>
+      <circle cx="92" cy="122" r="6"/><circle cx="110" cy="128" r="6"/><circle cx="126" cy="100" r="6"/>
+      <circle cx="144" cy="108" r="6"/><circle cx="160" cy="80" r="6"/><circle cx="178" cy="88" r="6"/>
+      <circle cx="196" cy="62" r="6"/><circle cx="214" cy="70" r="6"/><circle cx="232" cy="44" r="6"/>
+    </g>
+    <circle cx="150" cy="170" r="7" fill="#e11d48"/>
+    <line x1="150" y1="164" x2="150" y2="102" stroke="#e11d48" stroke-width="2.5" stroke-dasharray="5 4"/>
+    <line x1="28" y1="168" x2="246" y2="38" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
+  </g>
+
+  <!-- boxplot card -->
+  <g transform="translate(470 300) rotate(-3)">
+    <rect width="250" height="96" rx="18" fill="#ffffff"/>
+    <g stroke="#0d9488" stroke-width="4" stroke-linecap="round">
+      <line x1="26" y1="48" x2="86" y2="48"/>
+      <line x1="170" y1="48" x2="224" y2="48"/>
+      <line x1="26" y1="34" x2="26" y2="62"/>
+      <line x1="224" y1="34" x2="224" y2="62"/>
+      <rect x="86" y="24" width="84" height="48" rx="6" fill="#0d9488" fill-opacity="0.18"/>
+      <line x1="118" y1="24" x2="118" y2="72" stroke-width="6"/>
+    </g>
+  </g>
+</svg>

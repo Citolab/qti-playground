@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest xmlns="http://www.imsglobal.org/xsd/qti/qtiv3p0/imscp_v1p1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/qti/qtiv3p0/imscp_v1p1 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqtiv3p0_imscpv1p2_v1p0.xsd"
+  identifier="MANIFEST-social-statistics">
+  <metadata>
+    <schema>QTI Package</schema>
+    <schemaversion>3.0.0</schemaversion>
+  </metadata>
+  <organizations/>
+  <resources>
+    <resource identifier="TEST" type="imsqti_test_xmlv3p0" href="test.xml">
+      <file href="test.xml"/>
+      <dependency identifierref="stats-intro"/>
+      <dependency identifierref="stats-01"/>
+      <dependency identifierref="stats-02"/>
+      <dependency identifierref="stats-03"/>
+      <dependency identifierref="stats-04"/>
+      <dependency identifierref="stats-05"/>
+      <dependency identifierref="stats-06"/>
+      <dependency identifierref="stats-07"/>
+      <dependency identifierref="stats-08"/>
+      <dependency identifierref="stats-09"/>
+      <dependency identifierref="stats-10"/>
+    </resource>
+    <resource identifier="stats-intro" type="imsqti_item_xmlv3p0" href="intro.xml">
+      <file href="intro.xml"/>
+      <dependency identifierref="CSS-STATS"/>
+      <dependency identifierref="IMG-STATS-INTRO"/>
+    </resource>
+    <resource identifier="stats-01" type="imsqti_item_xmlv3p0" href="item-01.xml">
+      <file href="item-01.xml"/>
+      <dependency identifierref="CSS-STATS"/>
+      <dependency identifierref="IMG-BOXPLOTS"/>
+    </resource>
+    <resource identifier="stats-02" type="imsqti_item_xmlv3p0" href="item-02.xml">
+      <file href="item-02.xml"/>
+      <dependency identifierref="CSS-STATS"/>
+      <dependency identifierref="IMG-MUFFINS"/>
+    </resource>
+    <resource identifier="stats-03" type="imsqti_item_xmlv3p0" href="item-03.xml">
+      <file href="item-03.xml"/>
+      <dependency identifierref="CSS-STATS"/>
+      <dependency identifierref="IMG-IQ-CURVE"/>
+    </resource>
+    <resource identifier="stats-04" type="imsqti_item_xmlv3p0" href="item-04.xml">
+      <file href="item-04.xml"/>
+      <dependency identifierref="CSS-STATS"/>
+      <dependency identifierref="IMG-RESIDUALS"/>
+    </resource>
+    <resource identifier="stats-05" type="imsqti_item_xmlv3p0" href="item-05.xml">
+      <file href="item-05.xml"/>
+      <dependency identifierref="CSS-STATS"/>
+      <dependency identifierref="IMG-SCATTER-A"/>
+      <dependency identifierref="IMG-SCATTER-B"/>
+      <dependency identifierref="IMG-SCATTER-C"/>
+      <dependency identifierref="IMG-SCATTER-D"/>
+    </resource>
+    <resource identifier="stats-06" type="imsqti_item_xmlv3p0" href="item-06.xml">
+      <file href="item-06.xml"/>
+      <dependency identifierref="CSS-STATS"/>
+      <dependency identifierref="IMG-PATH-DIAGRAM"/>
+    </resource>
+    <resource identifier="stats-07" type="imsqti_item_xmlv3p0" href="item-07.xml">
+      <file href="item-07.xml"/>
+      <dependency identifierref="CSS-STATS"/>
+      <dependency identifierref="IMG-HEADLINE"/>
+    </resource>
+    <resource identifier="stats-08" type="imsqti_item_xmlv3p0" href="item-08.xml">
+      <file href="item-08.xml"/>
+      <dependency identifierref="CSS-STATS"/>
+    </resource>
+    <resource identifier="stats-09" type="imsqti_item_xmlv3p0" href="item-09.xml">
+      <file href="item-09.xml"/>
+      <dependency identifierref="CSS-STATS"/>
+    </resource>
+    <resource identifier="stats-10" type="imsqti_item_xmlv3p0" href="item-10.xml">
+      <file href="item-10.xml"/>
+      <dependency identifierref="CSS-STATS"/>
+      <dependency identifierref="IMG-ALCOHOL-HISTOGRAM"/>
+    </resource>
+    <resource identifier="CSS-STATS" type="webcontent" href="stats.css">
+      <file href="stats.css"/>
+    </resource>
+    <resource identifier="IMG-ALCOHOL-HISTOGRAM" type="webcontent" href="images/alcohol-histogram.svg">
+      <file href="images/alcohol-histogram.svg"/>
+    </resource>
+    <resource identifier="IMG-BOXPLOTS" type="webcontent" href="images/boxplots.svg">
+      <file href="images/boxplots.svg"/>
+    </resource>
+    <resource identifier="IMG-HEADLINE" type="webcontent" href="images/headline.svg">
+      <file href="images/headline.svg"/>
+    </resource>
+    <resource identifier="IMG-IQ-CURVE" type="webcontent" href="images/iq-curve.svg">
+      <file href="images/iq-curve.svg"/>
+    </resource>
+    <resource identifier="IMG-MUFFINS" type="webcontent" href="images/muffins.svg">
+      <file href="images/muffins.svg"/>
+    </resource>
+    <resource identifier="IMG-PATH-DIAGRAM" type="webcontent" href="images/path-diagram.svg">
+      <file href="images/path-diagram.svg"/>
+    </resource>
+    <resource identifier="IMG-RESIDUALS" type="webcontent" href="images/residuals.svg">
+      <file href="images/residuals.svg"/>
+    </resource>
+    <resource identifier="IMG-SCATTER-A" type="webcontent" href="images/scatter-a.svg">
+      <file href="images/scatter-a.svg"/>
+    </resource>
+    <resource identifier="IMG-SCATTER-B" type="webcontent" href="images/scatter-b.svg">
+      <file href="images/scatter-b.svg"/>
+    </resource>
+    <resource identifier="IMG-SCATTER-C" type="webcontent" href="images/scatter-c.svg">
+      <file href="images/scatter-c.svg"/>
+    </resource>
+    <resource identifier="IMG-SCATTER-D" type="webcontent" href="images/scatter-d.svg">
+      <file href="images/scatter-d.svg"/>
+    </resource>
+    <resource identifier="IMG-STATS-INTRO" type="webcontent" href="images/stats-intro.svg">
+      <file href="images/stats-intro.svg"/>
+    </resource>
+  </resources>
+</manifest>

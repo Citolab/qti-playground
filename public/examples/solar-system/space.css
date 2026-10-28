@@ -13,3 +13,76 @@ qti-choice-interaction.qti-input-control-hidden
   --button-border-color: #f6c900;
   --button-box-shadow: 0 0 0 3px #f6c900;
 }
+
+/*
+ * The planets turn slowly and hold still while the pointer rests on them. Each
+ * globe is a starry tile with a round window over a surface map that holds two
+ * turns of the planet side by side: sliding the map half its width turns the
+ * planet once, and pausing the animation lets it stop where it is.
+ */
+.globe {
+  position: relative;
+  display: inline-block;
+  width: 120px;
+  height: 120px;
+  vertical-align: middle;
+}
+
+.globe-sky {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.globe-ball {
+  position: absolute;
+  inset: 15%;
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+.globe-map {
+  display: block;
+  width: auto;
+  max-width: none;
+  height: 100%;
+  animation: globe-turn var(--globe-day, 36s) linear infinite;
+}
+
+/* Jupiter has the shortest day of all, and Venus turns backwards. */
+.globe-jupiter { --globe-day: 20s; }
+.globe-neptune { --globe-day: 28s; }
+.globe-mars { --globe-day: 36s; }
+.globe-venus { --globe-day: 60s; }
+.globe-venus .globe-map { animation-direction: reverse; }
+
+/* Sunlight from the top left, darkening towards the edge of the disc. */
+.globe-ball::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, rgb(255 255 255 / 0.34), transparent 38%),
+    radial-gradient(circle at 40% 38%, transparent 46%, rgb(5 11 28 / 0.78) 80%);
+  box-shadow:
+    inset -8px -6px 14px rgb(5 11 28 / 0.55),
+    inset 2px 2px 6px rgb(255 255 255 / 0.18);
+}
+
+qti-simple-choice:is(:hover, :focus-visible) .globe-map {
+  animation-play-state: paused;
+}
+
+/* Eastwards: the surface drifts from left to right. */
+@keyframes globe-turn {
+  from {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .globe-map {
+    animation: none;
+  }
+}

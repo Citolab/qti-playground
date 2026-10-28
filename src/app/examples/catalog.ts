@@ -28,6 +28,11 @@ export type ExamplePackage = {
   coach?: CoachCharacter;
   /** How the test is presented, in words, for the card. */
   presentation: string;
+  /**
+   * The colours under the example's `backdrop.svg`, a transparent tile. In
+   * practice mode the page around the player takes on the example's setting.
+   */
+  backdropColors: [string, string];
 };
 
 export const EXAMPLE_PACKAGES: ExamplePackage[] = [
@@ -51,6 +56,7 @@ export const EXAMPLE_PACKAGES: ExamplePackage[] = [
     mode: "practice",
     coach: "martian",
     presentation: "One question per screen, with a practice coach",
+    backdropColors: ["#1d3466", "#0a142b"],
   },
   {
     id: "everyday-maths",
@@ -69,6 +75,7 @@ export const EXAMPLE_PACKAGES: ExamplePackage[] = [
     ],
     layout: "vertical",
     presentation: "The whole test on one scrolling page",
+    backdropColors: ["#00b85a", "#00913f"],
   },
   {
     id: "reading-lab",
@@ -87,12 +94,47 @@ export const EXAMPLE_PACKAGES: ExamplePackage[] = [
     ],
     layout: "classic",
     presentation: "One page per text, with its questions",
+    backdropColors: ["#0f4c5c", "#138a95"],
+  },
+  {
+    id: "social-statistics",
+    title: "Statistics for the Social Sciences",
+    subject: "Statistics",
+    audience: "University, year 1",
+    description:
+      "A midterm practice exam: boxplots, residuals, a spurious correlation to diagram and an ANOVA table to complete.",
+    interactions: [
+      "Inline choice",
+      "Text entry",
+      "Match",
+      "Hotspot",
+      "Order",
+      "Graphic gap match",
+      "Extended text",
+      "Match table",
+      "Multiple response",
+    ],
+    layout: "classic",
+    presentation: "One question per screen, in three scored parts",
+    backdropColors: ["#3730a3", "#1e1b4b"],
   },
 ];
 
 export const exampleBasePath = (id: string) => `/examples/${id}/`;
 
 export const exampleCoverUrl = (id: string) => `${exampleBasePath(id)}cover.svg`;
+
+/**
+ * The CSS background behind the player for an example in practice mode, or
+ * undefined for anything that is not one of the examples. The id comes from
+ * the URL, so only a catalog entry is turned into a background.
+ */
+export function exampleBackdrop(id: string | null): string | undefined {
+  const example = EXAMPLE_PACKAGES.find((e) => e.id === id);
+  if (!example) return undefined;
+  const [from, to] = example.backdropColors;
+  return `url(${exampleBasePath(example.id)}backdrop.svg), linear-gradient(135deg, ${from}, ${to})`;
+}
 
 /**
  * Fetch every file the example's manifest lists and zip them into a package.

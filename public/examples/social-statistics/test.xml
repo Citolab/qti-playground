@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-test xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="social-statistics" title="Statistics for the Social Sciences">
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAX_SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-test-part identifier="test-part" navigation-mode="nonlinear" submission-mode="simultaneous">
+    <qti-assessment-section identifier="section-welcome" title="Welcome" visible="true">
+      <qti-assessment-item-ref identifier="stats-intro" href="intro.xml" category="info"/>
+    </qti-assessment-section>
+    <qti-assessment-section identifier="section-describing" title="Describing data" visible="true">
+      <qti-assessment-item-ref identifier="stats-01" href="item-01.xml"/>
+      <qti-assessment-item-ref identifier="stats-02" href="item-02.xml"/>
+      <qti-assessment-item-ref identifier="stats-03" href="item-03.xml"/>
+    </qti-assessment-section>
+    <qti-assessment-section identifier="section-relationships" title="Relationships" visible="true">
+      <qti-assessment-item-ref identifier="stats-04" href="item-04.xml"/>
+      <qti-assessment-item-ref identifier="stats-05" href="item-05.xml"/>
+      <qti-assessment-item-ref identifier="stats-06" href="item-06.xml"/>
+      <qti-assessment-item-ref identifier="stats-07" href="item-07.xml"/>
+    </qti-assessment-section>
+    <qti-assessment-section identifier="section-inference" title="Inference" visible="true">
+      <qti-assessment-item-ref identifier="stats-08" href="item-08.xml"/>
+      <qti-assessment-item-ref identifier="stats-09" href="item-09.xml"/>
+      <qti-assessment-item-ref identifier="stats-10" href="item-10.xml"/>
+    </qti-assessment-section>
+  </qti-test-part>
+  <qti-outcome-processing>
+    <qti-set-outcome-value identifier="SCORE">
+      <qti-sum>
+        <qti-test-variables variable-identifier="SCORE"/>
+      </qti-sum>
+    </qti-set-outcome-value>
+    <qti-set-outcome-value identifier="MAX_SCORE">
+      <qti-sum>
+        <qti-test-variables variable-identifier="MAXSCORE"/>
+      </qti-sum>
+    </qti-set-outcome-value>
+  </qti-outcome-processing>
+</qti-assessment-test>

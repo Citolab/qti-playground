@@ -20,6 +20,7 @@ export const UploadPage: React.FC = () => {
 
   const assessments = useStore((state) => state.assessments);
   const itemsPerAssessment = useStore((state) => state.itemsPerAssessment);
+  const packageSource = useStore((state) => state.packageSource);
 
   const items = useMemo(
     () =>
@@ -52,11 +53,13 @@ export const UploadPage: React.FC = () => {
     [navigate, resetAssessmentProgress]
   );
 
-  if (assessments.length > 0) {
+  // An example played or browsed earlier is still in the store, but this page
+  // is for the user's own package: with none, it offers the upload.
+  if (assessments.length > 0 && packageSource === "upload") {
     return (
       <PageShell
         icon={Play}
-        title="Player"
+        title="Assessment player"
         description={packageSummary}
         actions={
           <>
@@ -160,8 +163,8 @@ export const UploadPage: React.FC = () => {
   return (
     <PageShell
       icon={Play}
-      title="Player"
-      description="Play a QTI test the way a candidate sees it: as a booklet or one question at a time, with zoom, read-aloud and bookmarks."
+      title="Assessment player"
+      description="Play a QTI assessment the way a candidate sees it: as a booklet or one question at a time, with zoom, read-aloud and bookmarks."
     >
       <div className="grid gap-8 lg:grid-cols-2">
         <section>

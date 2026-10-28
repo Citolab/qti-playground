@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="260" viewBox="0 0 300 260" role="img" aria-label="Three overlapping cards: a histogram, a scatterplot with a regression line, and a bell curve with a shaded tail marked p.">
+  <g transform="rotate(-8 90 120)">
+    <rect x="18" y="40" width="150" height="120" rx="14" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+    <g fill="#0d9488">
+      <rect x="36" y="118" width="16" height="26" rx="2"/><rect x="56" y="92" width="16" height="52" rx="2"/>
+      <rect x="76" y="70" width="16" height="74" rx="2"/><rect x="96" y="84" width="16" height="60" rx="2"/>
+      <rect x="116" y="108" width="16" height="36" rx="2"/><rect x="136" y="126" width="16" height="18" rx="2"/>
+    </g>
+  </g>
+  <g transform="rotate(6 220 110)">
+    <rect x="140" y="30" width="146" height="120" rx="14" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+    <g fill="#4f46e5" fill-opacity="0.75">
+      <circle cx="162" cy="128" r="4"/><circle cx="174" cy="116" r="4"/><circle cx="184" cy="122" r="4"/>
+      <circle cx="196" cy="104" r="4"/><circle cx="208" cy="98" r="4"/><circle cx="220" cy="84" r="4"/>
+      <circle cx="232" cy="90" r="4"/><circle cx="244" cy="70" r="4"/><circle cx="256" cy="64" r="4"/><circle cx="268" cy="52" r="4"/>
+    </g>
+    <line x1="156" y1="132" x2="274" y2="50" stroke="#e11d48" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <g>
+    <rect x="70" y="128" width="170" height="112" rx="14" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+    <path d="M196 220 L196 186 C206 196 214 206 224 214 L224 220 Z" fill="#f59e0b" fill-opacity="0.5"/>
+    <path d="M84 220 C112 218 124 150 155 150 C186 150 198 218 226 220" fill="none" stroke="#4f46e5" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="80" y1="221" x2="230" y2="221" stroke="#1e293b" stroke-width="2"/>
+    <text x="214" y="182" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="16" font-style="italic" font-weight="700" fill="#b45309">p</text>
+  </g>
+</svg>

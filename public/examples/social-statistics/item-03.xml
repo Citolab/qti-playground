@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="stats-03" title="IQ and the normal curve" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="multiple" base-type="directedPair">
+    <qti-correct-response>
+      <qti-value>IQ70 P02</qti-value>
+      <qti-value>IQ85 P16</qti-value>
+      <qti-value>IQ120 P91</qti-value>
+      <qti-value>IQ130 P98</qti-value>
+    </qti-correct-response>
+    <qti-mapping default-value="0" lower-bound="0" upper-bound="2">
+      <qti-map-entry map-key="IQ70 P02" mapped-value="0.5"/>
+      <qti-map-entry map-key="IQ85 P16" mapped-value="0.5"/>
+      <qti-map-entry map-key="IQ120 P91" mapped-value="0.5"/>
+      <qti-map-entry map-key="IQ130 P98" mapped-value="0.5"/>
+    </qti-mapping>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>2</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-stylesheet href="stats.css" type="text/css"/>
+  <qti-item-body>
+    <p>IQ scores are normally distributed with a mean of 100 and a standard deviation of 15.</p>
+    <p class="qti-align-center">
+      <img src="images/iq-curve.svg" width="520" height="220" alt="A bell-shaped normal curve for IQ with mean 100 and standard deviation 15. The axis is marked at 55, 70, 85, 100, 115, 130 and 145, which are z-scores of minus 3 to plus 3. The left half of the curve, below 100, is shaded and labelled 50 percent."/>
+    </p>
+    <qti-match-interaction response-identifier="RESPONSE" shuffle="true" max-associations="4">
+      <qti-prompt>Match each IQ score to the percentage of people who score <strong>lower</strong>. One percentage is left over.</qti-prompt>
+      <qti-simple-match-set>
+        <qti-simple-associable-choice identifier="IQ70" match-max="1">IQ 70</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="IQ85" match-max="1">IQ 85</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="IQ120" match-max="1">IQ 120</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="IQ130" match-max="1">IQ 130</qti-simple-associable-choice>
+      </qti-simple-match-set>
+      <qti-simple-match-set>
+        <qti-simple-associable-choice identifier="P02" match-max="1">about 2%</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="P16" match-max="1">about 16%</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="P84" match-max="1">about 84%</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="P91" match-max="1">about 91%</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="P98" match-max="1">about 98%</qti-simple-associable-choice>
+      </qti-simple-match-set>
+    </qti-match-interaction>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/map_response.xml"/>
+</qti-assessment-item>

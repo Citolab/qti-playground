@@ -120,7 +120,7 @@ export const PackageUploadZone: React.FC = () => {
           if (result?.importErrors?.length > 0) {
             setValidationErrors(result.importErrors);
           }
-          navigate("/package");
+          navigate("/assessment-player");
           return;
         } catch (caughtError) {
           clearInterval(progressInterval);

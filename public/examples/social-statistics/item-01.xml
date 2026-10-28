@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="stats-01" title="Reading boxplots" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE_A_MEAN" cardinality="single" base-type="identifier">
+    <qti-correct-response>
+      <qti-value>EQUAL</qti-value>
+    </qti-correct-response>
+  </qti-response-declaration>
+  <qti-response-declaration identifier="RESPONSE_B_SHAPE" cardinality="single" base-type="identifier">
+    <qti-correct-response>
+      <qti-value>LEFT</qti-value>
+    </qti-correct-response>
+  </qti-response-declaration>
+  <qti-response-declaration identifier="RESPONSE_B_MEAN" cardinality="single" base-type="identifier">
+    <qti-correct-response>
+      <qti-value>SMALLER</qti-value>
+    </qti-correct-response>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>3</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-stylesheet href="stats.css" type="text/css"/>
+  <qti-item-body>
+    <p>Two groups of students took the same statistics quiz. The boxplots show how their scores are distributed.</p>
+    <p class="qti-align-center">
+      <img src="images/boxplots.svg" width="560" height="246" alt="Two horizontal boxplots on a score scale from 0 to 10. Boxplot A: the median lies in the middle of the box and both whiskers are equally long. Boxplot B: the box sits high on the scale, the median lies close to the upper edge of the box, the right whisker is short and the left whisker is very long, reaching down to about 1."/>
+    </p>
+    <p class="stats-sentence">In distribution A, the mean will be
+      <qti-inline-choice-interaction response-identifier="RESPONSE_A_MEAN" shuffle="false">
+        <qti-inline-choice identifier="SMALLER">smaller than</qti-inline-choice>
+        <qti-inline-choice identifier="EQUAL">about equal to</qti-inline-choice>
+        <qti-inline-choice identifier="LARGER">larger than</qti-inline-choice>
+      </qti-inline-choice-interaction>
+      its median. Distribution B is
+      <qti-inline-choice-interaction response-identifier="RESPONSE_B_SHAPE" shuffle="false">
+        <qti-inline-choice identifier="SYMMETRIC">symmetric</qti-inline-choice>
+        <qti-inline-choice identifier="LEFT">skewed to the left</qti-inline-choice>
+        <qti-inline-choice identifier="RIGHT">skewed to the right</qti-inline-choice>
+      </qti-inline-choice-interaction>,
+      so the mean of B will most likely be
+      <qti-inline-choice-interaction response-identifier="RESPONSE_B_MEAN" shuffle="false">
+        <qti-inline-choice identifier="SMALLER">smaller than</qti-inline-choice>
+        <qti-inline-choice identifier="EQUAL">about equal to</qti-inline-choice>
+        <qti-inline-choice identifier="LARGER">larger than</qti-inline-choice>
+      </qti-inline-choice-interaction>
+      its median.
+    </p>
+  </qti-item-body>
+  <qti-response-processing>
+    <qti-set-outcome-value identifier="SCORE">
+      <qti-base-value base-type="float">0</qti-base-value>
+    </qti-set-outcome-value>
+    <qti-response-condition>
+      <qti-response-if>
+        <qti-match>
+          <qti-variable identifier="RESPONSE_A_MEAN"/>
+          <qti-correct identifier="RESPONSE_A_MEAN"/>
+        </qti-match>
+        <qti-set-outcome-value identifier="SCORE">
+          <qti-sum>
+            <qti-variable identifier="SCORE"/>
+            <qti-base-value base-type="float">1</qti-base-value>
+          </qti-sum>
+        </qti-set-outcome-value>
+      </qti-response-if>
+    </qti-response-condition>
+    <qti-response-condition>
+      <qti-response-if>
+        <qti-match>
+          <qti-variable identifier="RESPONSE_B_SHAPE"/>
+          <qti-correct identifier="RESPONSE_B_SHAPE"/>
+        </qti-match>
+        <qti-set-outcome-value identifier="SCORE">
+          <qti-sum>
+            <qti-variable identifier="SCORE"/>
+            <qti-base-value base-type="float">1</qti-base-value>
+          </qti-sum>
+        </qti-set-outcome-value>
+      </qti-response-if>
+    </qti-response-condition>
+    <qti-response-condition>
+      <qti-response-if>
+        <qti-match>
+          <qti-variable identifier="RESPONSE_B_MEAN"/>
+          <qti-correct identifier="RESPONSE_B_MEAN"/>
+        </qti-match>
+        <qti-set-outcome-value identifier="SCORE">
+          <qti-sum>
+            <qti-variable identifier="SCORE"/>
+            <qti-base-value base-type="float">1</qti-base-value>
+          </qti-sum>
+        </qti-set-outcome-value>
+      </qti-response-if>
+    </qti-response-condition>
+  </qti-response-processing>
+</qti-assessment-item>

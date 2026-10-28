@@ -37,6 +37,8 @@ export interface ItemInfoWithBlobRef extends Omit<ItemInfo, "href"> {
   originalHref?: string; // Keep track of original href for reference
 }
 
+export type PackageSource = "upload" | "example";
+
 export interface StateModel {
   init: boolean;
   downloadUrl: string;
@@ -66,6 +68,11 @@ export interface StateModel {
   activePackageId?: string;
   /** Name of the uploaded .zip, used to name the package download. */
   packageFileName?: string;
+  /**
+   * Where the package came from. The assessment player page only lists the
+   * user's own package; an example loaded behind it is not theirs to manage.
+   */
+  packageSource?: PackageSource;
   /** Identifiers of items the in-place editor has written back to the package cache. */
   editedItemIdentifiers: string[];
 }
@@ -91,6 +98,7 @@ export const initialState: StateModel = {
   importErrors: [],
   activePackageId: undefined,
   packageFileName: undefined,
+  packageSource: undefined,
   editedItemIdentifiers: [],
 };
 
@@ -212,7 +220,12 @@ interface StoreActions {
   resetAssessmentProgress: (assessmentId: string) => void;
   processPackage: (
     file: File,
-    options: { removeStylesheets: boolean; skipValidation: boolean },
+    options: {
+      removeStylesheets: boolean;
+      skipValidation: boolean;
+      /** "upload" when left out: anything but an example is the user's own. */
+      source?: PackageSource;
+    },
   ) => Promise<StateModel>;
   startAssessment: (assessmentId: string) => void;
   setQti3: (qti: string) => Promise<void>;
@@ -411,7 +424,11 @@ export const useStore = create<Store>()(
 
       processPackage: async (
         file: File,
-        options: { removeStylesheets: boolean; skipValidation: boolean },
+        options: {
+          removeStylesheets: boolean;
+          skipValidation: boolean;
+          source?: PackageSource;
+        },
       ): Promise<StateModel> => {
         sessionStorage.clear();
         itemBlobManager.cleanup();
@@ -428,6 +445,7 @@ export const useStore = create<Store>()(
         const newState = {
           activePackageId: prepared.packageId,
           packageFileName: file.name,
+          packageSource: options.source ?? "upload",
           editedItemIdentifiers: [],
           // Assessment ids repeat across packages, so a new package must not
           // inherit the previous one's bookmarks.
@@ -590,6 +608,7 @@ export const useStore = create<Store>()(
         // Only persist specific state fields (not transient ones)
         activePackageId: state.activePackageId,
         packageFileName: state.packageFileName,
+        packageSource: state.packageSource,
         editedItemIdentifiers: state.editedItemIdentifiers,
         assessments: state.assessments,
         itemsPerAssessment: state.itemsPerAssessment,

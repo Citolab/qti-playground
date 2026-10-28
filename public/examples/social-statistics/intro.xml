@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="stats-intro" title="Welcome to Statistics for the Social Sciences" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-stylesheet href="stats.css" type="text/css"/>
+  <qti-item-body>
+    <div class="qti-layout-row">
+      <div class="qti-layout-col7">
+        <h2>Statistics for the Social Sciences</h2>
+        <p class="stats-kicker">Midterm practice exam · Year 1</p>
+        <p>This practice exam covers the first half of the course. It has three parts:</p>
+        <ol>
+          <li><strong>Describing data</strong>: shape, spread and the normal distribution.</li>
+          <li><strong>Relationships</strong>: regression, correlation, and why correlation is not causation.</li>
+          <li><strong>Inference</strong>: ANOVA, errors in hypothesis testing and the central limit theorem.</li>
+        </ol>
+        <p>Allow about 25 minutes. You may use a calculator. You can move freely between questions and change any answer until you finish.</p>
+        <p class="stats-note">Several questions are adapted from the ShareStats item bank, an open item bank for statistics education built by Dutch universities.</p>
+      </div>
+      <div class="qti-layout-col5">
+        <p class="qti-align-center">
+          <img src="images/stats-intro.svg" width="300" height="260" alt="Three overlapping cards: a histogram, a scatterplot with a regression line, and a bell curve with a shaded tail marked p."/>
+        </p>
+      </div>
+    </div>
+  </qti-item-body>
+</qti-assessment-item>

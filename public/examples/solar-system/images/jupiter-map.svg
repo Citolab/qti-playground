@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="336" height="84" viewBox="0 0 336 84">
+  <!-- Two turns of the planet side by side: sliding the image by half its width spins it once. -->
+  <defs>
+    <filter id="storms" x="0" y="0" width="336" height="84" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.0298 0.19" numOctaves="4" seed="11" stitchTiles="stitch" x="0" y="0" width="168" height="84"/>
+      <feTile x="0" y="0" width="336" height="84" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="7" xChannelSelector="R" yChannelSelector="G" result="warped"/>
+      <feGaussianBlur in="warped" stdDeviation="0.75" result="soft"/>
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0.35  0 0 0 0 0.2  0 0 0 0 0.1  1 0 0 0 -0.42" result="dark"/>
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 1  0 0 0 0 0.96  0 0 0 0 0.88  0 0 -1 0 0.4" result="light"/>
+      <feMerge>
+        <feMergeNode in="soft"/>
+        <feMergeNode in="dark"/>
+        <feMergeNode in="light"/>
+      </feMerge>
+    </filter>
+    <g id="surface">
+      <!-- festoons trailing from the north belt into the equatorial zone -->
+      <g fill="none" stroke="#7d8496" stroke-width="2.2" stroke-linecap="round" opacity="0.35">
+        <path d="M14 36 q6 4 4 9"/>
+        <path d="M52 36 q7 5 3 10"/>
+        <path d="M92 36 q5 4 2 8"/>
+        <path d="M130 36 q8 5 5 10"/>
+      </g>
+      <!-- barges in the north belt and white ovals in the south -->
+      <ellipse cx="70" cy="32" rx="5" ry="1.8" fill="#6b3a22"/>
+      <ellipse cx="146" cy="31" rx="4" ry="1.6" fill="#6b3a22"/>
+      <ellipse cx="84" cy="66" rx="3.6" ry="2.2" fill="#fbf4ea"/>
+      <ellipse cx="104" cy="67" rx="3" ry="1.9" fill="#fbf4ea"/>
+      <ellipse cx="124" cy="66" rx="3.4" ry="2" fill="#fbf4ea"/>
+      <!-- the Great Red Spot in its hollow -->
+      <ellipse cx="36" cy="57" rx="14" ry="7.5" fill="#f4e1c6"/>
+      <ellipse cx="36" cy="57" rx="11" ry="6" fill="#bf4f2a"/>
+      <ellipse cx="36.5" cy="56.6" rx="7" ry="3.6" fill="#d8724a"/>
+      <ellipse cx="37" cy="56.4" rx="3" ry="1.4" fill="#e9956c"/>
+      <path d="M26 57 q4 -5 10 -5 q8 0 12 4" fill="none" stroke="#9c3b1f" stroke-width="0.8" opacity="0.7"/>
+    </g>
+  </defs>
+  <rect width="336" height="84" fill="#e3cfb2"/>
+  <g filter="url(#storms)">
+    <!-- the belts and zones, pole to pole -->
+    <rect x="-20" y="-12" width="376" height="20" fill="#8e8a86"/>
+    <rect x="-20" y="8" width="376" height="7" fill="#b39478"/>
+    <rect x="-20" y="15" width="376" height="5" fill="#e3cfb2"/>
+    <rect x="-20" y="20" width="376" height="5" fill="#a87652"/>
+    <rect x="-20" y="25" width="376" height="4" fill="#efdfc6"/>
+    <rect x="-20" y="29" width="376" height="7" fill="#9a5a36"/>
+    <rect x="-20" y="36" width="376" height="12" fill="#f6ead7"/>
+    <rect x="-20" y="41" width="376" height="2" fill="#e7cfa9"/>
+    <rect x="-20" y="48" width="376" height="8" fill="#a9673f"/>
+    <rect x="-20" y="56" width="376" height="7" fill="#efdcc0"/>
+    <rect x="-20" y="63" width="376" height="5" fill="#b9845c"/>
+    <rect x="-20" y="68" width="376" height="5" fill="#e6d3b8"/>
+    <rect x="-20" y="73" width="376" height="4" fill="#a98a72"/>
+    <rect x="-20" y="77" width="376" height="19" fill="#8a8580"/>
+    <use href="#surface" x="-168"/>
+    <use href="#surface"/>
+    <use href="#surface" x="168"/>
+    <use href="#surface" x="336"/>
+  </g>
+</svg>

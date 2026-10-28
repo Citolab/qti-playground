@@ -26,10 +26,11 @@
     </resource>
     <resource identifier="solar-01" type="imsqti_item_xmlv3p0" href="item-01.xml">
       <file href="item-01.xml"/>
-      <dependency identifierref="IMG-VENUS"/>
-      <dependency identifierref="IMG-MARS"/>
-      <dependency identifierref="IMG-NEPTUNE"/>
-      <dependency identifierref="IMG-JUPITER"/>
+      <dependency identifierref="IMG-SKY"/>
+      <dependency identifierref="IMG-VENUS-MAP"/>
+      <dependency identifierref="IMG-MARS-MAP"/>
+      <dependency identifierref="IMG-NEPTUNE-MAP"/>
+      <dependency identifierref="IMG-JUPITER-MAP"/>
       <dependency identifierref="CSS-SPACE"/>
     </resource>
     <resource identifier="solar-02" type="imsqti_item_xmlv3p0" href="item-02.xml">
@@ -72,6 +73,21 @@
     </resource>
     <resource identifier="IMG-JUPITER" type="webcontent" href="images/jupiter.svg">
       <file href="images/jupiter.svg"/>
+    </resource>
+    <resource identifier="IMG-SKY" type="webcontent" href="images/sky.svg">
+      <file href="images/sky.svg"/>
+    </resource>
+    <resource identifier="IMG-VENUS-MAP" type="webcontent" href="images/venus-map.svg">
+      <file href="images/venus-map.svg"/>
+    </resource>
+    <resource identifier="IMG-MARS-MAP" type="webcontent" href="images/mars-map.svg">
+      <file href="images/mars-map.svg"/>
+    </resource>
+    <resource identifier="IMG-NEPTUNE-MAP" type="webcontent" href="images/neptune-map.svg">
+      <file href="images/neptune-map.svg"/>
+    </resource>
+    <resource identifier="IMG-JUPITER-MAP" type="webcontent" href="images/jupiter-map.svg">
+      <file href="images/jupiter-map.svg"/>
     </resource>
     <resource identifier="IMG-EARTH" type="webcontent" href="images/earth.svg">
       <file href="images/earth.svg"/>

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="300" viewBox="0 0 520 300" role="img" aria-label="A newspaper clipping from The Campus Courier. The headline reads: Coffee makes students smarter, study proves. The subheading reads: Students who drink more coffee get higher grades, r = .32, n = 400, p &lt; .001. Next to the text is a small scatterplot of cups of coffee per day against exam grade, with a rising trend line.">
+  <rect width="520" height="300" fill="#f1f5f9" rx="12"/>
+  <g transform="rotate(-1.5 260 150)">
+    <rect x="34" y="22" width="452" height="256" fill="#000000" opacity="0.08" transform="translate(4 5)"/>
+    <rect x="34" y="22" width="452" height="256" fill="#fdfbf5"/>
+    <text x="260" y="52" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-weight="700" fill="#1e293b" text-anchor="middle">The Campus Courier</text>
+    <line x1="54" y1="62" x2="466" y2="62" stroke="#1e293b" stroke-width="2"/>
+    <line x1="54" y1="66" x2="466" y2="66" stroke="#1e293b" stroke-width="0.8"/>
+    <g font-family="Georgia, 'Times New Roman', serif" font-weight="700" fill="#0f172a">
+      <text x="54" y="98" font-size="21">Coffee makes students</text>
+      <text x="54" y="124" font-size="21">smarter, study proves</text>
+    </g>
+    <g font-family="Georgia, 'Times New Roman', serif" font-size="13" font-style="italic" fill="#475569">
+      <text x="54" y="152">Students who drink more coffee get higher</text>
+      <text x="54" y="169">grades (r = .32, n = 400, p &lt; .001)</text>
+    </g>
+    <g fill="#cbd5e1">
+      <rect x="54" y="190" width="250" height="5" rx="2"/>
+      <rect x="54" y="202" width="236" height="5" rx="2"/>
+      <rect x="54" y="214" width="250" height="5" rx="2"/>
+      <rect x="54" y="226" width="210" height="5" rx="2"/>
+      <rect x="54" y="238" width="246" height="5" rx="2"/>
+      <rect x="54" y="250" width="180" height="5" rx="2"/>
+    </g>
+    <g transform="translate(326 92)">
+      <rect width="140" height="150" fill="#ffffff" stroke="#e2e8f0"/>
+      <line x1="18" y1="126" x2="130" y2="126" stroke="#64748b"/>
+      <line x1="18" y1="14" x2="18" y2="126" stroke="#64748b"/>
+      <g fill="#4f46e5" fill-opacity="0.7">
+        <circle cx="28" cy="104" r="3"/><circle cx="34" cy="86" r="3"/><circle cx="40" cy="110" r="3"/>
+        <circle cx="48" cy="78" r="3"/><circle cx="55" cy="96" r="3"/><circle cx="62" cy="70" r="3"/>
+        <circle cx="70" cy="92" r="3"/><circle cx="76" cy="58" r="3"/><circle cx="84" cy="84" r="3"/>
+        <circle cx="92" cy="50" r="3"/><circle cx="98" cy="76" r="3"/><circle cx="106" cy="62" r="3"/>
+        <circle cx="112" cy="40" r="3"/><circle cx="120" cy="70" r="3"/><circle cx="66" cy="112" r="3"/>
+        <circle cx="88" cy="104" r="3"/><circle cx="44" cy="62" r="3"/><circle cx="116" cy="94" r="3"/>
+      </g>
+      <line x1="22" y1="102" x2="126" y2="56" stroke="#e11d48" stroke-width="2"/>
+      <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#64748b" text-anchor="middle">
+        <text x="74" y="142">cups of coffee a day</text>
+        <text x="10" y="70" transform="rotate(-90 10 70)">exam grade</text>
+      </g>
+    </g>
+  </g>
+</svg>

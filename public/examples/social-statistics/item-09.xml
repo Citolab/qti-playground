@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="stats-09" title="Type I or Type II?" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="multiple" base-type="directedPair">
+    <qti-correct-response>
+      <qti-value>S1 TRUE</qti-value>
+      <qti-value>S2 FALSE</qti-value>
+      <qti-value>S3 TRUE</qti-value>
+      <qti-value>S4 FALSE</qti-value>
+    </qti-correct-response>
+    <qti-mapping default-value="0" lower-bound="0" upper-bound="2">
+      <qti-map-entry map-key="S1 TRUE" mapped-value="0.5"/>
+      <qti-map-entry map-key="S2 FALSE" mapped-value="0.5"/>
+      <qti-map-entry map-key="S3 TRUE" mapped-value="0.5"/>
+      <qti-map-entry map-key="S4 FALSE" mapped-value="0.5"/>
+    </qti-mapping>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>2</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-stylesheet href="stats.css" type="text/css"/>
+  <qti-item-body>
+    <p>Isa compares the monthly rents of apartments in two neighbouring towns. She takes a random sample of apartments in each town and runs an independent-samples <em>t</em>-test with α = .05.</p>
+    <table class="stats-output">
+      <caption>Group statistics · Monthly rent (€)</caption>
+      <thead>
+        <tr><th scope="col">Town</th><th scope="col"><em>n</em></th><th scope="col">Mean</th><th scope="col">SD</th></tr>
+      </thead>
+      <tfoot>
+        <tr><td colspan="4"><em>t</em>(25) = 0.81, <em>p</em> = .425 (two-sided)</td></tr>
+      </tfoot>
+      <tbody>
+        <tr><th scope="row">Town A</th><td>12</td><td>850</td><td>85</td></tr>
+        <tr><th scope="row">Town B</th><td>15</td><td>825</td><td>75</td></tr>
+      </tbody>
+    </table>
+    <qti-match-interaction response-identifier="RESPONSE" class="qti-match-tabular" shuffle="false" max-associations="4">
+      <qti-prompt>Is each statement true or false?</qti-prompt>
+      <qti-simple-match-set>
+        <qti-simple-associable-choice identifier="S1" match-max="1">Isa does not reject the null hypothesis.</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="S2" match-max="1">Isa could have made a Type I error.</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="S3" match-max="1">Isa could have made a Type II error.</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="S4" match-max="1">There is a 42.5% chance that the average rents in the two towns are equal.</qti-simple-associable-choice>
+      </qti-simple-match-set>
+      <qti-simple-match-set>
+        <qti-simple-associable-choice identifier="TRUE" match-max="4">True</qti-simple-associable-choice>
+        <qti-simple-associable-choice identifier="FALSE" match-max="4">False</qti-simple-associable-choice>
+      </qti-simple-match-set>
+    </qti-match-interaction>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/map_response.xml"/>
+</qti-assessment-item>

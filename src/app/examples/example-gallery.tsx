@@ -26,7 +26,7 @@ export function ExampleGallery({
       <div
         className={cn(
           "grid",
-          variant === "rows" ? "gap-3" : "gap-6 sm:grid-cols-2 lg:grid-cols-3",
+          variant === "rows" ? "gap-3" : "gap-6 sm:grid-cols-2 xl:grid-cols-4",
         )}
       >
         {EXAMPLE_PACKAGES.map((example) => {

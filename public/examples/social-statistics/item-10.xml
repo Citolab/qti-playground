@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="stats-10" title="Skewed data, normal means" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="multiple" base-type="identifier">
+    <qti-correct-response>
+      <qti-value>NORMAL_MEANS</qti-value>
+      <qti-value>CI</qti-value>
+    </qti-correct-response>
+    <qti-mapping default-value="0" lower-bound="0" upper-bound="2">
+      <qti-map-entry map-key="NORMAL_MEANS" mapped-value="1"/>
+      <qti-map-entry map-key="CI" mapped-value="1"/>
+      <qti-map-entry map-key="SKEWED_MEANS" mapped-value="-1"/>
+      <qti-map-entry map-key="INDIVIDUALS" mapped-value="-1"/>
+      <qti-map-entry map-key="POPULATION" mapped-value="-1"/>
+    </qti-mapping>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>2</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-stylesheet href="stats.css" type="text/css"/>
+  <qti-item-body>
+    <p>A researcher asks a random sample of 114 Dutch 16- to 18-year-olds how many glasses of alcohol they drink in a typical week. The mean is 6.11 glasses, the standard deviation 4.29 and the standard error of the mean 0.40. The data are strongly skewed to the right.</p>
+    <p class="qti-align-center">
+      <img src="images/alcohol-histogram.svg" width="520" height="262" alt="A histogram of the number of glasses of alcohol per week for 114 young people. Most of them drink between 2 and 8 glasses; the bars then get lower and lower to the right, with a long tail up to about 22 glasses. The distribution is clearly skewed to the right."/>
+    </p>
+    <qti-choice-interaction response-identifier="RESPONSE" shuffle="true" max-choices="0">
+      <qti-prompt>Thanks to the central limit theorem, which conclusions are correct? Select <strong>all</strong> that apply.</qti-prompt>
+      <qti-simple-choice identifier="NORMAL_MEANS">The sampling distribution of the mean is approximately normal.</qti-simple-choice>
+      <qti-simple-choice identifier="SKEWED_MEANS">The sampling distribution of the mean is skewed to the right, just like the sample.</qti-simple-choice>
+      <qti-simple-choice identifier="CI">A 95% confidence interval for the population mean runs from about 5.3 to 6.9 glasses a week.</qti-simple-choice>
+      <qti-simple-choice identifier="INDIVIDUALS">About 95% of young people drink between −2.5 and 14.7 glasses a week (6.11 ± 2 × 4.29).</qti-simple-choice>
+      <qti-simple-choice identifier="POPULATION">With a sample this large, the drinking habits in the population must be approximately normally distributed.</qti-simple-choice>
+    </qti-choice-interaction>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/map_response.xml"/>
+</qti-assessment-item>

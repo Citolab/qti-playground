@@ -183,6 +183,19 @@ export function findContentLoss(
     const key = keyOf(element);
     const other = key ? matched.get(key) : undefined;
     if (!key || !other) continue;
+    // The body-wide counts above cannot see content that moved: a formula that ProseMirror cannot
+    // place inside an inline choice is lifted out of it, so the item keeps every element and every
+    // character while the choice is left empty. Each identified element has to keep its own.
+    if (squash(element.textContent) !== squash(other.textContent)) {
+      losses.push({ code: "text-changed", detail: key });
+    }
+    const keptInside = countTags(other);
+    for (const [tag, count] of countTags(element)) {
+      const kept = keptInside.get(tag) ?? 0;
+      if (kept < count) {
+        losses.push({ code: "element-removed", detail: `${key} <${tag}> ×${count - kept}` });
+      }
+    }
     for (const attribute of Array.from(element.attributes)) {
       if (attribute.name === "xmlns" || other.hasAttribute(attribute.name)) {
         continue;

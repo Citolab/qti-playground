@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd"
+  identifier="stats-06" title="Police, crime and population" adaptive="false" time-dependent="false" xml:lang="en">
+  <qti-response-declaration identifier="RESPONSE" cardinality="multiple" base-type="directedPair">
+    <qti-correct-response>
+      <qti-value>POPULATION Z</qti-value>
+      <qti-value>POLICE X</qti-value>
+      <qti-value>CRIME Y</qti-value>
+    </qti-correct-response>
+    <qti-mapping default-value="0" lower-bound="0" upper-bound="3">
+      <qti-map-entry map-key="POPULATION Z" mapped-value="1"/>
+      <qti-map-entry map-key="POLICE X" mapped-value="1"/>
+      <qti-map-entry map-key="CRIME Y" mapped-value="1"/>
+    </qti-mapping>
+  </qti-response-declaration>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-outcome-declaration identifier="MAXSCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>3</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
+  <qti-stylesheet href="stats.css" type="text/css"/>
+  <qti-item-body>
+    <p>Across 120 municipalities, researchers find a strong positive correlation (<em>r</em> = .71) between the <strong>number of police officers</strong> and the <strong>crime rate</strong>. They treat the number of police officers as the predictor and the crime rate as the outcome.</p>
+    <p>A colleague says the correlation is <em>spurious</em>: both variables simply depend on how many people live in a municipality.</p>
+    <qti-graphic-gap-match-interaction response-identifier="RESPONSE" max-associations="3">
+      <qti-prompt>Drag the variables into the diagram so that it shows the colleague's explanation. One variable is not needed.</qti-prompt>
+      <img src="images/path-diagram.svg" width="540" height="316" alt="A path diagram with three empty boxes. One box at the top is labelled common cause, Z. Two boxes below it are labelled predictor, X, on the left and outcome, Y, on the right. Arrows run from the top box to each of the two lower boxes. A dashed line with arrowheads at both ends connects the two lower boxes and is labelled observed correlation r = .71."/>
+      <qti-gap-text identifier="POLICE" match-max="1">Number of police officers</qti-gap-text>
+      <qti-gap-text identifier="CRIME" match-max="1">Crime rate</qti-gap-text>
+      <qti-gap-text identifier="POPULATION" match-max="1">Population size</qti-gap-text>
+      <qti-gap-text identifier="INCOME" match-max="1">Average income</qti-gap-text>
+      <qti-associable-hotspot identifier="Z" shape="rect" coords="170,36,370,96" match-max="1"/>
+      <qti-associable-hotspot identifier="X" shape="rect" coords="20,210,220,270" match-max="1"/>
+      <qti-associable-hotspot identifier="Y" shape="rect" coords="320,210,520,270" match-max="1"/>
+    </qti-graphic-gap-match-interaction>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/map_response.xml"/>
+</qti-assessment-item>

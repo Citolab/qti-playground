@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="540" height="316" viewBox="0 0 540 316" role="img" aria-label="A path diagram with three empty boxes. One box at the top is labelled common cause, Z. Two boxes below it are labelled predictor, X, on the left and outcome, Y, on the right. Arrows run from the top box to each of the two lower boxes. A dashed line with arrowheads at both ends connects the two lower boxes and is labelled observed correlation r = .71.">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#334155"/>
+    </marker>
+  </defs>
+  <rect width="540" height="316" rx="12" fill="#ffffff"/>
+  <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600" fill="#64748b" text-anchor="middle" letter-spacing="0.06em">
+    <text x="270" y="26">COMMON CAUSE (Z)</text>
+    <text x="120" y="292">PREDICTOR (X)</text>
+    <text x="420" y="292">OUTCOME (Y)</text>
+  </g>
+  <g fill="#eef2ff" stroke="#4f46e5" stroke-width="2" stroke-dasharray="7 5">
+    <rect x="170" y="36" width="200" height="60" rx="10"/>
+    <rect x="20" y="210" width="200" height="60" rx="10"/>
+    <rect x="320" y="210" width="200" height="60" rx="10"/>
+  </g>
+  <g stroke="#334155" stroke-width="2.5" fill="none">
+    <path d="M222 98 L144 206" marker-end="url(#arrow)"/>
+    <path d="M318 98 L396 206" marker-end="url(#arrow)"/>
+    <path d="M226 240 L314 240" stroke-dasharray="6 5" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  </g>
+  <rect x="236" y="250" width="68" height="24" rx="12" fill="#fef3c7"/>
+  <text x="270" y="267" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" fill="#92400e" text-anchor="middle">r = .71</text>
+</svg>

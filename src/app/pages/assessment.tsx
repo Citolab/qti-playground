@@ -68,6 +68,7 @@ import { checkPage, showAnswers } from "../qti/practice-check";
 import { assessmentTitleOf } from "../qti/assessment-title";
 import { ExtendedItemContext, ExtendedTestContext } from "@citolab/qti-api";
 import { PlayerOptionsMenu } from "../components/player-options-menu";
+import { PlayerTour, type TourStepId } from "../components/player-tour";
 import {
   AssessmentLayoutMode,
   DEFAULT_LAYOUT_MODE,
@@ -113,6 +114,7 @@ import {
 } from "../qti/media-volume";
 import { PageLoadingSkeleton } from "../components/page-loading-skeleton";
 import { VerticalNavigationPane } from "../components/vertical-navigation-pane";
+import { exampleBackdrop } from "../examples/catalog";
 
 // Loaded on first edit: the editor brings prosekit and its node views, which a reader never needs.
 const TestDocumentEditor = React.lazy(() =>
@@ -270,6 +272,11 @@ export const AssessmentPage: React.FC = () => {
   const playerMode = parsePlayerMode(queryParams.get("mode"));
   const playerTheme = parsePlayerTheme(queryParams.get("theme"));
   const coachCharacter = parseCoachCharacter(queryParams.get("coach"));
+  /** An example played in practice mode sits on its own backdrop (examples/catalog.ts). */
+  const practiceBackdrop =
+    playerMode === "practice"
+      ? exampleBackdrop(queryParams.get("example"))
+      : undefined;
   /**
    * Inside the device preview's iframe the page is the device's screen: the
    * frame around it has its own way out, so the player's own close button goes.
@@ -1124,14 +1131,14 @@ export const AssessmentPage: React.FC = () => {
   ]);
 
   const handleBackNavigation = useCallback(() => {
-    navigate("/package");
+    navigate("/assessment-player");
   }, [navigate]);
 
   const handlePrevious = useCallback(() => {
     if (typeof window !== "undefined" && window.history.length > 1) {
       navigate(-1);
     } else {
-      navigate("/package");
+      navigate("/assessment-player");
     }
   }, [navigate]);
 
@@ -1188,7 +1195,7 @@ export const AssessmentPage: React.FC = () => {
       hasRedirectedForMissingPackageCacheRef.current = true;
 
       console.warn(
-        "Assessment package resources are not available (missing CacheStorage entries). Redirecting to /package.",
+        "Assessment package resources are not available (missing CacheStorage entries). Redirecting to /assessment-player.",
         details,
       );
 
@@ -1202,7 +1209,7 @@ export const AssessmentPage: React.FC = () => {
       } catch {
         // ignore
       }
-      navigate("/package", { replace: true });
+      navigate("/assessment-player", { replace: true });
     },
     [navigate],
   );
@@ -1668,6 +1675,32 @@ export const AssessmentPage: React.FC = () => {
       };
     });
   }, []);
+
+  /**
+   * The coach's tour of the player: `tour=1` in the URL, put there by an
+   * example on its first run (see use-open-example.ts) or by "Show me around".
+   * The real coach stays off stage until the tour points at its Check button,
+   * and its greeting stays down: the tour has said it all.
+   */
+  const tourOpen =
+    queryParams.get("tour") === "1" &&
+    !showIntro &&
+    !handInResult &&
+    !isOverviewOpen &&
+    !isEditorOpen;
+  const [tourStep, setTourStep] = useState<TourStepId | null>(null);
+  const setTour = useCallback(
+    (open: boolean) => {
+      const next = new URLSearchParams(queryParams);
+      if (open) next.set("tour", "1");
+      else next.delete("tour");
+      setQueryParams(next, { replace: true });
+      setTourStep(null);
+      if (!open) setCoach((current) => ({ ...current, bubbleVisible: false }));
+    },
+    [queryParams, setQueryParams],
+  );
+
   const handleToggleAnswer = useCallback(() => {
     setCoach((current) => {
       showAnswers(current.wrongItems, !current.answerShown);
@@ -2187,7 +2220,10 @@ export const AssessmentPage: React.FC = () => {
       </div>
 
       {/* Main content area - takes remaining space */}
-      <div className="flex-1 flex items-center justify-center p-0 sm:px-4 sm:py-4 min-h-0 overflow-hidden">
+      <div
+        className="flex-1 flex items-center justify-center p-0 sm:px-4 sm:py-4 min-h-0 overflow-hidden"
+        style={practiceBackdrop ? { background: practiceBackdrop } : undefined}
+      >
         <div className={`${PLAYER_SURFACE} h-full flex flex-col bg-white sm:rounded-lg sm:shadow-lg overflow-hidden`}>
           {/* The layout is decided before the test loads, and the scan that
               decides it (which items share a stimulus) reads the item XML. So
@@ -2241,6 +2277,7 @@ export const AssessmentPage: React.FC = () => {
                         onModeChange={(value) =>
                           setSessionOption("mode", value, DEFAULT_PLAYER_MODE)
                         }
+                        onShowTour={() => setTour(true)}
                         onThemeChange={(value) =>
                           setSessionOption("theme", value, DEFAULT_PLAYER_THEME)
                         }
@@ -2260,6 +2297,7 @@ export const AssessmentPage: React.FC = () => {
 
                     <div
                       id="toolbar"
+                      data-tour="player-tools"
                       className="flex flex-wrap items-center gap-2 rounded p-1"
                     >
                       <ToolBar
@@ -2455,12 +2493,13 @@ export const AssessmentPage: React.FC = () => {
                     !showIntro &&
                     !handInResult &&
                     !isOverviewOpen &&
-                    !isEditorOpen && (
+                    !isEditorOpen &&
+                    (!tourOpen || tourStep === "check") && (
                       <PracticeCoach
                         character={coachCharacter}
                         mood={coach.mood}
                         message={coach.message}
-                        bubbleVisible={coach.bubbleVisible}
+                        bubbleVisible={coach.bubbleVisible && !tourOpen}
                         checkCount={coach.checkCount}
                         checkLabel={
                           isVerticalLayout
@@ -2482,6 +2521,19 @@ export const AssessmentPage: React.FC = () => {
                         }
                       />
                     )}
+
+                  {tourOpen ? (
+                    <PlayerTour
+                      character={coachCharacter}
+                      mode={playerMode}
+                      theme={playerTheme}
+                      onModeChange={(value) =>
+                        setSessionOption("mode", value, DEFAULT_PLAYER_MODE)
+                      }
+                      onStepChange={setTourStep}
+                      onClose={() => setTour(false)}
+                    />
+                  ) : null}
 
                   {/* The whole-test editor: covers the item content without
                       unmounting the test underneath. */}

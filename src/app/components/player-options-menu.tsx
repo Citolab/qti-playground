@@ -2,6 +2,7 @@ import {
   ChevronDown,
   GraduationCap,
   Monitor,
+  Route,
   SlidersHorizontal,
   Smartphone,
   Sparkles,
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -59,6 +61,7 @@ export function PlayerOptionsMenu({
   onModeChange,
   onThemeChange,
   onDeviceChange,
+  onShowTour,
 }: {
   layout: AssessmentLayoutMode;
   mode: PlayerMode;
@@ -69,6 +72,8 @@ export function PlayerOptionsMenu({
   onThemeChange: (theme: PlayerTheme) => void;
   /** Left out where the device cannot change, e.g. inside a device preview. */
   onDeviceChange?: (device: PlayerDevice) => void;
+  /** The coach's tour of the player, again. */
+  onShowTour?: () => void;
 }) {
   const [devices] = useState(() => availableDevices(window.innerWidth));
   const summary = [
@@ -87,6 +92,7 @@ export function PlayerOptionsMenu({
           variant="ghost"
           size="sm"
           title={summary}
+          data-tour="player-options"
           className="h-10 gap-2 rounded-full border border-gray-200 bg-white px-3 text-gray-700 shadow-sm hover:border-gray-300 hover:bg-white hover:text-gray-900"
         >
           <SlidersHorizontal className="h-4 w-4" />
@@ -198,6 +204,16 @@ export function PlayerOptionsMenu({
                 );
               })}
             </DropdownMenuRadioGroup>
+          </>
+        ) : null}
+
+        {onShowTour ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={onShowTour} className="gap-2">
+              <Route className="h-4 w-4" />
+              Show me around
+            </DropdownMenuItem>
           </>
         ) : null}
       </DropdownMenuContent>

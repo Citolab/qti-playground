@@ -24,16 +24,28 @@
     <qti-choice-interaction response-identifier="RESPONSE" shuffle="true" max-choices="1" class="qti-choices-stacking-2 qti-input-control-hidden">
       <qti-prompt>Which of these planets is Mars?</qti-prompt>
       <qti-simple-choice identifier="VENUS">
-        <img src="images/venus.svg" width="120" height="120" alt="A pale yellow planet wrapped in swirling creamy clouds."/>
+        <span class="globe globe-venus">
+          <img class="globe-sky" src="images/sky.svg" width="120" height="120" alt=""/>
+          <span class="globe-ball"><img class="globe-map" src="images/venus-map.svg" width="336" height="84" alt="A pale yellow planet wrapped in swirling creamy clouds."/></span>
+        </span>
       </qti-simple-choice>
       <qti-simple-choice identifier="MARS">
-        <img src="images/mars.svg" width="120" height="120" alt="A rusty red planet with dark patches and a white polar cap."/>
+        <span class="globe globe-mars">
+          <img class="globe-sky" src="images/sky.svg" width="120" height="120" alt=""/>
+          <span class="globe-ball"><img class="globe-map" src="images/mars-map.svg" width="336" height="84" alt="A rusty red planet with dark patches and a white polar cap."/></span>
+        </span>
       </qti-simple-choice>
       <qti-simple-choice identifier="NEPTUNE">
-        <img src="images/neptune.svg" width="120" height="120" alt="A deep blue planet with soft stripes and a dark storm spot."/>
+        <span class="globe globe-neptune">
+          <img class="globe-sky" src="images/sky.svg" width="120" height="120" alt=""/>
+          <span class="globe-ball"><img class="globe-map" src="images/neptune-map.svg" width="336" height="84" alt="A deep blue planet with soft stripes and a dark storm spot."/></span>
+        </span>
       </qti-simple-choice>
       <qti-simple-choice identifier="JUPITER">
-        <img src="images/jupiter.svg" width="120" height="120" alt="A huge planet striped in cream, orange and brown bands, with a big red oval spot."/>
+        <span class="globe globe-jupiter">
+          <img class="globe-sky" src="images/sky.svg" width="120" height="120" alt=""/>
+          <span class="globe-ball"><img class="globe-map" src="images/jupiter-map.svg" width="336" height="84" alt="A huge planet striped in cream, orange and brown bands, with a big red oval spot."/></span>
+        </span>
       </qti-simple-choice>
     </qti-choice-interaction>
   </qti-item-body>

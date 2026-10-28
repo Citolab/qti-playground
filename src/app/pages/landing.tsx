@@ -577,7 +577,7 @@ export const LandingPage: React.FC = () => {
           className={cn(
             PAGE_CONTAINER,
             PAGE_GUTTER,
-            "relative grid items-center gap-12 py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:py-24",
+            "relative grid items-center gap-12 pb-10 pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:pb-12 lg:pt-24",
           )}
         >
           <div className="min-w-0">
@@ -590,7 +590,7 @@ export const LandingPage: React.FC = () => {
               <span className="rounded-full bg-citolab-600 px-2 py-0.5 text-xs font-semibold text-white">
                 Open source
               </span>
-              1EdTech certified QTI 3 player
+              1EdTech certified QTI 3 assessment player
               <ArrowRight className="h-3.5 w-3.5" />
             </a>
             <h1
@@ -622,20 +622,20 @@ export const LandingPage: React.FC = () => {
               style={{ animationDelay: "160ms" }}
             >
               The QTI Playground puts CitoLab&apos;s open-source assessment
-              tooling to work: a certified player built on web components, a
+              tooling to work: a certified assessment player built on web components, a
               visual item editor, and converters for your QTI 2.x packages.
             </p>
             <div
               className="animate-fade-in-up mt-8 flex flex-wrap items-center gap-3"
               style={{ animationDelay: "240ms" }}
             >
-              <Link
-                to="/examples"
+              <a
+                href="#examples"
                 className="inline-flex items-center gap-2 rounded-full bg-citolab-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-citolab-600/25 transition-colors hover:bg-citolab-700"
               >
                 <Play className="h-4 w-4 fill-current" />
                 Play an example test
-              </Link>
+              </a>
               <Link
                 to="/edit"
                 className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-800 transition-colors hover:border-citolab-600 hover:text-citolab-700"
@@ -644,7 +644,7 @@ export const LandingPage: React.FC = () => {
                 Open the editor
               </Link>
               <Link
-                to="/package"
+                to="/assessment-player"
                 className="inline-flex items-center gap-1 px-2 py-3 text-sm font-medium text-gray-600 hover:text-citolab-700"
               >
                 or play your own package
@@ -715,8 +715,29 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* Examples */}
+      <section id="examples" className="scroll-mt-16 border-b border-gray-100 py-12 lg:py-16">
+        <div className={cn(PAGE_CONTAINER, PAGE_GUTTER)}>
+          <div className="flex flex-wrap items-end justify-between gap-6">
+            <div className="max-w-2xl">
+              <SectionEyebrow>Examples</SectionEyebrow>
+              <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-gray-950 sm:text-4xl">
+                Take a test. It only takes a few minutes.
+              </h2>
+              <p className="mt-4 text-lg leading-relaxed text-gray-600">
+                Four short tests, from primary school to university, each
+                presented a different way: one question per screen, the whole
+                test as one scrolling booklet, texts shown once with all of
+                their questions beside them, and an exam in scored parts.
+              </p>
+            </div>
+          </div>
+          <ExampleGallery variant="compact" className="mt-10" />
+        </div>
+      </section>
+
       {/* Player */}
-      <section id="player" className="py-20 lg:py-28">
+      <section id="player" className="pb-20 pt-12 lg:pb-28 lg:pt-16">
         <div
           className={cn(
             PAGE_CONTAINER,
@@ -744,7 +765,7 @@ export const LandingPage: React.FC = () => {
             </DemoFrame>
           </div>
           <div className="order-1 min-w-0 lg:order-2">
-            <SectionEyebrow>The player</SectionEyebrow>
+            <SectionEyebrow>The assessment player</SectionEyebrow>
             <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-gray-950 sm:text-4xl">
               Every interaction QTI 3 has, and the ones you build yourself.
             </h2>
@@ -758,10 +779,10 @@ export const LandingPage: React.FC = () => {
             </div>
             <div className="mt-8 flex flex-wrap items-center gap-6">
               <Link
-                to="/package"
+                to="/assessment-player"
                 className="inline-flex items-center gap-2 rounded-full bg-gray-950 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-citolab-800"
               >
-                Open the player
+                Open the assessment player
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <a
@@ -856,33 +877,6 @@ export const LandingPage: React.FC = () => {
               />
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Examples */}
-      <section className="py-20 lg:py-28">
-        <div className={cn(PAGE_CONTAINER, PAGE_GUTTER)}>
-          <div className="flex flex-wrap items-end justify-between gap-6">
-            <div className="max-w-2xl">
-              <SectionEyebrow>Examples</SectionEyebrow>
-              <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-gray-950 sm:text-4xl">
-                Take a test. It only takes a few minutes.
-              </h2>
-              <p className="mt-4 text-lg leading-relaxed text-gray-600">
-                Three short tests, each presented a different way: one
-                question per screen, the whole test as one scrolling booklet,
-                and texts shown once with all of their questions beside them.
-              </p>
-            </div>
-            <Link
-              to="/examples"
-              className="inline-flex items-center gap-1.5 text-sm font-semibold text-citolab-700 hover:text-citolab-800"
-            >
-              All examples
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-          <ExampleGallery variant="compact" className="mt-10" />
         </div>
       </section>
 
@@ -1010,8 +1004,7 @@ function LandingFooter() {
     {
       title: "Playground",
       links: [
-        { label: "Examples", to: "/examples" },
-        { label: "Player", to: "/package" },
+        { label: "Assessment player", to: "/assessment-player" },
         { label: "Editor", to: "/edit" },
       ],
     },
