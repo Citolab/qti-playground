@@ -1,5 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450" role="img" aria-label="An open book in front of a lighthouse shining across the evening sea, with a seagull flying overhead">
   <title>Reading Lab</title>
+  <style>
+    .stars > * { animation: twinkle 3.4s ease-in-out infinite; }
+    .stars > :nth-child(2n) { animation-duration: 2.6s; animation-delay: -1.4s; }
+    .stars > :nth-child(3n) { animation-delay: -2.2s; }
+    .glow { transform-box: fill-box; transform-origin: center; animation: pulse 6s ease-in-out infinite; }
+    .clouds { animation: cloud 18s ease-in-out infinite alternate; }
+    .beam { transform-box: view-box; transform-origin: 640px 104px; animation: sweep 6s ease-in-out infinite alternate; }
+    .lamp { animation: fade 1.5s ease-in-out infinite alternate; }
+    .waves { animation: roll 4s ease-in-out infinite alternate; }
+    .waves > :nth-child(2n) { animation: roll 5s ease-in-out infinite alternate-reverse; }
+    .shimmer { animation: fade 2.4s ease-in-out infinite alternate; }
+    .gull { animation: glide 9s ease-in-out infinite alternate; }
+    @keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+    @keyframes cloud { from { transform: translateX(-14px); } to { transform: translateX(20px); } }
+    @keyframes sweep { from { transform: rotate(-4deg); opacity: 0.75; } to { transform: rotate(5deg); opacity: 1; } }
+    @keyframes fade { from { opacity: 0.6; } to { opacity: 1; } }
+    @keyframes roll { from { transform: translateX(-10px); } to { transform: translateX(10px); } }
+    @keyframes glide { 0% { transform: translate(-30px, 6px); } 50% { transform: translate(0, -10px); } 100% { transform: translate(30px, 4px); } }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; }
+    }
+  </style>
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#0f4c5c"/>
@@ -25,7 +48,7 @@
     <clipPath id="tower"><path d="M610 130 L670 130 L688 330 L592 330 Z"/></clipPath>
   </defs>
   <rect width="800" height="450" fill="url(#sky)"/>
-  <g fill="#ffffff">
+  <g class="stars" fill="#ffffff">
     <circle cx="60" cy="40" r="1.8" opacity="0.9"/>
     <circle cx="180" cy="24" r="1.3" opacity="0.7"/>
     <circle cx="320" cy="50" r="1.5" opacity="0.8"/>
@@ -33,21 +56,23 @@
     <circle cx="740" cy="40" r="1.8" opacity="0.9"/>
     <circle cx="560" cy="60" r="1.1" opacity="0.6"/>
   </g>
-  <circle cx="180" cy="320" r="70" fill="#ffd56b" opacity="0.3"/>
+  <circle class="glow" cx="180" cy="320" r="70" fill="#ffd56b" opacity="0.3"/>
   <circle cx="180" cy="320" r="48" fill="#ffd56b"/>
-  <g fill="#ffffff" opacity="0.7">
+  <g class="clouds" fill="#ffffff" opacity="0.7">
     <path d="M60 150 C60 136 80 130 88 140 C94 126 120 126 126 142 C140 140 148 152 140 160 H66 C58 160 56 154 60 150 Z"/>
     <path d="M420 90 C420 80 434 76 440 82 C444 72 462 72 466 84 C476 82 482 90 476 96 H424 C418 96 418 92 420 90 Z"/>
   </g>
 
   <!-- beam -->
-  <polygon points="640,92 0,10 0,190 640,116" fill="url(#beam)"/>
+  <polygon class="beam" points="640,92 0,10 0,190 640,116" fill="url(#beam)"/>
 
   <!-- sea -->
   <rect x="0" y="318" width="800" height="132" fill="url(#sea)"/>
-  <rect x="110" y="322" width="140" height="6" rx="3" fill="#ffe08a" opacity="0.7"/>
-  <rect x="140" y="336" width="80" height="4" rx="2" fill="#ffe08a" opacity="0.5"/>
-  <g fill="none" stroke="#bdeee8" stroke-width="4" stroke-linecap="round" opacity="0.7">
+  <g class="shimmer">
+    <rect x="110" y="322" width="140" height="6" rx="3" fill="#ffe08a" opacity="0.7"/>
+    <rect x="140" y="336" width="80" height="4" rx="2" fill="#ffe08a" opacity="0.5"/>
+  </g>
+  <g class="waves" fill="none" stroke="#bdeee8" stroke-width="4" stroke-linecap="round" opacity="0.7">
     <path d="M40 360 q14 -10 28 0 t28 0"/>
     <path d="M680 380 q14 -10 28 0 t28 0"/>
     <path d="M440 350 q12 -8 24 0 t24 0"/>
@@ -69,7 +94,7 @@
   <path d="M628 330 V314 A12 12 0 0 1 652 314 V330 Z" fill="#004119"/>
   <rect x="598" y="118" width="84" height="14" rx="3" fill="#004119"/>
   <rect x="614" y="78" width="52" height="40" fill="#fff3b0"/>
-  <circle cx="640" cy="98" r="13" fill="#f6c900"/>
+  <circle class="lamp" cx="640" cy="98" r="13" fill="#f6c900"/>
   <g stroke="#004119" stroke-width="4">
     <line x1="614" y1="78" x2="614" y2="118"/>
     <line x1="640" y1="78" x2="640" y2="118"/>
@@ -79,12 +104,14 @@
   <circle cx="640" cy="43" r="6" fill="#004119"/>
 
   <!-- gull -->
+  <g class="gull">
   <g transform="translate(400 160) scale(2.2)">
     <path d="M-26 -6 C-16 -18 -6 -14 0 -2 C6 -14 16 -18 26 -6 C16 -10 8 -6 0 4 C-8 -6 -16 -10 -26 -6 Z" fill="#ffffff"/>
     <path d="M-26 -6 C-22 -10 -18 -11 -16 -10 L-20 -6 Z" fill="#37474f"/>
     <path d="M26 -6 C22 -10 18 -11 16 -10 L20 -6 Z" fill="#37474f"/>
     <ellipse cx="0" cy="0" rx="6" ry="5" fill="#ffffff"/>
     <path d="M5 -1 L11 0 L5 2 Z" fill="#f6c900"/>
+  </g>
   </g>
 
   <!-- open book -->

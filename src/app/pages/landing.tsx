@@ -630,7 +630,7 @@ export const LandingPage: React.FC = () => {
               style={{ animationDelay: "240ms" }}
             >
               <a
-                href="#examples"
+                href="/landing#examples"
                 className="inline-flex items-center gap-2 rounded-full bg-citolab-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-citolab-600/25 transition-colors hover:bg-citolab-700"
               >
                 <Play className="h-4 w-4 fill-current" />

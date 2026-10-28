@@ -1,5 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450" role="img" aria-label="Planets and a rocket in deep space, lit by a glowing Sun">
   <title>Journey Through the Solar System</title>
+  <style>
+    .stars > * { animation: twinkle 3.2s ease-in-out infinite; }
+    .stars > :nth-child(3n) { animation-duration: 4.1s; animation-delay: -1.3s; }
+    .stars > :nth-child(3n+1) { animation-duration: 2.7s; animation-delay: -2.1s; }
+    .stars > :nth-child(4n) { animation-delay: -0.6s; }
+    .glow { transform-box: fill-box; transform-origin: center; animation: pulse 5s ease-in-out infinite; }
+    .bob { animation: bob 7s ease-in-out infinite alternate; }
+    .bob-2 { animation-duration: 9s; animation-delay: -3s; }
+    .bob-3 { animation-duration: 11s; animation-delay: -5s; }
+    .bob-4 { animation-duration: 8s; animation-delay: -1.5s; }
+    .rocket { animation: hover 3.6s ease-in-out infinite alternate; }
+    .flame { transform-box: fill-box; transform-origin: top; animation: flicker 0.35s ease-in-out infinite alternate; }
+    .trail { animation: fade 1.8s ease-in-out infinite alternate; }
+    @keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+    @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.06); opacity: 0.8; } }
+    @keyframes bob { from { transform: translateY(-4px); } to { transform: translateY(4px); } }
+    @keyframes hover { from { transform: translate(-5px, 4px); } to { transform: translate(5px, -4px); } }
+    @keyframes flicker { from { transform: scaleY(0.82); } to { transform: scaleY(1.12); } }
+    @keyframes fade { from { opacity: 0.55; } to { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; }
+    }
+  </style>
   <defs>
     <linearGradient id="space" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#1d3466"/>
@@ -42,7 +65,7 @@
   <circle cx="300" cy="420" r="260" fill="url(#nebula-green)"/>
 
   <!-- stars -->
-  <g fill="#ffffff">
+  <g class="stars" fill="#ffffff">
     <circle cx="200" cy="40" r="1.6" opacity="0.8"/>
     <circle cx="260" cy="96" r="1.1" opacity="0.6"/>
     <circle cx="410" cy="60" r="1.8" opacity="0.9"/>
@@ -74,10 +97,11 @@
   </g>
 
   <!-- Sun -->
-  <circle cx="-90" cy="225" r="300" fill="url(#glow)"/>
+  <circle class="glow" cx="-90" cy="225" r="300" fill="url(#glow)"/>
   <circle cx="-90" cy="225" r="230" fill="url(#sun)"/>
 
   <!-- Earth + Moon -->
+  <g class="bob">
   <g clip-path="url(#earth)">
     <circle cx="318" cy="150" r="34" fill="#2e86de"/>
     <path d="M308 122 c9 -4 20 -1 22 7 c2 7 -2 11 -6 14 c-4 3 -2 8 2 12 c5 6 2 15 -6 20 c-5 3 -9 1 -9 -5 c0 -6 -5 -9 -7 -13 c-3 -5 -1 -9 3 -11 c3 -1 1 -6 -1 -9 c-3 -4 -2 -11 2 -15z" fill="#00a748"/>
@@ -87,14 +111,18 @@
   <circle cx="318" cy="150" r="34" fill="url(#shade)"/>
   <circle cx="366" cy="118" r="8" fill="#d9d9d9"/>
   <circle cx="366" cy="118" r="8" fill="url(#shade)"/>
+  </g>
 
   <!-- Mars -->
+  <g class="bob bob-3">
   <circle cx="300" cy="330" r="22" fill="#c84b1f"/>
   <ellipse cx="294" cy="336" rx="10" ry="4" fill="#93300f" opacity="0.8"/>
   <ellipse cx="300" cy="311" rx="9" ry="3" fill="#fdf2e9"/>
   <circle cx="300" cy="330" r="22" fill="url(#shade)"/>
+  </g>
 
   <!-- Jupiter -->
+  <g class="bob bob-2">
   <g clip-path="url(#jupiter)">
     <circle cx="500" cy="318" r="70" fill="#dcb68c"/>
     <rect x="420" y="262" width="160" height="10" fill="#b9825a"/>
@@ -108,8 +136,10 @@
     <ellipse cx="526" cy="345" rx="9" ry="4.5" fill="#dd7a50"/>
   </g>
   <circle cx="500" cy="318" r="70" fill="url(#shade)"/>
+  </g>
 
   <!-- Saturn -->
+  <g class="bob bob-4">
   <g transform="rotate(-18 668 138)">
     <ellipse cx="668" cy="138" rx="92" ry="20" fill="none" stroke="#d8bd84" stroke-width="11"/>
     <ellipse cx="668" cy="138" rx="72" ry="15" fill="none" stroke="#f0dfb4" stroke-width="8"/>
@@ -128,18 +158,22 @@
     <ellipse cx="668" cy="138" rx="92" ry="20" fill="none" stroke="#d8bd84" stroke-width="11"/>
     <ellipse cx="668" cy="138" rx="72" ry="15" fill="none" stroke="#f0dfb4" stroke-width="8"/>
   </g>
+  </g>
 
   <!-- Neptune -->
+  <g class="bob bob-3">
   <circle cx="726" cy="352" r="28" fill="#3567d4"/>
   <ellipse cx="726" cy="342" rx="26" ry="4" fill="#5b8cf0" opacity="0.7"/>
   <ellipse cx="734" cy="360" rx="8" ry="4.5" fill="#1d3a8a"/>
   <circle cx="726" cy="352" r="28" fill="url(#shade)"/>
+  </g>
 
   <!-- rocket with trail -->
-  <path d="M290 260 C340 250 380 230 404 206" fill="none" stroke="url(#trail)" stroke-width="6" stroke-linecap="round"/>
+  <path class="trail" d="M290 260 C340 250 380 230 404 206" fill="none" stroke="url(#trail)" stroke-width="6" stroke-linecap="round"/>
+  <g class="rocket">
   <g transform="translate(420 190) rotate(50) scale(0.6)">
-    <path d="M-12 46 Q0 108 12 46 Z" fill="#f6c900"/>
-    <path d="M-6 46 Q0 82 6 46 Z" fill="#fff4b8"/>
+    <path class="flame" d="M-12 46 Q0 108 12 46 Z" fill="#f6c900"/>
+    <path class="flame" d="M-6 46 Q0 82 6 46 Z" fill="#fff4b8"/>
     <rect x="-15" y="38" width="30" height="10" rx="3" fill="#004119"/>
     <path d="M-22 6 L-44 40 L-44 54 L-22 42 Z" fill="#00a748"/>
     <path d="M22 6 L44 40 L44 54 L22 42 Z" fill="#00a748"/>
@@ -149,5 +183,6 @@
     <circle cx="0" cy="-12" r="13" fill="#004119"/>
     <circle cx="0" cy="-12" r="9" fill="#00b1a9"/>
     <circle cx="-3" cy="-15" r="3" fill="#ffffff" opacity="0.8"/>
+  </g>
   </g>
 </svg>

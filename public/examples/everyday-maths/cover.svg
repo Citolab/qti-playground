@@ -1,5 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450" role="img" aria-label="A pizza with a slice taken out, a graph, a ruler, a protractor and maths symbols on green squared paper">
   <title>Everyday Maths</title>
+  <style>
+    .grid { animation: drift 8s linear infinite; }
+    .slice { animation: slide 4s ease-in-out infinite alternate; }
+    .float { animation: float 5s ease-in-out infinite alternate; }
+    .float-2 { animation-duration: 6.5s; animation-delay: -2s; }
+    .float-3 { animation-duration: 4.4s; animation-delay: -3.2s; }
+    .float-4 { animation-duration: 5.8s; animation-delay: -1s; }
+    .graph-line { animation: draw 7s ease-in-out infinite; }
+    .dot { transform-box: fill-box; transform-origin: center; animation: pop 7s ease-out infinite; }
+    .dot:nth-child(2) { animation-delay: 0.25s; }
+    .dot:nth-child(3) { animation-delay: 0.5s; }
+    .dot:nth-child(4) { animation-delay: 0.75s; }
+    @keyframes drift { from { transform: translate(0, 0); } to { transform: translate(40px, 40px); } }
+    @keyframes slide { from { transform: translateX(-10px); } to { transform: translateX(12px); } }
+    @keyframes float { from { transform: translateY(-6px); } to { transform: translateY(6px); } }
+    @keyframes draw { 0% { stroke-dashoffset: 1; } 30%, 100% { stroke-dashoffset: 0; } }
+    @keyframes pop { 0%, 18% { transform: scale(0); } 26% { transform: scale(1.3); } 32%, 100% { transform: scale(1); } }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; }
+    }
+  </style>
   <defs>
     <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
       <path d="M40 0 H0 V40" fill="none" stroke="#ffffff" stroke-opacity="0.14" stroke-width="2"/>
@@ -10,7 +31,7 @@
     </linearGradient>
   </defs>
   <rect width="800" height="450" fill="url(#bg)"/>
-  <rect width="800" height="450" fill="url(#grid)"/>
+  <g class="grid"><rect x="-40" y="-40" width="880" height="530" fill="url(#grid)"/></g>
 
   <!-- protractor (behind the pizza) -->
   <g transform="translate(150 410)">
@@ -51,12 +72,14 @@
     <ellipse cx="226" cy="300" rx="11" ry="5" transform="rotate(-50 226 300)"/>
   </g>
   <!-- the slice, pulled out -->
+  <g class="slice">
   <g transform="translate(36 0)">
     <path d="M270 215 L408.58 157.60 A150 150 0 0 1 408.58 272.40 Z" fill="#004119" opacity="0.18" transform="translate(6 10)"/>
     <path d="M270 215 L408.58 157.60 A150 150 0 0 1 408.58 272.40 Z" fill="#e2a04a"/>
     <path d="M270 215 L388.26 166.01 A128 128 0 0 1 388.26 263.99 Z" fill="#ffd84d"/>
     <circle cx="350" cy="215" r="15" fill="#d9472b"/>
     <ellipse cx="318" cy="200" rx="10" ry="5" fill="#00a748"/>
+  </g>
   </g>
 
   <!-- graph card -->
@@ -73,12 +96,12 @@
       <line x1="560" y1="146" x2="725" y2="146"/>
     </g>
     <path d="M560 180 H728 M560 180 V64" stroke="#004119" stroke-width="4" fill="none" stroke-linecap="round"/>
-    <polyline points="560,170 600,150 640,156 680,110 720,86" fill="none" stroke="#00b1a9" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+    <polyline class="graph-line" pathLength="1" stroke-dasharray="1" points="560,170 600,150 640,156 680,110 720,86" fill="none" stroke="#00b1a9" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
     <g fill="#f6c900" stroke="#004119" stroke-width="3">
-      <circle cx="600" cy="150" r="7"/>
-      <circle cx="640" cy="156" r="7"/>
-      <circle cx="680" cy="110" r="7"/>
-      <circle cx="720" cy="86" r="7"/>
+      <circle class="dot" cx="600" cy="150" r="7"/>
+      <circle class="dot" cx="640" cy="156" r="7"/>
+      <circle class="dot" cx="680" cy="110" r="7"/>
+      <circle class="dot" cx="720" cy="86" r="7"/>
     </g>
   </g>
 
@@ -103,21 +126,21 @@
 
   <!-- symbol tiles -->
   <g font-family="Verdana, Arial, sans-serif" font-size="40" font-weight="bold" text-anchor="middle">
-    <g transform="rotate(-8 470 80)">
+    <g class="float"><g transform="rotate(-8 470 80)">
       <rect x="438" y="48" width="64" height="64" rx="14" fill="#004119"/>
       <text x="470" y="94" fill="#ffffff">+</text>
-    </g>
-    <g transform="translate(28 4) rotate(10 486 238)">
+    </g></g>
+    <g class="float float-2"><g transform="translate(28 4) rotate(10 486 238)">
       <rect x="456" y="208" width="60" height="60" rx="14" fill="#ffffff"/>
       <text x="486" y="252" fill="#00a748">&#247;</text>
-    </g>
-    <g transform="rotate(-6 72 70)">
+    </g></g>
+    <g class="float float-3"><g transform="rotate(-6 72 70)">
       <rect x="40" y="38" width="64" height="64" rx="14" fill="#f6c900"/>
       <text x="72" y="84" fill="#004119">&#215;</text>
-    </g>
-    <g transform="translate(-120 -10) rotate(8 740 270)">
+    </g></g>
+    <g class="float float-4"><g transform="translate(-120 -10) rotate(8 740 270)">
       <rect x="712" y="242" width="56" height="56" rx="14" fill="#004119"/>
       <text x="740" y="284" fill="#f6c900">=</text>
-    </g>
+    </g></g>
   </g>
 </svg>
