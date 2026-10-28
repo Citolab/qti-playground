@@ -353,6 +353,12 @@ const TEAM = [
     email: "marcel.hoekstra@cito.nl",
     initials: "MH",
   },
+  {
+    name: "Denise Broekman",
+    role: "Full-stack developer",
+    email: "denise.broekman@cito.nl",
+    initials: "DB",
+  },
 ];
 
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
