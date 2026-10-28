@@ -45,6 +45,7 @@
     </resource>
     <resource identifier="maths-06" type="imsqti_item_xmlv3p0" href="item-06.xml">
       <file href="item-06.xml"/>
+      <dependency identifierref="CSS-MATHS"/>
     </resource>
     <resource identifier="IMG-MATHS-INTRO" type="webcontent" href="images/maths-intro.svg">
       <file href="images/maths-intro.svg"/>
@@ -63,6 +64,9 @@
     </resource>
     <resource identifier="IMG-ANGLE" type="webcontent" href="images/angle.svg">
       <file href="images/angle.svg"/>
+    </resource>
+    <resource identifier="CSS-MATHS" type="webcontent" href="maths.css">
+      <file href="maths.css"/>
     </resource>
   </resources>
 </manifest>

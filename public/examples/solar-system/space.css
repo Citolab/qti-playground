@@ -111,9 +111,14 @@ qti-simple-choice:is(:hover, :focus-visible) .globe-map {
   color: #64748b;
 }
 
-/* A flex chip drops the space before the name, so the picture gets its own. */
-.planet-order qti-simple-choice img {
-  margin-inline-end: 0.6rem;
+/*
+ * A chip lays out its picture and name as flex items, which drops the space
+ * between them, so the label gets a gap: in the bank and once placed. The copy
+ * that follows the pointer is built outside the item, out of this sheet's reach.
+ */
+.planet-order qti-simple-choice::part(label),
+.planet-order::part(drag-label) {
+  gap: 0.6rem;
 }
 
 /*

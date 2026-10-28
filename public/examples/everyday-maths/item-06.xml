@@ -22,9 +22,10 @@
       <qti-value>1</qti-value>
     </qti-default-value>
   </qti-outcome-declaration>
+  <qti-stylesheet href="maths.css" type="text/css"/>
   <qti-item-body>
     <p>Fractions and decimals are two ways of writing the same kind of number. Tip: try turning every fraction into a decimal first.</p>
-    <qti-order-interaction response-identifier="RESPONSE" shuffle="true" class="qti-orientation-horizontal">
+    <qti-order-interaction response-identifier="RESPONSE" shuffle="true" class="qti-orientation-horizontal number-order">
       <qti-prompt>Put these numbers in order, from <strong>smallest</strong> to <strong>largest</strong>.</qti-prompt>
       <qti-simple-choice identifier="F3_4"><math xmlns="http://www.w3.org/1998/Math/MathML"><mstyle displaystyle="true" mathsize="1.3em"><mfrac><mn>3</mn><mn>4</mn></mfrac></mstyle></math></qti-simple-choice>
       <qti-simple-choice identifier="D0_3"><math xmlns="http://www.w3.org/1998/Math/MathML"><mstyle displaystyle="true" mathsize="1.3em"><mn>0.3</mn></mstyle></math></qti-simple-choice>

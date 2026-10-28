@@ -92,3 +92,35 @@ table.stats-output tfoot td {
 .stats-plot-label {
   font-weight: 600;
 }
+
+/*
+ * Ranking correlations: the slots are numbered, so the order still reads when
+ * a narrow screen wraps them onto a second row.
+ */
+.stats-plots::part(drops) {
+  counter-reset: plot-slot;
+  padding-top: 1.5rem;
+  row-gap: 2rem;
+}
+
+.stats-plots::part(drop) {
+  position: relative;
+  counter-increment: plot-slot;
+}
+
+.stats-plots::part(drop)::before {
+  content: counter(plot-slot);
+  position: absolute;
+  bottom: calc(100% + 0.3rem);
+  left: 0;
+  font-weight: 700;
+  color: #64748b;
+}
+
+/*
+ * The hole a placed plot leaves behind hides its name but not its picture, so
+ * a plot seemed to sit in the bank and in its slot at once.
+ */
+.stats-plots qti-simple-choice:is(:state(placeholder), [data-state~="placeholder"], :state(dragging), [data-state~="dragging"]) .stats-plot {
+  visibility: hidden;
+}

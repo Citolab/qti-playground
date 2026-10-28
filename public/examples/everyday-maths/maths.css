@@ -1,0 +1,37 @@
+/*
+ * From smallest to largest: five narrow slots in one row for as long as they
+ * fit (the default column floor is wider than a fraction), and numbered, so the
+ * order still reads when a small screen wraps them anyway.
+ */
+.number-order {
+  --qti-drop-track-min-width: 4.5rem;
+}
+
+.number-order::part(drops) {
+  counter-reset: number-slot;
+  padding-top: 1.5rem;
+  row-gap: 2rem;
+}
+
+.number-order::part(drop) {
+  position: relative;
+  counter-increment: number-slot;
+}
+
+.number-order::part(drop)::before {
+  content: counter(number-slot);
+  position: absolute;
+  bottom: calc(100% + 0.3rem);
+  left: 0;
+  font-weight: 700;
+  color: #64748b;
+}
+
+/* A decimal is shorter than a fraction; every chip takes the tallest one's height. */
+.number-order::part(drags) {
+  align-items: stretch;
+}
+
+.number-order::part(drag) {
+  align-self: stretch;
+}
