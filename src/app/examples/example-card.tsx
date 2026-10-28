@@ -103,21 +103,40 @@ export function ExampleCard({
       </button>
 
       <div className="flex flex-1 flex-col gap-3 p-5">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-gray-400">
-            {example.audience}
-          </p>
-          <h3 className="mt-1 font-display text-lg font-semibold tracking-tight text-gray-900">
-            {example.title}
-          </h3>
-          <p className="mt-1.5 text-sm leading-relaxed text-gray-600">
-            {example.description}
-          </p>
-          <p className="mt-3 flex items-center gap-2 text-sm font-medium text-citolab-700">
-            <LayoutModeIcon mode={example.layout} className="h-4 w-4 shrink-0" />
-            {example.presentation}
-          </p>
-        </div>
+        {compact ? (
+          // On the landing page the card sells the player, so what it does leads
+          // and the test itself is only the example.
+          <div>
+            <h3 className="font-display text-lg font-semibold leading-snug tracking-tight text-gray-900">
+              {example.pitch}
+            </h3>
+            <p className="mt-2 flex items-center gap-2 text-sm font-medium text-citolab-700">
+              <LayoutModeIcon mode={example.layout} className="h-4 w-4 shrink-0" />
+              {example.presentation}
+            </p>
+            <p className="mt-3 text-sm text-gray-500">
+              <span className="font-medium text-gray-700">{example.title}</span>
+              {" · "}
+              {example.audience}
+            </p>
+          </div>
+        ) : (
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-400">
+              {example.audience}
+            </p>
+            <h3 className="mt-1 font-display text-lg font-semibold tracking-tight text-gray-900">
+              {example.title}
+            </h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-gray-600">
+              {example.description}
+            </p>
+            <p className="mt-3 flex items-center gap-2 text-sm font-medium text-citolab-700">
+              <LayoutModeIcon mode={example.layout} className="h-4 w-4 shrink-0" />
+              {example.presentation}
+            </p>
+          </div>
+        )}
         <ul className="flex flex-wrap gap-1.5">
           {chips.map((interaction) => (
             <li

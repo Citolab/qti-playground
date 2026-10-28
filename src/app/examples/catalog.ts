@@ -29,6 +29,11 @@ export type ExamplePackage = {
   /** How the test is presented, in words, for the card. */
   presentation: string;
   /**
+   * The landing-page headline: what the example shows the player doing, not
+   * what the test is about.
+   */
+  pitch: string;
+  /**
    * The colours under the example's `backdrop.svg`, a transparent tile. In
    * practice mode the page around the player takes on the example's setting.
    */
@@ -56,6 +61,7 @@ export const EXAMPLE_PACKAGES: ExamplePackage[] = [
     mode: "practice",
     coach: "martian",
     presentation: "One question per screen, with a practice coach",
+    pitch: "Practice with a coach that reacts to every answer.",
     backdropColors: ["#1d3466", "#0a142b"],
   },
   {
@@ -75,6 +81,7 @@ export const EXAMPLE_PACKAGES: ExamplePackage[] = [
     ],
     layout: "vertical",
     presentation: "The whole test on one scrolling page",
+    pitch: "Scroll through the whole test like a paper booklet.",
     backdropColors: ["#00b85a", "#00913f"],
   },
   {
@@ -94,6 +101,7 @@ export const EXAMPLE_PACKAGES: ExamplePackage[] = [
     ],
     layout: "classic",
     presentation: "One page per text, with its questions",
+    pitch: "Read the text once. Answer everything beside it.",
     backdropColors: ["#0f4c5c", "#138a95"],
   },
   {
@@ -116,6 +124,7 @@ export const EXAMPLE_PACKAGES: ExamplePackage[] = [
     ],
     layout: "classic",
     presentation: "One question per screen, in three scored parts",
+    pitch: "A real exam, in parts, with a score for each.",
     backdropColors: ["#3730a3", "#1e1b4b"],
   },
 ];

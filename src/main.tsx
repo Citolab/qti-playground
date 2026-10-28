@@ -21,6 +21,24 @@
 // and only a production build will show it.
 import "./app/editor-first";
 
+// A deploy replaces every hashed chunk, so a tab opened before it still points
+// at chunks that no longer exist -- and the SPA rewrite answers those with
+// index.html, which fails as a module ("Failed to fetch dynamically imported
+// module"). Reload to pick up the new index.html. The timestamp guard stops a
+// reload loop when the chunk is genuinely broken rather than stale.
+window.addEventListener("vite:preloadError", (event) => {
+  const key = "qti_chunk_reload_at";
+  try {
+    const last = Number(sessionStorage.getItem(key) ?? 0);
+    if (Date.now() - last < 10_000) return;
+    sessionStorage.setItem(key, String(Date.now()));
+  } catch {
+    // No sessionStorage: reload anyway; a broken chunk would loop, a stale one won't.
+  }
+  event.preventDefault();
+  window.location.reload();
+});
+
 import("./app/bootstrap").catch((error: unknown) => {
   console.error("Failed to start the QTI Playground:", error);
 });
