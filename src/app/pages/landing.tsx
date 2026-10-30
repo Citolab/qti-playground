@@ -265,6 +265,7 @@ const LIBRARIES: Library[] = [
     links: [
       { label: "GitHub", href: "https://github.com/Citolab/tspci" },
       { label: "npm", href: "https://www.npmjs.com/package/@citolab/tspci" },
+      { label: "Showcase", href: "https://pci.citolab.nl" },
       { label: "Examples", href: "https://github.com/Citolab/tspci-examples" },
     ],
   },
@@ -777,7 +778,17 @@ export const LandingPage: React.FC = () => {
             <p className="mt-4 text-lg leading-relaxed text-gray-600">
               Drop in a package and take the test the way a candidate would.
               QTI 2.x is upgraded on the fly, and Portable Custom Interactions
-              like this brick builder run in their own sandbox.
+              like this brick builder run in their own sandbox. Try more of
+              ours in the{" "}
+              <a
+                href="https://pci.citolab.nl"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-citolab-700 underline decoration-citolab-300 underline-offset-4 hover:text-citolab-800 hover:decoration-citolab-600"
+              >
+                PCI showcase
+              </a>
+              .
             </p>
             <div className="mt-8">
               <FeatureList features={PLAYER_FEATURES} />
@@ -1027,6 +1038,7 @@ function LandingFooter() {
       links: [
         { label: "CitoLab on GitHub", to: "https://github.com/Citolab", external: true },
         { label: "npm packages", to: "https://www.npmjs.com/org/citolab", external: true },
+        { label: "PCI showcase", to: "https://pci.citolab.nl", external: true },
         {
           label: "Component docs",
           to: "https://qti-components.citolab.nl/",

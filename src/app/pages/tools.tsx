@@ -78,6 +78,7 @@ const EXTERNAL_TOOLS: ExternalTool[] = [
     links: [
       { label: "GitHub", href: "https://github.com/Citolab/tspci" },
       { label: "npm", href: "https://www.npmjs.com/package/@citolab/tspci" },
+      { label: "Showcase", href: "https://pci.citolab.nl" },
       { label: "Examples", href: "https://github.com/Citolab/tspci-examples" },
     ],
   },
