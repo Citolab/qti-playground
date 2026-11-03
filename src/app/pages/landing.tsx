@@ -265,8 +265,7 @@ const LIBRARIES: Library[] = [
     links: [
       { label: "GitHub", href: "https://github.com/Citolab/tspci" },
       { label: "npm", href: "https://www.npmjs.com/package/@citolab/tspci" },
-      { label: "Showcase", href: "https://pci.citolab.nl" },
-      { label: "Examples", href: "https://github.com/Citolab/tspci-examples" },
+      { label: "Examples", href: "https://pci.citolab.nl" },
     ],
   },
   {
@@ -786,7 +785,7 @@ export const LandingPage: React.FC = () => {
                 rel="noopener noreferrer"
                 className="font-medium text-citolab-700 underline decoration-citolab-300 underline-offset-4 hover:text-citolab-800 hover:decoration-citolab-600"
               >
-                PCI showcase
+                PCI examples
               </a>
               .
             </p>
@@ -1038,7 +1037,7 @@ function LandingFooter() {
       links: [
         { label: "CitoLab on GitHub", to: "https://github.com/Citolab", external: true },
         { label: "npm packages", to: "https://www.npmjs.com/org/citolab", external: true },
-        { label: "PCI showcase", to: "https://pci.citolab.nl", external: true },
+        { label: "PCI examples", to: "https://pci.citolab.nl", external: true },
         {
           label: "Component docs",
           to: "https://qti-components.citolab.nl/",
