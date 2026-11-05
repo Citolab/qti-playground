@@ -19,7 +19,7 @@ export function EditorModeSwitch() {
     <div
       role="tablist"
       aria-label="Editor mode"
-      className="inline-flex rounded-full border border-gray-200 bg-gray-50 p-0.5"
+      className="inline-flex rounded-btn border border-gray-200 bg-gray-50 p-0.5"
     >
       {MODES.map((mode) => {
         const active = pathname === mode.href;
@@ -30,7 +30,7 @@ export function EditorModeSwitch() {
             role="tab"
             aria-selected={active}
             className={cn(
-              "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors",
+              "inline-flex h-8 items-center gap-1.5 rounded-btn px-3 text-sm font-medium transition-colors",
               active
                 ? "bg-white text-citolab-700 shadow-sm ring-1 ring-gray-200"
                 : "text-gray-500 hover:text-gray-900",

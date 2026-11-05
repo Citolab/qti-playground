@@ -228,7 +228,7 @@ export function VerticalNavigationPane({
                 >
                   {pill.isMarked && (
                     <span
-                      className="absolute -top-0.5 -right-0.5 z-10 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-citolab-yellow-500 text-xs font-bold text-white shadow-sm"
+                      className="absolute -top-0.5 -right-0.5 z-10 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-citolab-pink-500 text-xs font-bold text-white shadow-sm"
                       title="Bookmarked question"
                     >
                       !

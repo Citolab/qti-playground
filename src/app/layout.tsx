@@ -144,7 +144,7 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
             >
               <CitolabLogo className="h-7 w-[4.5rem] text-citolab-600" />
               <span className="hidden h-6 w-px bg-gray-200 sm:block" />
-              <span className="hidden font-display text-[15px] font-semibold tracking-tight text-gray-900 sm:block">
+              <span className="hidden font-display text-[15px] font-semibold  text-gray-900 sm:block">
                 QTI Playground
               </span>
             </Link>
@@ -158,7 +158,7 @@ export const PageLayout = ({ children }: { children: React.ReactNode }) => {
                     to={item.href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-full px-3.5 text-sm font-medium transition-colors",
+                      "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-btn px-3.5 text-sm font-medium transition-colors",
                       active
                         ? "bg-citolab-600 text-white shadow-sm"
                         : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",

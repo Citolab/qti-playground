@@ -246,7 +246,7 @@ export function NavigationBar({
             {item.isMarked && (
               <div
                 key={`${item.identifier}-bookmark`}
-                className="absolute -top-0.5 -right-0.5 bg-citolab-yellow-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold border-2 border-white shadow-sm z-10"
+                className="absolute -top-0.5 -right-0.5 bg-citolab-pink-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold border-2 border-white shadow-sm z-10"
                 title="Bookmarked question"
               >
                 !

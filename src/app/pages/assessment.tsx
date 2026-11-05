@@ -2332,7 +2332,7 @@ export const AssessmentPage: React.FC = () => {
                       />
                       <DownloadPackageButton
                         label="Download"
-                        className="hidden h-10 rounded-full border border-gray-200 bg-white px-3 text-gray-700 shadow-sm hover:border-gray-300 hover:bg-white hover:text-gray-900 sm:inline-flex"
+                        className="hidden h-10 rounded-btn border border-gray-200 bg-white px-3 text-gray-700 shadow-sm hover:border-gray-300 hover:bg-white hover:text-gray-900 sm:inline-flex"
                       />
                     </div>
                   </div>
@@ -2598,7 +2598,7 @@ export const AssessmentPage: React.FC = () => {
                                 Previous
                               </Button>
                             ) : (
-                              <test-prev className="inline-flex items-center rounded-md bg-citolab-700 px-4 py-2 text-sm font-semibold text-white hover:bg-citolab-600 transition-colors shadow-sm">
+                              <test-prev className="inline-flex items-center rounded-btn bg-citolab-700 px-4 py-2 text-sm font-semibold text-white hover:bg-citolab-600 transition-colors shadow-sm">
                                 <ChevronLeft className="mr-1 h-4 w-4" />
                                 Previous
                               </test-prev>
@@ -2649,7 +2649,7 @@ export const AssessmentPage: React.FC = () => {
                               <ChevronRight className="ml-1 h-4 w-4" />
                             </Button>
                           ) : (
-                            <test-next className="inline-flex items-center rounded-md bg-citolab-700 px-5 py-2 text-sm font-semibold text-white hover:bg-citolab-600 transition-colors shadow-sm flex-shrink-0">
+                            <test-next className="inline-flex items-center rounded-btn bg-citolab-700 px-5 py-2 text-sm font-semibold text-white hover:bg-citolab-600 transition-colors shadow-sm flex-shrink-0">
                               Next
                               <ChevronRight className="ml-1 h-4 w-4" />
                             </test-next>

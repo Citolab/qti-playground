@@ -100,7 +100,7 @@ function Sprout({ mood }: { mood: CoachMood }) {
   );
 }
 
-const CONFETTI_COLOURS = ["#f6c900", "#00b1a9", "#ff6b8b", "#7c5cff", "#00a748", "#ff9f1c"];
+const CONFETTI_COLOURS = ["#e30275", "#00b1a9", "#ff6b8b", "#7c5cff", "#00a748", "#ff9f1c"];
 
 /** Blob's dome: a half circle on a rounded-off column, in a 120x150 box. */
 const MARTIAN_BODY =
@@ -350,7 +350,7 @@ export function PracticeCoach({
           onClick={onCheck}
           disabled={busy}
           className={cn(
-            "pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-citolab-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-citolab-700",
+            "pointer-events-auto inline-flex items-center gap-1.5 rounded-btn bg-citolab-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-citolab-700",
             busy && "opacity-60",
           )}
         >

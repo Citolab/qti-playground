@@ -125,7 +125,7 @@ const EXTERNAL_TOOLS: ExternalTool[] = [
 function SectionHeading({ title, text }: { title: string; text: string }) {
   return (
     <div className="mb-4">
-      <h2 className="font-display text-lg font-semibold tracking-tight text-gray-900">
+      <h2 className="font-display text-lg font-semibold  text-gray-900">
         {title}
       </h2>
       <p className="mt-0.5 text-sm text-gray-500">{text}</p>

@@ -82,7 +82,7 @@ const LANDING_PCI_ITEM_XML = `<qti-assessment-item xmlns:xsi="http://www.w3.org/
   <qti-response-declaration identifier="RESPONSE2" cardinality="single" base-type="string"></qti-response-declaration>
   <qti-item-body>
     <p>
-      <qti-portable-custom-interaction custom-interaction-type-identifier="blocks" data-version="1.0.0" data-grid-divisions="9" data-cube-pixel-size="60" data-width="520" data-height="340" data-brick-color-mode="single" data-brick-colors="#00a748" data-components-cdn-url="${__QTI_COMPONENTS_CDN_URL__}" data-components-css-url="${__QTI_COMPONENTS_CSS_URL__}" module="blocks" response-identifier="RESPONSE2">
+      <qti-portable-custom-interaction custom-interaction-type-identifier="blocks" data-version="1.0.0" data-grid-divisions="9" data-cube-pixel-size="60" data-width="520" data-height="340" data-brick-color-mode="single" data-brick-colors="#e30275" data-components-cdn-url="${__QTI_COMPONENTS_CDN_URL__}" data-components-css-url="${__QTI_COMPONENTS_CSS_URL__}" module="blocks" response-identifier="RESPONSE2">
         <qti-interaction-modules>
           <qti-interaction-module id="blocks" primary-path="pci/blocks/interaction/runtime/js/index.js" />
         </qti-interaction-modules>
@@ -408,7 +408,7 @@ function DemoFrame({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_24px_60px_-20px_rgba(0,65,25,0.25)]",
+        "overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-cito",
         className,
       )}
     >
@@ -573,7 +573,7 @@ export const LandingPage: React.FC = () => {
       <section className="relative overflow-hidden border-b border-gray-100">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_10%,rgba(0,167,72,0.14),transparent_45%),radial-gradient(circle_at_0%_100%,rgba(0,177,169,0.08),transparent_40%)]"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_10%,rgba(0,167,72,0.14),transparent_45%),radial-gradient(circle_at_0%_100%,rgba(227,2,117,0.07),transparent_40%)]"
         />
         <div
           aria-hidden="true"
@@ -600,17 +600,17 @@ export const LandingPage: React.FC = () => {
               <ArrowRight className="h-3.5 w-3.5" />
             </a>
             <h1
-              className="animate-fade-in-up mt-6 font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-gray-950 sm:text-5xl xl:text-6xl"
+              className="animate-fade-in-up mt-6 font-display text-4xl font-extrabold leading-[1.05]  text-gray-950 sm:text-5xl xl:text-6xl"
               style={{ animationDelay: "80ms" }}
             >
               Play, write and convert{" "}
-              <span className="relative whitespace-nowrap text-citolab-600">
+              <span className="relative whitespace-nowrap font-serif font-normal italic text-citolab-600">
                 QTI&nbsp;3
                 <svg
                   aria-hidden="true"
                   viewBox="0 0 200 12"
                   preserveAspectRatio="none"
-                  className="absolute -bottom-1.5 left-0 h-3 w-full text-citolab-yellow-500"
+                  className="absolute -bottom-1.5 left-0 h-3 w-full text-citolab-pink-500"
                 >
                   <path
                     d="M2 9 C 50 2, 150 2, 198 8"
@@ -637,14 +637,14 @@ export const LandingPage: React.FC = () => {
             >
               <a
                 href="/landing#examples"
-                className="inline-flex items-center gap-2 rounded-full bg-citolab-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-citolab-600/25 transition-colors hover:bg-citolab-700"
+                className="inline-flex items-center gap-2 rounded-btn bg-citolab-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-citolab-600/25 transition-colors hover:bg-citolab-700"
               >
                 <Play className="h-4 w-4 fill-current" />
                 Play an example test
               </a>
               <Link
                 to="/edit"
-                className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-800 transition-colors hover:border-citolab-600 hover:text-citolab-700"
+                className="inline-flex items-center gap-2 rounded-btn border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-800 transition-colors hover:border-citolab-600 hover:text-citolab-700"
               >
                 <PenLine className="h-4 w-4" />
                 Open the editor
@@ -727,7 +727,7 @@ export const LandingPage: React.FC = () => {
           <div className="flex flex-wrap items-end justify-between gap-6">
             <div className="max-w-2xl">
               <SectionEyebrow>Examples</SectionEyebrow>
-              <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-gray-950 sm:text-4xl">
+              <h2 className="mt-3 font-display text-3xl font-bold  text-gray-950 sm:text-4xl">
                 Four tests. Four ways to take them.
               </h2>
               <p className="mt-4 text-lg leading-relaxed text-gray-600">
@@ -771,7 +771,7 @@ export const LandingPage: React.FC = () => {
           </div>
           <div className="order-1 min-w-0 lg:order-2">
             <SectionEyebrow>The assessment player</SectionEyebrow>
-            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-gray-950 sm:text-4xl">
+            <h2 className="mt-3 font-display text-3xl font-bold  text-gray-950 sm:text-4xl">
               Every interaction QTI 3 has, and the ones you build yourself.
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-gray-600">
@@ -795,7 +795,7 @@ export const LandingPage: React.FC = () => {
             <div className="mt-8 flex flex-wrap items-center gap-6">
               <Link
                 to="/assessment-player"
-                className="inline-flex items-center gap-2 rounded-full bg-gray-950 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-citolab-800"
+                className="inline-flex items-center gap-2 rounded-btn bg-gray-950 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-citolab-800"
               >
                 Open the assessment player
                 <ArrowRight className="h-4 w-4" />
@@ -830,7 +830,7 @@ export const LandingPage: React.FC = () => {
         >
           <div className="min-w-0">
             <SectionEyebrow>The editor</SectionEyebrow>
-            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-gray-950 sm:text-4xl">
+            <h2 className="mt-3 font-display text-3xl font-bold  text-gray-950 sm:text-4xl">
               Write items like a document. Get QTI&nbsp;3 for free.
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-gray-600">
@@ -843,7 +843,7 @@ export const LandingPage: React.FC = () => {
             </div>
             <Link
               to="/edit"
-              className="mt-8 inline-flex items-center gap-2 rounded-full bg-gray-950 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-citolab-800"
+              className="mt-8 inline-flex items-center gap-2 rounded-btn bg-gray-950 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-citolab-800"
             >
               Open the editor
               <ArrowRight className="h-4 w-4" />
@@ -853,7 +853,7 @@ export const LandingPage: React.FC = () => {
           <div className="min-w-0 space-y-4">
             {/* Fixed box, no `overflow-auto`: the editor scrolls its own body, so a second
                 scroller here would put the toolbar out of reach on a long item. */}
-            <div className="relative h-[22rem] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_24px_60px_-20px_rgba(0,65,25,0.25)]">
+            <div className="relative h-[22rem] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-cito">
               {/* Hangs off the editor's own toolbar, in its empty right end; same chip as
                   tool-bar.tsx and preview.tsx. */}
               <span className="pointer-events-none absolute top-5 right-3 z-10 hidden rounded bg-citolab-600/90 sm:block px-1 py-px text-[7px] leading-none font-semibold tracking-wide text-white uppercase">
@@ -903,7 +903,7 @@ export const LandingPage: React.FC = () => {
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-citolab-300">
                 Open source
               </p>
-              <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              <h2 className="mt-3 font-display text-3xl font-bold  sm:text-4xl">
                 The building blocks are yours to use.
               </h2>
               <p className="mt-4 text-lg leading-relaxed text-white/75">
@@ -978,7 +978,7 @@ export const LandingPage: React.FC = () => {
         >
           <div className="min-w-0">
             <SectionEyebrow>Talk to us</SectionEyebrow>
-            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-gray-950">
+            <h2 className="mt-3 font-display text-3xl font-bold  text-gray-950">
               Building with QTI? We&apos;d love to hear about it.
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-gray-600">

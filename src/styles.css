@@ -1,12 +1,14 @@
 @import "tailwindcss";
 /* Self-hosted, so no page view reaches a font CDN. */
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/plus-jakarta-sans";
+@import "@fontsource/pt-sans/400.css";
+@import "@fontsource/pt-sans/700.css";
+@import "@fontsource/pt-sans/400-italic.css";
+@import "@fontsource/merriweather/400-italic.css";
 
 @layer base {
   :root {
     --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
+    --foreground: #333333; /* Cito title colour */
     --card: oklch(1 0 0);
     --card-foreground: oklch(0.145 0 0);
     --popover: oklch(1 0 0);
@@ -24,7 +26,7 @@
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
     --ring: oklch(0.58 0.18 152);
-    --radius: 0.5rem;
+    --radius: 0.625rem; /* Cito uses 10px corners on desktop */
   }
 }
 
@@ -52,6 +54,8 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  /* Cito's buttons are rounded squares (cito.nl --r-sm), not pills; only icon-only buttons stay round. */
+  --radius-btn: 5px;
 }
 
 @theme {
@@ -77,18 +81,29 @@
   --color-citolab-700: #00742f;
   --color-citolab-800: #004119;
   --color-citolab-900: #000000;
-  /* Yellow brand color */
+  /* Yellow brand color: kept for the icon tiles on the landing page's dark green band. */
   --color-citolab-yellow-DEFAULT: #f6c900;
-  --color-citolab-yellow-50: #fffde7;
-  --color-citolab-yellow-100: #fff9c4;
-  --color-citolab-yellow-200: #fff176;
-  --color-citolab-yellow-300: #ffee58;
-  --color-citolab-yellow-400: #ffca28;
   --color-citolab-yellow-500: #f6c900;
   --color-citolab-yellow-600: #c9a200;
-  --color-citolab-yellow-700: #9a7c00;
-  --color-citolab-yellow-800: #6b5600;
-  --color-citolab-yellow-900: #3d3000;
+  /* Pink accent: Cito magenta (cito.nl --c-magenta, rgb(227 2 117)) */
+  --color-citolab-pink-DEFAULT: #e30275;
+  --color-citolab-pink-50: #fef5fa; /* cito.nl --c-seasalt */
+  --color-citolab-pink-100: #fde3f0;
+  --color-citolab-pink-200: #fbc0de;
+  --color-citolab-pink-300: #f68cc0;
+  --color-citolab-pink-400: #ee4d9b;
+  --color-citolab-pink-500: #e30275;
+  --color-citolab-pink-600: #c60066;
+  --color-citolab-pink-700: #9e0052;
+  --color-citolab-pink-800: #73003c;
+  --color-citolab-pink-900: #470025;
+  /* Cito's neutrals: a warm off-white page background (cito.nl --c-background) and #333 for
+     headings (--c-title). Overriding the Tailwind gray ends puts every bg-gray-50 surface and
+     text-gray-950 heading on them without touching each page. */
+  --color-gray-50: #f7f5f2;
+  --color-gray-950: #333333;
+  /* Cito's soft, wide card shadow (--bs-card). */
+  --shadow-cito: 0 3px 50px rgb(0 0 0 / 0.05);
   /* Teal brand color */
   --color-citolab-teal-DEFAULT: #00b1a9;
   --color-citolab-teal-50: #e0f7f6;
@@ -105,8 +120,10 @@
   --color-primary-DEFAULT: #00a748;
   --color-primary-dark: #004119;
   /* Self-hosted from @fontsource-variable (imported at the top of this file). */
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Plus Jakarta Sans Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  /* Cito's typefaces: PT Sans for text and headings, Merriweather italic as the accent face. */
+  --font-sans: "PT Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "PT Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Merriweather", ui-serif, Georgia, serif;
 }
 
 /* You can add global styles to this file, and also import other style files */
@@ -115,7 +132,7 @@
 }
 
 main {
-  @apply min-w-screen bg-gray-100;
+  @apply min-w-screen bg-gray-50;
 }
 
 .item-preview {
@@ -220,7 +237,7 @@ qti-item {
     scrollbar-gutter: stable;
   }
   .btn {
-    @apply cursor-pointer select-none whitespace-nowrap rounded-md border-0 bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50;
+    @apply cursor-pointer select-none whitespace-nowrap rounded-btn border-0 bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50;
   }
 }
 
@@ -281,7 +298,7 @@ qti-item {
   block-size: 2rem;
   padding-inline: 0;
   border: 0;
-  border-radius: 9999px;
+  border-radius: 4px; /* sits inside the rounded-square group (speech-controls.tsx) */
   background: transparent;
   color: #1f2937;
   --test-tts-icon-size: 1rem;

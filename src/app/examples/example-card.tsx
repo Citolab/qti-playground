@@ -107,7 +107,7 @@ export function ExampleCard({
           // On the landing page the card sells the player, so what it does leads
           // and the test itself is only the example.
           <div>
-            <h3 className="font-display text-lg font-semibold leading-snug tracking-tight text-balance text-gray-900 sm:min-h-[2lh]">
+            <h3 className="font-display text-lg font-semibold leading-snug  text-balance text-gray-900 sm:min-h-[2lh]">
               {example.pitch}
             </h3>
             <p className="mt-2 flex items-center gap-2 text-sm font-medium text-citolab-700">
@@ -125,7 +125,7 @@ export function ExampleCard({
             <p className="text-xs font-medium uppercase tracking-wider text-gray-400">
               {example.audience}
             </p>
-            <h3 className="mt-1 font-display text-lg font-semibold tracking-tight text-gray-900">
+            <h3 className="mt-1 font-display text-lg font-semibold  text-gray-900">
               {example.title}
             </h3>
             <p className="mt-1.5 text-sm leading-relaxed text-gray-600">
@@ -157,7 +157,7 @@ export function ExampleCard({
             type="button"
             onClick={() => onOpen("play")}
             disabled={disabled}
-            className="inline-flex items-center gap-2 rounded-full bg-citolab-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-citolab-700 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-btn bg-citolab-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-citolab-700 disabled:opacity-60"
           >
             <Play className="h-3.5 w-3.5 fill-current" />
             Play test
@@ -167,7 +167,7 @@ export function ExampleCard({
               type="button"
               onClick={() => onOpen("browse")}
               disabled={disabled}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:border-citolab-600 hover:text-citolab-700 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-btn border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:border-citolab-600 hover:text-citolab-700 disabled:opacity-60"
             >
               <LayoutGrid className="h-3.5 w-3.5" />
               Browse items

@@ -60,7 +60,7 @@ export function ToolBar({
           className={cn(
             "rounded-full w-10 h-10 border shadow-sm",
             marked
-              ? "bg-citolab-yellow-500 text-white border-citolab-yellow-500 hover:bg-citolab-yellow-600"
+              ? "bg-citolab-pink-500 text-white border-citolab-pink-500 hover:bg-citolab-pink-600"
               : "bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:text-gray-900 hover:bg-white"
           )}
         >
@@ -77,7 +77,7 @@ export function ToolBar({
       <MissingVoiceNotice />
 
       {/* Phones pinch to zoom, and have no room for a second way to do it. */}
-      <div className="hidden sm:flex items-center gap-1 bg-white text-gray-800 rounded-full border border-gray-200 shadow-sm px-2 py-1">
+      <div className="hidden sm:flex items-center gap-1 bg-white text-gray-800 rounded-btn border border-gray-200 shadow-sm px-2 py-1">
         <Button
           type="button"
           variant="ghost"
@@ -93,7 +93,7 @@ export function ToolBar({
           variant="ghost"
           size="sm"
           onClick={onResetZoom}
-          className="min-w-[52px] h-8 px-2 rounded-full text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200"
+          className="min-w-[52px] h-8 px-2 rounded-btn text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200"
           title="Reset zoom to 100%"
         >
           {zoomPercent}%
@@ -122,7 +122,7 @@ export function ToolBar({
               : "Edit the whole test in the QTI editor, starting at this item (beta)"
           }
           className={cn(
-            "h-10 rounded-full border shadow-sm px-3",
+            "h-10 rounded-btn border shadow-sm px-3",
             editing
               ? "bg-citolab-700 text-white border-citolab-700 hover:bg-citolab-600"
               : "bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:text-gray-900 hover:bg-white"

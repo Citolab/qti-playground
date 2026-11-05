@@ -73,7 +73,7 @@ export function PageShell({
             <div className="min-w-0">
               <h1
                 className={cn(
-                  "flex items-center gap-2 font-display font-semibold tracking-tight text-gray-900",
+                  "flex items-center gap-2 font-display font-semibold  text-gray-900",
                   compact ? "text-base" : "text-2xl",
                 )}
               >
@@ -129,7 +129,7 @@ export function PageCard({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm",
+        "overflow-hidden rounded-xl border border-black/5 bg-white shadow-cito",
         className,
       )}
     >

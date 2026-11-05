@@ -52,7 +52,7 @@ function OverviewGridItem({
         }
         className={cn(
           responseState === "complete" && "bg-citolab-600 hover:bg-citolab-700",
-          responseState === "incomplete" && "bg-citolab-yellow-500 text-white hover:bg-citolab-yellow-600 border-transparent",
+          responseState === "incomplete" && "bg-citolab-pink-500 text-white hover:bg-citolab-pink-600 border-transparent",
           responseState === "missing" && "text-gray-500"
         )}
       >
@@ -62,7 +62,7 @@ function OverviewGridItem({
             ? "In progress"
             : "Not answered"}
       </Badge>
-      {bookmarked && <Bookmark className="h-4 w-4 text-citolab-yellow-500" />}
+      {bookmarked && <Bookmark className="h-4 w-4 text-citolab-pink-500" />}
     </div>
   );
 

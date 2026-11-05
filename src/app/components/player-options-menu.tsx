@@ -93,7 +93,7 @@ export function PlayerOptionsMenu({
           size="sm"
           title={summary}
           data-tour="player-options"
-          className="h-10 gap-2 rounded-full border border-gray-200 bg-white px-3 text-gray-700 shadow-sm hover:border-gray-300 hover:bg-white hover:text-gray-900"
+          className="h-10 gap-2 rounded-btn border border-gray-200 bg-white px-3 text-gray-700 shadow-sm hover:border-gray-300 hover:bg-white hover:text-gray-900"
         >
           <SlidersHorizontal className="h-4 w-4" />
           <span className="hidden sm:inline">Mode</span>
