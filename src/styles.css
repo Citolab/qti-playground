@@ -454,3 +454,69 @@ test-next::part(button) {
   }
   .coach-confetti { display: none; }
 }
+
+/* The landing page's motion (src/app/landing). */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in { animation: fade-in 1.4s ease-out both; }
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee { animation: marquee var(--marquee-duration, 60s) linear infinite; }
+
+@keyframes aurora {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(8%, -6%) scale(1.15); }
+  66% { transform: translate(-6%, 5%) scale(0.92); }
+}
+.animate-aurora { animation: aurora 18s ease-in-out infinite; }
+
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.animate-float { animation: float-y 6s ease-in-out infinite; }
+
+@keyframes xml-flash {
+  from { box-shadow: 0 0 0 2px rgb(0 238 108 / 0.9), 0 0 40px rgb(0 238 108 / 0.45); }
+  to { box-shadow: 0 0 0 0 rgb(0 238 108 / 0), 0 0 0 rgb(0 238 108 / 0); }
+}
+.animate-xml-flash { animation: xml-flash 1.2s ease-out; }
+
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.8s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* A light that follows the pointer over a card (pointerLight in src/app/landing/in-view.ts). */
+.spotlight {
+  background-image: radial-gradient(
+    400px circle at var(--x, 50%) var(--y, 50%),
+    rgb(126 255 190 / 0.12),
+    transparent 40%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-marquee,
+  .animate-aurora,
+  .animate-float,
+  .animate-xml-flash {
+    animation: none;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

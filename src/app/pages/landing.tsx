@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { Suspense, lazy, useCallback, useMemo, useRef, useState } from "react";
 import { Editor as MonacoEditor } from "@monaco-editor/react";
 import { Link } from "react-router-dom";
 import {
@@ -33,6 +33,49 @@ import { CoachAvatar, type CoachMood } from "../components/practice-coach";
 import { GithubMark } from "../components/github-mark";
 import { ExampleGallery } from "../examples/example-gallery";
 import { cn } from "@/lib/utils";
+import { pointerLight } from "../landing/in-view";
+import { Reveal, Typewriter } from "../landing/motion";
+import type { Focus, PlanetId } from "../landing/solar-scene";
+
+// three.js is most of the hero's weight: in a chunk of its own, after the page has painted
+const SolarScene = lazy(() => import("../landing/solar-scene"));
+
+/** The interactions of QTI 3, going by under the hero. */
+const QTI_INTERACTIONS = [
+  "qti-choice-interaction",
+  "qti-text-entry-interaction",
+  "qti-extended-text-interaction",
+  "qti-inline-choice-interaction",
+  "qti-match-interaction",
+  "qti-associate-interaction",
+  "qti-order-interaction",
+  "qti-gap-match-interaction",
+  "qti-hottext-interaction",
+  "qti-hotspot-interaction",
+  "qti-select-point-interaction",
+  "qti-graphic-order-interaction",
+  "qti-graphic-gap-match-interaction",
+  "qti-graphic-associate-interaction",
+  "qti-position-object-interaction",
+  "qti-slider-interaction",
+  "qti-media-interaction",
+  "qti-upload-interaction",
+  "qti-drawing-interaction",
+  "qti-end-attempt-interaction",
+  "qti-portable-custom-interaction",
+];
+
+const PLANET_NAMES: Record<PlanetId, string> = {
+  mercury: "Mercury",
+  venus: "Venus",
+  earth: "Earth",
+  mars: "Mars",
+  jupiter: "Jupiter",
+  saturn: "Saturn",
+  neptune: "Neptune",
+};
+
+const isPlanet = (id: string | undefined): id is PlanetId => Boolean(id && id in PLANET_NAMES);
 
 // The live item in the hero: a real item from the Solar System example, loaded
 // by URL the way a host application would load one, so its images resolve
@@ -376,8 +419,8 @@ function FeatureList({
 }) {
   return (
     <dl className="grid gap-5 sm:grid-cols-2">
-      {features.map((feature) => (
-        <div key={feature.title} className="flex gap-3">
+      {features.map((feature, index) => (
+        <Reveal key={feature.title} delay={index * 80} className="flex gap-3">
           <dt className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-citolab-50 text-citolab-700">
             <feature.icon className="h-[18px] w-[18px]" aria-hidden="true" />
           </dt>
@@ -389,7 +432,7 @@ function FeatureList({
               {feature.text}
             </span>
           </dd>
-        </div>
+        </Reveal>
       ))}
     </dl>
   );
@@ -437,7 +480,13 @@ const HERO_WRONG_PICKS: Record<string, string> = {
   JUPITER: "That's Jupiter! Its big spot is red, but Mars is red all over.",
 };
 
-type HeroFeedback = { mood: CoachMood; message: string; count: number };
+type HeroFeedback = {
+  mood: CoachMood;
+  message: string;
+  count: number;
+  /** The choice picked, as its identifier (MARS), for the solar system behind the item. */
+  picked?: string;
+};
 
 const HERO_GREETING: HeroFeedback = {
   mood: "idle",
@@ -492,6 +541,7 @@ function useHeroFeedback() {
             mood: "correct",
             message: "Yes, that's Mars! All that rusty dust is what makes it red.",
             count,
+            picked: picked[0],
           };
         }
         return {
@@ -499,6 +549,7 @@ function useHeroFeedback() {
           message:
             HERO_WRONG_PICKS[picked[0]] ?? "Not quite. Look for the rusty red planet!",
           count,
+          picked: picked[0],
         };
       });
     };
@@ -512,9 +563,28 @@ function useHeroFeedback() {
 export const LandingPage: React.FC = () => {
   const { feedback: heroFeedback, attach: attachHeroFeedback } =
     useHeroFeedback();
+  // the planet picked in the hero's item lights up in the solar system behind it
+  const pickedPlanet = heroFeedback.picked?.toLowerCase();
+  const heroFocus = useMemo<Focus>(
+    () =>
+      isPlanet(pickedPlanet)
+        ? { planet: pickedPlanet, correct: heroFeedback.mood === "correct" }
+        : null,
+    [pickedPlanet, heroFeedback.mood],
+  );
+  const [hoveredPlanet, setHoveredPlanet] = useState<PlanetId | null>(null);
   const [landingChoiceXml, setLandingChoiceXml] = useState(
     LANDING_CHOICE_ITEM_XML,
   );
+  // every change the editor makes to the XML flashes the generated XML
+  const [xmlChanges, setXmlChanges] = useState(0);
+  const landingChoiceXmlRef = useRef(LANDING_CHOICE_ITEM_XML);
+  const changeLandingChoiceXml = useCallback((xml: string) => {
+    if (xml === landingChoiceXmlRef.current) return;
+    landingChoiceXmlRef.current = xml;
+    setLandingChoiceXml(xml);
+    setXmlChanges((n) => n + 1);
+  }, []);
   const prettyLandingChoiceXml = useMemo(
     () => prettyPrintXml(landingChoiceXml),
     [landingChoiceXml],
@@ -570,28 +640,36 @@ export const LandingPage: React.FC = () => {
   return (
     <div className="min-h-full bg-white">
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-gray-100">
+      <section className="relative isolate overflow-hidden bg-[#040a18] text-white">
+        {/* deep space: green light from the sun's side, magenta from below */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_10%,rgba(0,167,72,0.14),transparent_45%),radial-gradient(circle_at_0%_100%,rgba(227,2,117,0.07),transparent_40%)]"
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_70%_45%,rgba(29,52,102,0.75),transparent_60%),radial-gradient(ellipse_at_85%_10%,rgba(0,167,72,0.25),transparent_45%),radial-gradient(ellipse_at_5%_105%,rgba(227,2,117,0.25),transparent_45%)]"
         />
+        <div className="absolute inset-0">
+          <Suspense fallback={null}>
+            <SolarScene focus={heroFocus} onHover={setHoveredPlanet} />
+          </Suspense>
+        </div>
+        {/* a scrim behind the text, so the planets never get in the way of reading */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(0,65,25,0.08)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]"
+          className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(4,10,24,0.85)_0%,rgba(4,10,24,0.55)_50%,rgba(4,10,24,0.2)_100%)] lg:bg-[linear-gradient(90deg,rgba(4,10,24,0.92)_0%,rgba(4,10,24,0.7)_30%,transparent_50%)]"
         />
         <div
           className={cn(
             PAGE_CONTAINER,
             PAGE_GUTTER,
-            "relative grid items-center gap-12 pb-10 pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:pb-12 lg:pt-24",
+            // the canvas behind takes the drag wherever the text and the item leave it room
+            "pointer-events-none relative grid items-center gap-12 pb-16 pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:pb-20 lg:pt-24",
           )}
         >
-          <div className="min-w-0">
+          <div className="min-w-0 [&_a]:pointer-events-auto">
             <a
               href="https://site.imsglobal.org/certifications/cito/cito-qti-player"
               target="_blank"
               rel="noopener noreferrer"
-              className="animate-fade-in-up inline-flex items-center gap-2 rounded-full border border-citolab-600/25 bg-white/80 py-1 pl-1 pr-3 text-sm font-medium text-citolab-800 shadow-sm backdrop-blur hover:border-citolab-600/50"
+              className="animate-fade-in-up inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 py-1 pl-1 pr-3 text-sm font-medium text-white/85 shadow-sm backdrop-blur hover:border-white/35"
             >
               <span className="rounded-full bg-citolab-600 px-2 py-0.5 text-xs font-semibold text-white">
                 Open source
@@ -600,11 +678,11 @@ export const LandingPage: React.FC = () => {
               <ArrowRight className="h-3.5 w-3.5" />
             </a>
             <h1
-              className="animate-fade-in-up mt-6 font-display text-4xl font-extrabold leading-[1.05]  text-gray-950 sm:text-5xl xl:text-6xl"
+              className="animate-fade-in-up mt-6 font-display text-4xl font-extrabold leading-[1.05] text-white sm:text-5xl xl:text-6xl"
               style={{ animationDelay: "80ms" }}
             >
               Play, write and convert{" "}
-              <span className="relative whitespace-nowrap font-serif font-normal italic text-citolab-600">
+              <span className="relative whitespace-nowrap font-serif font-normal italic text-citolab-400">
                 QTI&nbsp;3
                 <svg
                   aria-hidden="true"
@@ -624,7 +702,7 @@ export const LandingPage: React.FC = () => {
               , right in your browser.
             </h1>
             <p
-              className="animate-fade-in-up mt-6 max-w-xl text-lg leading-relaxed text-gray-600"
+              className="animate-fade-in-up mt-6 max-w-xl text-lg leading-relaxed text-white/70"
               style={{ animationDelay: "160ms" }}
             >
               The QTI Playground puts CitoLab&apos;s open-source assessment
@@ -637,50 +715,53 @@ export const LandingPage: React.FC = () => {
             >
               <a
                 href="/landing#examples"
-                className="inline-flex items-center gap-2 rounded-btn bg-citolab-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-citolab-600/25 transition-colors hover:bg-citolab-700"
+                className="inline-flex items-center gap-2 rounded-btn bg-citolab-600 px-6 py-3 text-sm font-semibold text-white shadow-[0_0_40px_-6px_rgba(0,238,108,0.7)] transition-colors hover:bg-citolab-700"
               >
                 <Play className="h-4 w-4 fill-current" />
                 Play an example test
               </a>
               <Link
                 to="/edit"
-                className="inline-flex items-center gap-2 rounded-btn border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-800 transition-colors hover:border-citolab-600 hover:text-citolab-700"
+                className="inline-flex items-center gap-2 rounded-btn border border-white/25 bg-white/5 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition-colors hover:border-white/60"
               >
                 <PenLine className="h-4 w-4" />
                 Open the editor
               </Link>
               <Link
                 to="/assessment-player"
-                className="inline-flex items-center gap-1 px-2 py-3 text-sm font-medium text-gray-600 hover:text-citolab-700"
+                className="inline-flex items-center gap-1 px-2 py-3 text-sm font-medium text-white/70 hover:text-white"
               >
                 or play your own package
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
             <ul
-              className="animate-fade-in-up mt-10 flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-500"
+              className="animate-fade-in-up mt-10 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/60"
               style={{ animationDelay: "320ms" }}
             >
               <li className="inline-flex items-center gap-2">
-                <Lock className="h-4 w-4 text-citolab-600" />
+                <Lock className="h-4 w-4 text-citolab-400" />
                 Your content never leaves the browser
               </li>
               <li className="inline-flex items-center gap-2">
-                <Layers className="h-4 w-4 text-citolab-600" />
+                <Layers className="h-4 w-4 text-citolab-400" />
                 QTI 2.x and QTI 3
               </li>
               <li className="inline-flex items-center gap-2">
-                <Code2 className="h-4 w-4 text-citolab-600" />
+                <Code2 className="h-4 w-4 text-citolab-400" />
                 GPL-3.0 on GitHub
               </li>
             </ul>
           </div>
 
           <div
-            className="animate-fade-in-up relative min-w-0"
+            className="animate-fade-in-up pointer-events-auto relative min-w-0"
             style={{ animationDelay: "200ms" }}
           >
-            <DemoFrame label="<qti-item> · Journey Through the Solar System">
+            <DemoFrame
+              label="<qti-item> · Journey Through the Solar System"
+              className="border-white/10 shadow-[0_30px_100px_-20px_rgba(0,238,108,0.4)]"
+            >
               <div
                 ref={attachHeroFeedback}
                 className="px-1 py-2 sm:px-6"
@@ -719,12 +800,48 @@ export const LandingPage: React.FC = () => {
             </div>
           </div>
         </div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 hidden flex-col items-center gap-2 text-xs text-white/50 lg:flex">
+          <span
+            className={cn(
+              "rounded-full bg-white px-3 py-1 text-sm font-semibold text-gray-950 shadow-lg transition-all duration-300",
+              hoveredPlanet ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0",
+            )}
+          >
+            {hoveredPlanet ? PLANET_NAMES[hoveredPlanet] : "\u00a0"}
+          </span>
+          Drag the sky to turn the solar system
+        </div>
       </section>
+
+      {/* Every interaction of QTI 3, going by */}
+      <div
+        aria-hidden="true"
+        className="relative overflow-hidden border-y border-white/5 bg-[#040a18] py-4"
+      >
+        <div className="[mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
+        {[QTI_INTERACTIONS, [...QTI_INTERACTIONS].reverse()].map((row, index) => (
+          <div
+            key={index}
+            className={cn(
+              "animate-marquee flex w-max gap-8 font-mono text-sm",
+              index === 1 && "mt-2 [animation-direction:reverse]",
+            )}
+            style={{ "--marquee-duration": "70s" } as React.CSSProperties}
+          >
+            {[...row, ...row].map((tag, i) => (
+              <span key={i} className={i % 3 === 0 ? "text-citolab-300" : "text-white/35"}>
+                &lt;{tag}&gt;
+              </span>
+            ))}
+          </div>
+        ))}
+        </div>
+      </div>
 
       {/* Examples */}
       <section id="examples" className="scroll-mt-16 border-b border-gray-100 py-12 lg:py-16">
         <div className={cn(PAGE_CONTAINER, PAGE_GUTTER)}>
-          <div className="flex flex-wrap items-end justify-between gap-6">
+          <Reveal className="flex flex-wrap items-end justify-between gap-6">
             <div className="max-w-2xl">
               <SectionEyebrow>Examples</SectionEyebrow>
               <h2 className="mt-3 font-display text-3xl font-bold  text-gray-950 sm:text-4xl">
@@ -736,13 +853,15 @@ export const LandingPage: React.FC = () => {
                 would. It only takes a few minutes.
               </p>
             </div>
-          </div>
-          <ExampleGallery variant="compact" className="mt-10" />
+          </Reveal>
+          <Reveal delay={120}>
+            <ExampleGallery variant="compact" className="mt-10" />
+          </Reveal>
         </div>
       </section>
 
       {/* Player */}
-      <section id="player" className="pb-20 pt-12 lg:pb-28 lg:pt-16">
+      <section id="player" className="relative isolate pb-20 pt-12 lg:pb-28 lg:pt-16">
         <div
           className={cn(
             PAGE_CONTAINER,
@@ -750,7 +869,11 @@ export const LandingPage: React.FC = () => {
             "grid items-center gap-12 lg:grid-cols-2 lg:gap-16",
           )}
         >
-          <div className="order-2 min-w-0 lg:order-1">
+          <Reveal className="relative order-2 min-w-0 lg:order-1">
+            <div
+              aria-hidden="true"
+              className="animate-aurora pointer-events-none absolute -inset-8 -z-10 rounded-[3rem] bg-[radial-gradient(circle_at_30%_30%,rgba(227,2,117,0.18),transparent_55%),radial-gradient(circle_at_70%_70%,rgba(0,167,72,0.2),transparent_55%)] blur-2xl"
+            />
             <DemoFrame label="<qti-portable-custom-interaction>">
               <div className="flex justify-center overflow-x-auto bg-gray-50 p-4">
                 <qti-item ref={attachPciItem}>
@@ -768,8 +891,8 @@ export const LandingPage: React.FC = () => {
                 </qti-item>
               </div>
             </DemoFrame>
-          </div>
-          <div className="order-1 min-w-0 lg:order-2">
+          </Reveal>
+          <Reveal delay={120} className="order-1 min-w-0 lg:order-2">
             <SectionEyebrow>The assessment player</SectionEyebrow>
             <h2 className="mt-3 font-display text-3xl font-bold  text-gray-950 sm:text-4xl">
               Every interaction QTI 3 has, and the ones you build yourself.
@@ -815,7 +938,7 @@ export const LandingPage: React.FC = () => {
                 <br className="hidden sm:block" /> delivery by 1EdTech
               </a>
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
 
@@ -828,7 +951,7 @@ export const LandingPage: React.FC = () => {
             "grid items-center gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16",
           )}
         >
-          <div className="min-w-0">
+          <Reveal className="min-w-0">
             <SectionEyebrow>The editor</SectionEyebrow>
             <h2 className="mt-3 font-display text-3xl font-bold  text-gray-950 sm:text-4xl">
               Write items like a document. Get QTI&nbsp;3 for free.
@@ -848,9 +971,9 @@ export const LandingPage: React.FC = () => {
               Open the editor
               <ArrowRight className="h-4 w-4" />
             </Link>
-          </div>
+          </Reveal>
 
-          <div className="min-w-0 space-y-4">
+          <Reveal delay={120} className="min-w-0 space-y-4">
             {/* Fixed box, no `overflow-auto`: the editor scrolls its own body, so a second
                 scroller here would put the toolbar out of reach on a long item. */}
             <div className="relative h-[22rem] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-cito">
@@ -863,16 +986,30 @@ export const LandingPage: React.FC = () => {
                 active
                 editorSessionKey={LANDING_EDITOR_SESSION_KEY}
                 sourceXml={landingChoiceXml}
-                onSourceChange={setLandingChoiceXml}
+                onSourceChange={changeLandingChoiceXml}
                 heightClassName="h-full"
                 className="h-full"
                 normalizeOnLoad
               />
             </div>
-            <div className="overflow-hidden rounded-2xl border border-gray-900 bg-[#1e1e1e] shadow-xl">
+            <div className="relative overflow-hidden rounded-2xl border border-gray-900 bg-[#1e1e1e] shadow-xl">
+              {/* a new key per change: the frame flashes once */}
+              {xmlChanges > 0 && (
+                <span
+                  key={xmlChanges}
+                  aria-hidden="true"
+                  className="animate-xml-flash pointer-events-none absolute inset-0 z-10 rounded-2xl"
+                />
+              )}
               <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2 font-mono text-xs text-gray-400">
                 <FileCode2 className="h-3.5 w-3.5" />
                 item.xml — generated
+                <span
+                  className={cn(
+                    "ml-auto h-1.5 w-1.5 rounded-full",
+                    xmlChanges > 0 ? "animate-pulse bg-citolab-500" : "bg-white/20",
+                  )}
+                />
               </div>
               <MonacoEditor
                 height="15rem"
@@ -891,15 +1028,26 @@ export const LandingPage: React.FC = () => {
                 }}
               />
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
 
       {/* Open source */}
-      <section id="open-source" className="bg-citolab-800 py-20 text-white lg:py-28">
+      <section id="open-source" className="relative isolate overflow-hidden bg-citolab-800 py-20 text-white lg:py-28">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+          <div className="animate-aurora absolute -left-1/4 top-0 h-[36rem] w-[36rem] rounded-full bg-citolab-500/20 blur-3xl" />
+          <div
+            className="animate-aurora absolute -right-1/4 bottom-0 h-[32rem] w-[32rem] rounded-full bg-citolab-pink-500/15 blur-3xl"
+            style={{ animationDelay: "-6s" }}
+          />
+          <div
+            className="animate-aurora absolute left-1/3 top-1/3 h-[24rem] w-[24rem] rounded-full bg-citolab-teal-500/15 blur-3xl"
+            style={{ animationDelay: "-12s" }}
+          />
+        </div>
         <div className={cn(PAGE_CONTAINER, PAGE_GUTTER)}>
           <div className="grid gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
-            <div className="min-w-0">
+            <Reveal className="min-w-0">
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-citolab-300">
                 Open source
               </p>
@@ -917,16 +1065,18 @@ export const LandingPage: React.FC = () => {
                   index.html
                 </div>
                 <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-citolab-100">
-                  <code>{EMBED_SNIPPET}</code>
+                  <Typewriter text={EMBED_SNIPPET} />
                 </pre>
               </div>
-            </div>
+            </Reveal>
 
             <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-              {LIBRARIES.map((library) => (
-                <div
+              {LIBRARIES.map((library, index) => (
+                <Reveal
                   key={library.name}
-                  className="flex flex-col rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition-colors hover:border-white/25 hover:bg-white/[0.07]"
+                  delay={index * 70}
+                  className="spotlight flex flex-col rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition-colors hover:border-white/25 hover:bg-white/[0.07]"
+                  {...pointerLight()}
                 >
                   <div className="flex items-center gap-3">
                     <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-citolab-yellow-500 text-citolab-900">
@@ -960,7 +1110,7 @@ export const LandingPage: React.FC = () => {
                       </a>
                     ))}
                   </div>
-                </div>
+                </Reveal>
               ))}
             </div>
           </div>
@@ -976,7 +1126,7 @@ export const LandingPage: React.FC = () => {
             "grid items-center gap-10 lg:grid-cols-2",
           )}
         >
-          <div className="min-w-0">
+          <Reveal className="min-w-0">
             <SectionEyebrow>Talk to us</SectionEyebrow>
             <h2 className="mt-3 font-display text-3xl font-bold  text-gray-950">
               Building with QTI? We&apos;d love to hear about it.
@@ -986,10 +1136,10 @@ export const LandingPage: React.FC = () => {
               right, or an idea for a custom interaction: the developers behind
               these tools read their own mail.
             </p>
-          </div>
+          </Reveal>
           <ul className="grid min-w-0 gap-3">
-            {TEAM.map(({ name, role, email, initials }) => (
-              <li key={email}>
+            {TEAM.map(({ name, role, email, initials }, index) => (
+              <Reveal as="li" key={email} delay={index * 80}>
                 <a
                   href={`mailto:${email}`}
                   className="group flex items-center gap-4 rounded-2xl border border-gray-200 p-4 transition-colors hover:border-citolab-600"
@@ -1003,7 +1153,7 @@ export const LandingPage: React.FC = () => {
                   </span>
                   <Mail className="h-4 w-4 shrink-0 text-gray-400 transition-colors group-hover:text-citolab-600" />
                 </a>
-              </li>
+              </Reveal>
             ))}
           </ul>
         </div>

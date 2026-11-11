@@ -1,6 +1,7 @@
 import { LayoutGrid, Loader2, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LayoutModeIcon } from "../components/layout-mode-select";
+import { pointerLight } from "../landing/in-view";
 import { exampleCoverUrl, type ExamplePackage } from "./catalog";
 
 /** A one-line entry for narrow columns: thumbnail, title and a play button. */
@@ -68,7 +69,20 @@ export function ExampleCard({
   const chips = compact ? example.interactions.slice(0, 3) : example.interactions;
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
+    <article
+      // on the landing page the card tilts towards the pointer, with a light where it points
+      {...(compact ? pointerLight(7) : {})}
+      className={cn(
+        "group relative flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg",
+        compact && "duration-150 will-change-transform hover:shadow-xl",
+      )}
+    >
+      {compact ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-10 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100 [background:radial-gradient(500px_circle_at_var(--x,50%)_var(--y,50%),rgba(255,255,255,0.35),transparent_40%)]"
+        />
+      ) : null}
       <button
         type="button"
         onClick={() => onOpen("play")}
