@@ -7,7 +7,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -28,8 +28,15 @@ jobs:
           TAILWIND_OXIDE_VERSION=$(node -p "require('./node_modules/@tailwindcss/oxide/package.json').optionalDependencies['@tailwindcss/oxide-linux-x64-gnu']")
           npm install --no-save "lightningcss-linux-x64-gnu@${LIGHTNINGCSS_VERSION}" "@tailwindcss/oxide-linux-x64-gnu@${TAILWIND_OXIDE_VERSION}"
 
+      # apt mirrors on hosted runners occasionally fail DNS resolution; retry before failing the job
       - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update && npx playwright install --with-deps chromium && exit 0
+            echo "::warning::Playwright install attempt $attempt failed, retrying in 30s..."
+            sleep 30
+          done
+          exit 1
 
       - name: Run tests
         run: npm test
