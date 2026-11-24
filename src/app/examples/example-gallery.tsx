@@ -3,7 +3,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { EXAMPLE_PACKAGES } from "./catalog";
 import { ExampleCard, ExampleRow } from "./example-card";
-import { useOpenExample } from "./use-open-example";
+import { useOpenExample, type ExampleTarget } from "./use-open-example";
 
 export function ExampleGallery({
   variant = "cards",
@@ -34,8 +34,7 @@ export function ExampleGallery({
             example,
             loading: loadingId === example.id,
             disabled: loadingId !== null,
-            onOpen: (target: "play" | "browse") =>
-              void openExample(example.id, target),
+            onOpen: (target: ExampleTarget) => void openExample(example.id, target),
           };
           return variant === "rows" ? (
             <ExampleRow key={example.id} {...props} />

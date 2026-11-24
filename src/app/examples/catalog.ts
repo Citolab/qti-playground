@@ -26,6 +26,11 @@ export type ExamplePackage = {
   mode?: PlayerMode;
   /** Who coaches in practice mode; Sprout when left out. */
   coach?: CoachCharacter;
+  /**
+   * Also offered as a game: its card gets a "Play as game" button, which opens
+   * the test in game mode (a demo, see qti/session-options.ts).
+   */
+  game?: boolean;
   /** How the test is presented, in words, for the card. */
   presentation: string;
   /**
@@ -60,6 +65,7 @@ export const EXAMPLE_PACKAGES: ExamplePackage[] = [
     layout: "classic",
     mode: "practice",
     coach: "martian",
+    game: true,
     presentation: "One question per screen, with a practice coach",
     pitch: "A coach at your side, one question at a time.",
     backdropColors: ["#1d3466", "#0a142b"],

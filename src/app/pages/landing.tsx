@@ -845,12 +845,13 @@ export const LandingPage: React.FC = () => {
             <div className="max-w-2xl">
               <SectionEyebrow>Examples</SectionEyebrow>
               <h2 className="mt-3 font-display text-3xl font-bold  text-gray-950 sm:text-4xl">
-                Four tests. Four ways to take them.
+                Four tests. Five ways to take them.
               </h2>
               <p className="mt-4 text-lg leading-relaxed text-gray-600">
                 One player, presenting each test differently, from primary
                 school to university. Pick one and take it the way a candidate
-                would. It only takes a few minutes.
+                would. It only takes a few minutes. The fifth way is a demo:
+                the science test as a 3D game.
               </p>
             </div>
           </Reveal>

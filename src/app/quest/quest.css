@@ -94,3 +94,17 @@
 /* A question in several parts: the part on stage now is marked in the question. */
 .quest-stem .quest-blank.quest-current { background: #fde68a; border-bottom-color: #d97706; box-shadow: 0 0 0 3px rgb(251 191 36 / 0.45); }
 .quest-stem .quest-prompt.quest-current { background: #fef3c7; border-radius: 0.4rem; padding: 0.1em 0.35em; margin-inline: -0.35em; }
+
+/* A label that hangs behind its pad points down at it, so it is clear which pad it names. */
+.quest-label-above::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 3px);
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border: 9px solid transparent;
+  border-bottom-width: 0;
+  border-top-color: rgb(100 116 139 / 0.85);
+}

@@ -491,6 +491,8 @@ const LABEL_LOOK: Record<PadView["look"], string> = {
 };
 
 const NO_STYLESHEETS: string[] = [];
+/** How far behind its pad an HTML answer label hangs, in arena units. */
+const LABEL_GAP = 1.5;
 
 /**
  * A choice's own markup, shown the way the item shows it: in a shadow root with
@@ -1224,7 +1226,10 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
           el.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px) translate(-100%, -50%)`;
           continue;
         }
-        const p = scene.screenPoint(pad.x, 0.3, pad.z - pad.size / 2 - 0.2);
+        // Well behind the pad: an HTML label lies over the 3D picture, so anything under it is
+        // hidden. This far back, the hero on the pad, the pad itself and the stars that pop out
+        // of it all stay in view.
+        const p = scene.screenPoint(pad.x, 0.3, pad.z - pad.size / 2 - LABEL_GAP);
         // As wide as the pad and a little more, so neighbours never overlap.
         const half = pad.size / 2 + 0.3;
         const width = scene.screenPoint(pad.x + half, 0.3, pad.z).x - scene.screenPoint(pad.x - half, 0.3, pad.z).x;
@@ -1459,7 +1464,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                 }}
                 style={view.tint ? { borderColor: view.tint } : undefined}
                 className={cn(
-                  pad.anchor === "left" ? "text-right" : "text-center",
+                  pad.anchor === "left" ? "text-right" : "quest-label-above text-center",
                   "quest-label pointer-events-auto absolute left-0 top-0 rounded-xl border-[3px] px-2.5 py-1.5 shadow-lg transition-colors",
                   LABEL_LOOK[view.look],
                 )}

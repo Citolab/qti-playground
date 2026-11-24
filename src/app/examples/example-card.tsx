@@ -1,8 +1,9 @@
-import { LayoutGrid, Loader2, Play } from "lucide-react";
+import { Gamepad2, LayoutGrid, Loader2, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LayoutModeIcon } from "../components/layout-mode-select";
 import { pointerLight } from "../landing/in-view";
 import { exampleCoverUrl, type ExamplePackage } from "./catalog";
+import type { ExampleTarget } from "./use-open-example";
 
 /** A one-line entry for narrow columns: thumbnail, title and a play button. */
 export function ExampleRow({
@@ -14,9 +15,11 @@ export function ExampleRow({
   example: ExamplePackage;
   loading: boolean;
   disabled: boolean;
-  onOpen: (target: "play" | "browse") => void;
+  onOpen: (target: ExampleTarget) => void;
 }) {
   return (
+    // The row is one big play button; the game button sits on top of it, as a button cannot hold another.
+    <div className="relative">
     <button
       type="button"
       onClick={() => onOpen("play")}
@@ -40,6 +43,8 @@ export function ExampleRow({
           {example.presentation}
         </span>
       </span>
+      {/* Keeps the text clear of the game button that lies over this spot. */}
+      {example.game ? <span className="w-10 shrink-0" aria-hidden="true" /> : null}
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-citolab-600 text-white transition-colors group-hover:bg-citolab-700">
         {loading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -49,6 +54,19 @@ export function ExampleRow({
         <span className="sr-only">Play {example.title}</span>
       </span>
     </button>
+    {example.game ? (
+      <button
+        type="button"
+        onClick={() => onOpen("game")}
+        disabled={disabled}
+        title="Play as game (demo)"
+        className="absolute right-[4.5rem] top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-citolab-600 bg-white text-citolab-700 transition-colors hover:bg-citolab-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-citolab-600 disabled:opacity-60"
+      >
+        <Gamepad2 className="h-5 w-5" />
+        <span className="sr-only">Play {example.title} as a game (demo)</span>
+      </button>
+    ) : null}
+    </div>
   );
 }
 
@@ -62,7 +80,7 @@ export function ExampleCard({
   example: ExamplePackage;
   loading: boolean;
   disabled: boolean;
-  onOpen: (target: "play" | "browse") => void;
+  onOpen: (target: ExampleTarget) => void;
   /** Landing-page size: fewer interaction chips, no browse button. */
   compact?: boolean;
 }) {
@@ -176,6 +194,21 @@ export function ExampleCard({
             <Play className="h-3.5 w-3.5 fill-current" />
             Play test
           </button>
+          {example.game ? (
+            <button
+              type="button"
+              onClick={() => onOpen("game")}
+              disabled={disabled}
+              title="Game mode is a demo, not for real tests"
+              className="inline-flex items-center gap-2 rounded-btn border border-citolab-600 px-4 py-2 text-sm font-semibold text-citolab-700 transition-colors hover:bg-citolab-50 disabled:opacity-60"
+            >
+              <Gamepad2 className="h-4 w-4" />
+              Play as game
+              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                Demo
+              </span>
+            </button>
+          ) : null}
           {compact ? null : (
             <button
               type="button"

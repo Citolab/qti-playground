@@ -1423,7 +1423,8 @@ export class QuestScene {
       this.scene.add(mesh);
       this.particles.push({ mesh, vel, spin, life: 1.6 + Math.random(), floor: floor + 0.05 });
     }
-    if (stars > 0) this.floatText(x, floor + 1.8, z, `+${stars} ★`);
+    // Starts low, beside the hero's head: answer labels hang further back and would cover it higher up.
+    if (stars > 0) this.floatText(x, floor + 1.25, z, `+${stars} ★`);
   }
 
   floatText(x: number, y: number, z: number, text: string, bg = "#fde047") {

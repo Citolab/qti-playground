@@ -12,9 +12,11 @@ import { buildExamplePackage, EXAMPLE_PACKAGES } from "./catalog";
 /**
  * Load an example package into the store, as if the user had dropped it in,
  * and go to it: straight into the player in the example's own layout (`play`),
- * or to the player's overview of all its items (`browse`), from where the
- * player's Edit button opens them in the editor.
+ * to the player's overview of all its items (`browse`), from where the
+ * player's Edit button opens them in the editor, or into game mode (`game`).
  */
+export type ExampleTarget = "play" | "browse" | "game";
+
 export function useOpenExample() {
   const navigate = useNavigate();
   const processPackage = useStore((state) => state.processPackage);
@@ -25,7 +27,7 @@ export function useOpenExample() {
   const [error, setError] = useState("");
 
   const openExample = useCallback(
-    async (id: string, target: "play" | "browse") => {
+    async (id: string, target: ExampleTarget) => {
       setLoadingId(id);
       setError("");
       try {
@@ -57,6 +59,9 @@ export function useOpenExample() {
           // the way instead, once per browser.
           if (!hasSeenPlayerTour()) params.set("tour", "1");
           navigate(`/assessment/${assessmentId}?${params.toString()}`);
+        } else if (target === "game" && assessmentId) {
+          // Game mode is a page of its own, with its own start screen (the world picker).
+          navigate(`/assessment/${assessmentId}?mode=game`);
         } else if (assessmentId) {
           // The player's overview, not the assessment player page: that page
           // is for the user's own package and never shows an example.
