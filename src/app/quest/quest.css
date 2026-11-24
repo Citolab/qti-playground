@@ -1,0 +1,96 @@
+/* Math Quest: loaded only with the /quest page. */
+
+@keyframes quest-pop-in {
+  0% { transform: scale(0.85) translateY(12px); opacity: 0; }
+  60% { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes quest-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-10px) rotate(-0.4deg); }
+  40% { transform: translateX(9px) rotate(0.4deg); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(4px); }
+}
+@keyframes quest-star-pop {
+  0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+  70% { transform: scale(1.3) rotate(15deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes quest-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes quest-banner {
+  0% { transform: translateY(-24px) scale(0.9); opacity: 0; }
+  12% { transform: translateY(0) scale(1); opacity: 1; }
+  80% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-12px) scale(0.98); opacity: 0; }
+}
+@keyframes quest-float {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-10px) rotate(3deg); }
+}
+@keyframes quest-count {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.45); }
+  100% { transform: scale(1); }
+}
+
+.quest-pop-in { animation: quest-pop-in 0.35s ease-out both; }
+.quest-shake { animation: quest-shake 0.45s ease-in-out; }
+.quest-star-pop { animation: quest-star-pop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.quest-bounce { animation: quest-bounce 0.7s ease-in-out infinite; }
+.quest-banner { animation: quest-banner 3.2s ease-out both; }
+.quest-float { animation: quest-float 3s ease-in-out infinite; }
+.quest-count { animation: quest-count 0.5s ease-out; }
+
+/* The question on the card: the item's own body, minus its interaction. */
+.quest-stem { font-size: 1.05rem; line-height: 1.45; color: #1e293b; }
+.quest-stem p { margin: 0 0 0.35em; }
+.quest-stem p:last-child { margin-bottom: 0; }
+.quest-stem strong { font-weight: 800; color: #0f172a; }
+.quest-stem img { display: block; max-height: 11rem; max-width: 100%; width: auto; margin: 0.25rem 0; border-radius: 0.5rem; cursor: zoom-in; }
+.quest-stem .quest-prompt { font-weight: 700; }
+.quest-stem .quest-blank {
+  display: inline-block;
+  min-width: 3.2em;
+  margin: 0 0.2em;
+  padding: 0 0.5em;
+  text-align: center;
+  font-weight: 800;
+  color: #b45309;
+  background: #fef3c7;
+  border-bottom: 3px solid #f59e0b;
+  border-radius: 0.4rem 0.4rem 0 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quest-pop-in, .quest-shake, .quest-star-pop, .quest-bounce, .quest-banner, .quest-float, .quest-count {
+    animation-duration: 0.01s;
+    animation-iteration-count: 1;
+  }
+}
+
+/* Longer questions from a real assessment: tables and formulas in the stem. */
+.quest-stem table { border-collapse: collapse; margin: 0.35rem 0; font-size: 0.95em; }
+.quest-stem caption { font-weight: 700; text-align: left; padding-bottom: 0.2rem; }
+.quest-stem td, .quest-stem th { border: 1px solid #cbd5e1; padding: 0.15rem 0.55rem; }
+.quest-stem ul, .quest-stem ol { margin: 0.2rem 0 0.35rem 1.2rem; list-style: revert; }
+.quest-stem math { font-size: 1.15em; }
+
+/* A choice shown as an HTML label over its pad: a picture, a formula or a long sentence. */
+.quest-label { font-size: 0.875rem; line-height: 1.25; font-weight: 700; color: #1e293b; }
+.quest-label p { margin: 0; }
+
+/* The shared reading text, opened from a question. */
+.quest-reader { font-size: 1.05rem; line-height: 1.6; color: #1e293b; }
+.quest-reader p { margin: 0 0 0.8em; }
+.quest-reader h1, .quest-reader h2, .quest-reader h3 { font-weight: 800; margin: 0.6em 0 0.4em; font-size: 1.25em; }
+.quest-reader img { max-width: 100%; height: auto; border-radius: 0.5rem; margin: 0.5rem 0; }
+.quest-reader table { border-collapse: collapse; margin: 0.5rem 0; }
+.quest-reader td, .quest-reader th { border: 1px solid #cbd5e1; padding: 0.2rem 0.6rem; }
+
+/* A question in several parts: the part on stage now is marked in the question. */
+.quest-stem .quest-blank.quest-current { background: #fde68a; border-bottom-color: #d97706; box-shadow: 0 0 0 3px rgb(251 191 36 / 0.45); }
+.quest-stem .quest-prompt.quest-current { background: #fef3c7; border-radius: 0.4rem; padding: 0.1em 0.35em; margin-inline: -0.35em; }

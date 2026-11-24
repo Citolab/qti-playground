@@ -230,10 +230,15 @@ export function syncScopedRegistry(
     pending.push(tag);
     if (watched.has(tag)) continue;
     watched.add(tag);
-    void customElements.whenDefined(tag).then(() => {
-      const lateCtor = resolvePlayerConstructor(tag);
-      if (lateCtor && !registry.get(tag)) registry.define(tag, lateCtor);
-    });
+    void customElements
+      .whenDefined(tag)
+      .then(() => {
+        const lateCtor = resolvePlayerConstructor(tag);
+        if (lateCtor && !registry.get(tag)) registry.define(tag, lateCtor);
+      })
+      // A tag that is no valid custom element name (an XML extension element such as
+      // `dep-symbolPicker`, with a capital) can never be defined: nothing to wait for.
+      .catch(() => undefined);
   }
 
   return { defined, pending };

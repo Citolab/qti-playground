@@ -5,6 +5,7 @@ import {
   Code2,
   FileCode2,
   FlaskConical,
+  Gamepad2,
   PackageOpen,
   Repeat,
   Terminal,
@@ -52,6 +53,14 @@ const PLAYGROUND_TOOLS: PlaygroundTool[] = [
       "Turn a PDF, Word or Excel file into QTI with a model that runs in your browser.",
     href: "/ai-convert",
     icon: FlaskConical,
+    experimental: true,
+  },
+  {
+    name: "Math Quest",
+    description:
+      "A demo, not for real tests: a 3D adventure where you answer QTI items by jumping on them.",
+    href: "/quest",
+    icon: Gamepad2,
     experimental: true,
   },
 ];

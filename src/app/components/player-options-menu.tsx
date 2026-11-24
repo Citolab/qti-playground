@@ -1,5 +1,6 @@
 import {
   ChevronDown,
+  Gamepad2,
   GraduationCap,
   Monitor,
   Route,
@@ -35,6 +36,7 @@ import { LayoutModeIcon } from "./layout-mode-select";
 const MODE_ICONS: Record<PlayerMode, LucideIcon> = {
   test: GraduationCap,
   practice: Sparkles,
+  game: Gamepad2,
 };
 
 const DEVICE_ICONS: Record<PlayerDevice, LucideIcon> = {
@@ -128,7 +130,7 @@ export function PlayerOptionsMenu({
         </DropdownMenuRadioGroup>
 
         <DropdownMenuSeparator />
-        <DropdownMenuLabel className={SECTION_LABEL}>Test or practice</DropdownMenuLabel>
+        <DropdownMenuLabel className={SECTION_LABEL}>Test, practice or game</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={mode}
           onValueChange={(next) => onModeChange(next as PlayerMode)}

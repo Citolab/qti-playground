@@ -1,5 +1,6 @@
 import {
   Bookmark,
+  Gamepad2,
   GraduationCap,
   LayoutGrid,
   Monitor,
@@ -35,6 +36,7 @@ export interface SessionSettings {
 const MODE_ICONS: Record<PlayerMode, LucideIcon> = {
   test: GraduationCap,
   practice: Sparkles,
+  game: Gamepad2,
 };
 
 const DEVICE_ICONS: Record<PlayerDevice, LucideIcon> = {

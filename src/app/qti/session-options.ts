@@ -11,8 +11,13 @@
 /**
  * - `test`      answer everything, hand in at the end, then see the score.
  * - `practice`  check each answer straight away; a coach reacts to it.
+ * - `game`      the same questions hidden in a 3D world, answered by jumping
+ *               on them. A page of its own (pages/quest.tsx), which app.tsx
+ *               shows instead of the player whenever this mode is in the URL.
+ *               A demo and showcase: it records no result and is not meant for
+ *               production, and it says so wherever it is offered or played.
  */
-export type PlayerMode = "test" | "practice";
+export type PlayerMode = "test" | "practice" | "game";
 
 export const DEFAULT_PLAYER_MODE: PlayerMode = "test";
 
@@ -31,10 +36,15 @@ export const PLAYER_MODES: {
     label: "Practice",
     description: "Check each answer straight away, with a coach cheering you on.",
   },
+  {
+    value: "game",
+    label: "Game",
+    description: "Demo: explore a 3D world and jump on the answers. A showcase, not for real tests.",
+  },
 ];
 
 export const parsePlayerMode = (value: string | null | undefined): PlayerMode =>
-  value === "practice" ? "practice" : DEFAULT_PLAYER_MODE;
+  value === "practice" || value === "game" ? value : DEFAULT_PLAYER_MODE;
 
 /**
  * Who coaches a practice run. Not on the intro: an example picks the one that

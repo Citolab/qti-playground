@@ -1,4 +1,4 @@
-import { GraduationCap, Sparkles, type LucideIcon } from "lucide-react";
+import { Gamepad2, GraduationCap, Sparkles, type LucideIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ const TOUR_TARGETS: Partial<Record<TourStepId, string>> = {
 const MODE_ICONS: Record<PlayerMode, LucideIcon> = {
   test: GraduationCap,
   practice: Sparkles,
+  game: Gamepad2,
 };
 
 const tourTarget = (step: TourStepId) => {
@@ -256,7 +257,8 @@ export function PlayerTour({
               aria-label="Test or practice"
               className="mt-3 grid grid-cols-2 gap-2"
             >
-              {PLAYER_MODES.map((option) => {
+              {/* The tour's switch is about test and practice; game mode is a page of its own and would end the tour. */}
+              {PLAYER_MODES.filter((option) => option.value !== "game").map((option) => {
                 const Icon = MODE_ICONS[option.value];
                 const selected = option.value === mode;
                 return (

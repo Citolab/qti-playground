@@ -38,7 +38,7 @@ const primaryNavigation: NavItem[] = [
     name: "Tools",
     href: "/tools",
     icon: Wrench,
-    matches: ["/tools", "/modify", "/convert", "/ai-convert"],
+    matches: ["/tools", "/modify", "/convert", "/ai-convert", "/quest"],
   },
 ];
 
@@ -56,6 +56,7 @@ const pageTitles: { prefix: string; title: string }[] = [
   { prefix: "/modify", title: "Modify a QTI package" },
   { prefix: "/convert", title: "Convert QTI 2.x to QTI 3" },
   { prefix: "/ai-convert", title: "Convert documents to QTI" },
+  { prefix: "/quest", title: "Math Quest: a 3D QTI game" },
 ];
 
 function useDocumentTitle(pathname: string) {

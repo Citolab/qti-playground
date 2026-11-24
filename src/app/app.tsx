@@ -3,7 +3,11 @@ import { Navigate, Route, Routes, useSearchParams } from "react-router-dom";
 import { PageLayout } from "./layout";
 import LoadingIndicator from "./components/loading-indicator";
 import LandingPage from "./pages/landing";
-import { DEFAULT_PLAYER_DEVICE, parsePlayerDevice } from "./qti/session-options";
+import {
+  DEFAULT_PLAYER_DEVICE,
+  parsePlayerDevice,
+  parsePlayerMode,
+} from "./qti/session-options";
 
 // Every page except the landing page is loaded on demand. Each one drags in a
 // vendor payload that only it needs -- @citolab/qti-convert-local-ai + exceljs +
@@ -38,6 +42,11 @@ const AssessmentPage = lazy(() =>
 const ToolsPage = lazy(() =>
   import("./pages/tools").then((m) => ({ default: m.ToolsPage })),
 );
+// Math Quest brings three.js and its own game code: all of it stays behind this
+// import, so nothing of it is downloaded until someone opens /quest.
+const QuestPage = lazy(() =>
+  import("./pages/quest").then((m) => ({ default: m.QuestPage })),
+);
 const DevicePreview = lazy(() =>
   import("./pages/device-preview").then((m) => ({ default: m.DevicePreview })),
 );
@@ -48,6 +57,8 @@ const DevicePreview = lazy(() =>
  */
 function AssessmentRoute() {
   const [params] = useSearchParams();
+  // Game mode is a page of its own: the same assessment, played in a 3D world.
+  if (parsePlayerMode(params.get("mode")) === "game") return <QuestPage />;
   const framed =
     parsePlayerDevice(params.get("device")) !== DEFAULT_PLAYER_DEVICE &&
     window.self === window.top;
@@ -72,6 +83,7 @@ export function App() {
           <Route path="/modify" element={<ModifyPackagePage />} />
           <Route path="/ai-convert" element={<AiConvertPage />} />
           <Route path="/tools" element={<ToolsPage />} />
+          <Route path="/quest" element={<QuestPage />} />
           <Route path="/assessment" element={<AssessmentRoute />} />
           <Route path="/assessment/:assessmentId" element={<AssessmentRoute />} />
           <Route path="/" element={<Navigate to="/landing" />} />
