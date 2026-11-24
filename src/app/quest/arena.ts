@@ -86,6 +86,14 @@ export interface Pad {
   row?: string;
   /** Where a label hangs: above its spot (a column heading) or to the left of it (a row heading). */
   anchor?: "above" | "left";
+  /**
+   * Portrait: the pad's own label sits beside it instead of behind it, on this
+   * side, and may be `span` arena units wide. Answers then read as a list.
+   */
+  side?: "left" | "right";
+  span?: number;
+  /** Portrait: how deep the pad's row is, in arena units. A picture label is shrunk to fit it. */
+  high?: number;
   x: number;
   z: number;
   size: number;
@@ -117,32 +125,56 @@ export const emptyAnswer = (): Answer => ({
   eliminated: [],
 });
 
-/** The playing field, in arena units. The hero starts at `spawn`. */
-export const ARENA = { halfW: 9.2, halfD: 6.2, spawn: [0, 4.4] as [number, number] };
-export const RUNWAY = { x0: -7.5, x1: 7.5, z: -1.4, halfD: 1.1 };
+/**
+ * The playing field, in arena units. On a wide screen it is wide and shallow;
+ * on a phone held upright it is narrow and deep, and everything is laid out to
+ * suit: answers as a list, a keypad, a number line that runs up the screen.
+ * The hero starts at `spawn`.
+ */
+export interface Field {
+  portrait: boolean;
+  halfW: number;
+  halfD: number;
+  spawn: [number, number];
+}
+
+export const fieldFor = (portrait: boolean): Field =>
+  portrait
+    ? // The start is in the middle: the bottom corners are under the thumb-stick and the Jump button.
+      { portrait: true, halfW: 5.6, halfD: 9.4, spawn: [0, 6.5] }
+    : { portrait: false, halfW: 9.2, halfD: 6.2, spawn: [0, 4.4] };
+
 export const PAIR_COLORS = ["#f43f5e", "#3b82f6", "#f59e0b", "#a855f7", "#14b8a6"];
 
-/** Where on the floor a picture lies: centred here, as large as fits in this box. */
-const PICTURE_BOX = { cx: 0, cz: -1.3, maxW: 15, maxD: 8 };
+/**
+ * The number line of a slider: which way it runs, from where to where, where
+ * it lies across, and half its width. Upright, the lowest value is nearest and
+ * you walk forward to go up.
+ */
+export const runwayOf = (field: Field) =>
+  field.portrait
+    ? { axis: "z" as const, from: 6.4, to: -8.2, cross: 1.4, half: 1.2 }
+    : { axis: "x" as const, from: -7.5, to: 7.5, cross: -1.4, half: 1.1 };
 
 /** The floor rectangle a picture covers, and how many arena units one of its pixels is. */
-export function pictureFrame(picture: Picture) {
-  const scale = Math.min(PICTURE_BOX.maxW / picture.width, PICTURE_BOX.maxD / picture.height);
+export function pictureFrame(picture: Picture, field: Field) {
+  const box = field.portrait ? { cx: 0, cz: -1.7, maxW: 10.4, maxD: 12.4 } : { cx: 0, cz: -1.3, maxW: 15, maxD: 8 };
+  const scale = Math.min(box.maxW / picture.width, box.maxD / picture.height);
   const w = picture.width * scale;
   const d = picture.height * scale;
-  return { scale, w, d, x0: PICTURE_BOX.cx - w / 2, z0: PICTURE_BOX.cz - d / 2, cx: PICTURE_BOX.cx, cz: PICTURE_BOX.cz };
+  return { scale, w, d, x0: box.cx - w / 2, z0: box.cz - d / 2, cx: box.cx, cz: box.cz };
 }
 
 /** A spot on the floor as a picture pixel, or null when it is off the picture. */
-export function toPicture(picture: Picture, x: number, z: number): [number, number] | null {
-  const f = pictureFrame(picture);
+export function toPicture(picture: Picture, field: Field, x: number, z: number): [number, number] | null {
+  const f = pictureFrame(picture, field);
   const u = (x - f.x0) / f.scale;
   const v = (z - f.z0) / f.scale;
   return u < 0 || v < 0 || u > picture.width || v > picture.height ? null : [u, v];
 }
 
-export function fromPicture(picture: Picture, u: number, v: number): [number, number] {
-  const f = pictureFrame(picture);
+export function fromPicture(picture: Picture, field: Field, u: number, v: number): [number, number] {
+  const f = pictureFrame(picture, field);
   return [f.x0 + u * f.scale, f.z0 + v * f.scale];
 }
 
@@ -218,7 +250,155 @@ const choicePad = (choice: Choice, role: Pad["role"], x: number, z: number, size
   overlay: !!choice.html || choice.label.length > LONG_LABEL,
 });
 
-export function layoutPads(spec: ArenaSpec): Pad[] {
+/** A pad whose label sits beside it, for the list layouts of an upright screen. */
+const listPad = (choice: Choice, role: Pad["role"], x: number, row: { z: number; h: number }, size: number, field: Field): Pad => ({
+  ...choicePad(choice, role, x, row.z, size),
+  overlay: true,
+  side: "right",
+  span: field.halfW - 0.25 - (x + size / 2 + 0.35),
+  high: row.h,
+});
+
+/** Where the pads of an upright field go: from here, this deep, above the controls in the bottom corners. */
+const PORTRAIT_TOP = -8.3;
+const PORTRAIT_DEEP = 12.4;
+
+/**
+ * How deep a list row has to be for its label, in arena units. Text is counted
+ * in lines of about 32 characters, which is what fits beside a pad on a phone.
+ */
+const rowNeed = (choice: Choice, perLine = 32) =>
+  choice.html?.includes("<img") ? 2.3 : choice.html ? 1.5 : 0.42 + 0.68 * Math.max(1, Math.ceil(choice.label.length / perLine));
+
+/**
+ * Stacks one or more lists under each other, each row as deep as its label
+ * needs. With room to spare the rows grow; `overflow` says the labels need
+ * more room than there is.
+ */
+function stackRows(groups: Choice[][], gap: number, perLine = 32, skip = 0) {
+  const needs = groups.map((group) => group.map((choice) => Math.max(1.2, rowNeed(choice, perLine))));
+  const room = PORTRAIT_DEEP - skip - gap * (groups.length - 1);
+  const total = needs.flat().reduce((sum, n) => sum + n, 0) || 1;
+  const stretch = Math.min(1.9, room / total);
+  let z = PORTRAIT_TOP + skip + 0.3;
+  const rows = needs.map((group) => {
+    const placed = group.map((need) => {
+      const h = need * stretch;
+      const row = { z: z + h / 2, h };
+      z += h;
+      return row;
+    });
+    z += gap;
+    return placed;
+  });
+  const shallowest = Math.min(...needs.flat()) * stretch;
+  return { rows, size: Math.min(2.2, Math.max(0.9, shallowest - 0.35)), overflow: stretch < 0.97 };
+}
+
+/** A table's rows: the statements stand left of the boxes, in a narrower column, under the column headings. */
+const TABLE_HEADINGS = 1.5;
+const tableRows = (spec: ArenaSpec) => stackRows([spec.choices], 0, 24, TABLE_HEADINGS);
+
+/** The lists an upright layout stacks for this interaction, or null when it is not laid out as a list. */
+const portraitLists = (spec: ArenaSpec): { groups: Choice[][]; gap: number } | null =>
+  spec.kind === "choice" || spec.kind === "order"
+    ? { groups: [spec.choices], gap: 0 }
+    : spec.kind === "match" && !spec.tabular
+      ? { groups: [spec.choices, spec.targets], gap: 0.9 }
+      : null;
+
+/**
+ * Whether an interaction has more text than fits beside its pads on an upright
+ * phone. Such a question is better played with the real interaction.
+ */
+export function overflowsPortrait(spec: ArenaSpec, field: Field): boolean {
+  if (!field.portrait) return false;
+  if (spec.kind === "match" && spec.tabular) return tableRows(spec).overflow;
+  const lists = portraitLists(spec);
+  return !!lists && stackRows(lists.groups, lists.gap).overflow;
+}
+
+/** The layouts for a phone held upright. */
+function layoutPortrait(spec: ArenaSpec, field: Field): Pad[] {
+  const pads: Pad[] = [];
+  // ✔ is at the bottom, between the thumb-stick and the Jump button.
+  const check: Pad = { id: "__check", role: "check", x: 0, z: 8.3, size: 2, label: "✔", overlay: false };
+  const lists = portraitLists(spec);
+  if (lists) {
+    // A list: a pad on the left, its answer beside it. A match is two lists under each
+    // other: pick one from the first, then its partner from the second.
+    const stack = stackRows(lists.groups, lists.gap);
+    const x = -field.halfW + stack.size / 2 + 0.45;
+    lists.groups.forEach((group, g) =>
+      group.forEach((choice, i) => pads.push(listPad(choice, g === 0 ? "choice" : "target", x, stack.rows[g][i], stack.size, field))),
+    );
+    if (spec.multiple || spec.kind !== "choice") pads.push(check);
+  } else if (spec.kind === "match" && spec.tabular) {
+    // The table hugs the right edge; the statements get the room on the left.
+    const cols = spec.targets;
+    const dx = Math.min(1.9, 5.4 / cols.length);
+    const stack = tableRows(spec);
+    const cell = Math.min(1.7, dx - 0.3, stack.size);
+    const r = { size: cell, z: (i: number) => stack.rows[0][i].z };
+    const xs = cols.map((_, j) => field.halfW - 0.45 - r.size / 2 - (cols.length - 1 - j) * dx);
+    cols.forEach((col, j) =>
+      pads.push({
+        ...choicePad(col, "label", xs[j], PORTRAIT_TOP + TABLE_HEADINGS - 0.1, r.size),
+        id: `col:${col.id}`,
+        anchor: "above",
+      }),
+    );
+    spec.choices.forEach((choice, i) => {
+      const z = r.z(i);
+      pads.push({
+        ...choicePad(choice, "label", xs[0] - r.size / 2 - 0.35, z, r.size),
+        id: `row:${choice.id}`,
+        row: choice.id,
+        anchor: "left",
+        overlay: true,
+      });
+      cols.forEach((col, j) =>
+        pads.push({ id: `${choice.id} ${col.id}`, role: "cell", pair: [choice.id, col.id], x: xs[j], z, size: r.size, label: "", overlay: false }),
+      );
+    });
+    pads.push(check);
+  } else if (spec.kind === "entry") {
+    // A phone keypad for numbers; five letters to a row for words.
+    const letters = spec.keys.some((k) => k >= "a" && k <= "z");
+    const cols = letters ? 5 : 3;
+    const zero = !letters && spec.keys.includes("0");
+    const keys = spec.keys.filter((k) => !(zero && k === "0"));
+    // Numbers end on a row of ⌫ 0 ✔, like a phone; words get ⌫ and ✔ after the last letter.
+    const cells: { id: string; role: Pad["role"]; label: string }[] = keys.map((k) => ({ id: k, role: "key", label: k === " " ? "␣" : k }));
+    if (!letters) while (cells.length % cols !== 0) cells.push({ id: "", role: "label", label: "" });
+    cells.push({ id: "__back", role: "back", label: "⌫" });
+    if (zero) cells.push({ id: "0", role: "key", label: "0" });
+    cells.push({ id: "__check", role: "check", label: "✔" });
+    const count = Math.ceil(cells.length / cols);
+    const dx = Math.min(3.3, (field.halfW * 2 - 0.8) / cols);
+    const dz = Math.min(dx, 12.4 / count);
+    const size = Math.min(dx, dz) - 0.3;
+    cells.forEach((cell, i) => {
+      if (!cell.id) return;
+      const column = i % cols;
+      pads.push({
+        id: cell.id,
+        role: cell.role,
+        x: (column - (cols - 1) / 2) * dx,
+        z: -7.9 + size / 2 + Math.floor(i / cols) * dz,
+        size,
+        label: cell.label,
+        overlay: false,
+      });
+    });
+  } else if ((spec.kind === "hotspot" || spec.kind === "point") && spec.multiple) {
+    pads.push(check);
+  }
+  return pads;
+}
+
+export function layoutPads(spec: ArenaSpec, field: Field): Pad[] {
+  if (field.portrait) return layoutPortrait(spec, field);
   const pads: Pad[] = [];
   const check: Pad = { id: "__check", role: "check", x: 7, z: 3.2, size: 2, label: "✔", overlay: false };
   if (spec.kind === "choice" || spec.kind === "order") {
@@ -288,17 +468,27 @@ export function layoutPads(spec: ArenaSpec): Pad[] {
 export const padAt = (pads: Pad[], x: number, z: number) =>
   pads.find((p) => p.role !== "label" && Math.abs(x - p.x) <= p.size / 2 && Math.abs(z - p.z) <= p.size / 2) ?? null;
 
-export const onRunway = (x: number, z: number) =>
-  x >= RUNWAY.x0 - 0.3 && x <= RUNWAY.x1 + 0.3 && Math.abs(z - RUNWAY.z) <= RUNWAY.halfD;
+export function onRunway(field: Field, x: number, z: number) {
+  const r = runwayOf(field);
+  const along = r.axis === "x" ? x : z;
+  const across = r.axis === "x" ? z : x;
+  return along >= Math.min(r.from, r.to) - 0.3 && along <= Math.max(r.from, r.to) + 0.3 && Math.abs(across - r.cross) <= r.half;
+}
 
-export function runwayValue(spec: ArenaSpec, x: number) {
-  const t = Math.min(1, Math.max(0, (x - RUNWAY.x0) / (RUNWAY.x1 - RUNWAY.x0)));
+/** The value the number line shows where the hero stands, snapped to the slider's step. */
+export function runwayValue(spec: ArenaSpec, field: Field, x: number, z: number) {
+  const r = runwayOf(field);
+  const t = Math.min(1, Math.max(0, ((r.axis === "x" ? x : z) - r.from) / (r.to - r.from)));
   const raw = spec.min + t * (spec.max - spec.min);
   return Math.min(spec.max, Math.max(spec.min, Math.round(raw / spec.step) * spec.step));
 }
 
-export const runwayX = (spec: ArenaSpec, value: number) =>
-  RUNWAY.x0 + ((value - spec.min) / (spec.max - spec.min)) * (RUNWAY.x1 - RUNWAY.x0);
+/** Where a value lies on the number line, on the floor. */
+export function runwayPoint(spec: ArenaSpec, field: Field, value: number): [number, number] {
+  const r = runwayOf(field);
+  const along = r.from + ((value - spec.min) / (spec.max - spec.min)) * (r.to - r.from);
+  return r.axis === "x" ? [along, r.cross] : [r.cross, along];
+}
 
 export interface StompResult {
   answer: Answer;
@@ -406,11 +596,11 @@ export function stomp(spec: ArenaSpec, answer: Answer, pad: Pad): StompResult {
 }
 
 /** The hero landed on the picture of a hotspot or select-point interaction; null when off the picture. */
-export function landOnPicture(spec: ArenaSpec, answer: Answer, x: number, z: number): StompResult | null {
+export function landOnPicture(spec: ArenaSpec, field: Field, answer: Answer, x: number, z: number): StompResult | null {
   if (!spec.picture) return null;
-  const pixel = toPicture(spec.picture, x, z);
+  const pixel = toPicture(spec.picture, field, x, z);
   if (!pixel) return null;
-  const { scale } = pictureFrame(spec.picture);
+  const { scale } = pictureFrame(spec.picture, field);
   const full = (count: number) => spec.maxChoices > 0 && count >= spec.maxChoices;
   if (spec.kind === "hotspot") {
     const area = areaAt(spec.areas, pixel[0], pixel[1], HOTSPOT_SLACK / scale);

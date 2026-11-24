@@ -108,3 +108,10 @@
   border-bottom-width: 0;
   border-top-color: rgb(100 116 139 / 0.85);
 }
+
+/* On a phone the answers are a list: the label sits beside its pad and is set tighter. */
+.quest-label-list { font-size: 0.8rem; line-height: 1.15; }
+/* A tablet held upright gets the same list, with the room for normal-sized text. */
+@media (min-width: 640px) {
+  .quest-label-list { font-size: 1rem; line-height: 1.25; }
+}

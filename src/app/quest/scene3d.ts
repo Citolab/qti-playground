@@ -10,7 +10,17 @@
  * owns all game state and calls `update()` every frame.
  */
 import * as THREE from "three";
-import { RUNWAY, pictureFrame, runwayX, type Area, type ArenaSpec, type Pad, type Picture } from "./arena";
+import {
+  fieldFor,
+  pictureFrame,
+  runwayOf,
+  runwayPoint,
+  type Area,
+  type ArenaSpec,
+  type Field,
+  type Pad,
+  type Picture,
+} from "./arena";
 import type { Theme } from "./themes";
 import type { FrameState, PadView, PictureView } from "./types";
 import { GATES, MAP, MAP_H, MAP_W, groundHeight, rng, type Layout, type Tile } from "./world";
@@ -238,6 +248,9 @@ export class QuestScene {
   private height = 1;
   /** Pixels on the left that a panel covers: the arena is framed in what is left. */
   private inset = 0;
+  /** The same for a panel across the top, as on a phone. */
+  private insetTop = 0;
+  private field: Field = fieldFor(false);
 
   constructor(
     private container: HTMLElement,
@@ -1059,7 +1072,8 @@ export class QuestScene {
   }
 
   /** Enter (spec + pads) or leave (null) the arena. */
-  setArena(spec: ArenaSpec | null, pads: Pad[] = []) {
+  setArena(spec: ArenaSpec | null, pads: Pad[] = [], field: Field = fieldFor(false)) {
+    this.field = field;
     // Clear the previous stage
     for (const child of [...this.arenaStage.children]) {
       this.arenaStage.remove(child);
@@ -1160,34 +1174,43 @@ export class QuestScene {
         new THREE.PlaneGeometry(7.2, 1.8),
         new THREE.MeshBasicMaterial({ map: label.texture, transparent: true, toneMapped: false }),
       );
-      mesh.position.set(0, 2.1, -6.4);
-      mesh.rotation.x = -0.35;
+      // Behind the keys: further back on an upright field, which is deeper.
+      mesh.position.set(0, field.portrait ? 1.5 : 2.1, field.portrait ? -8.6 : -6.4);
+      mesh.rotation.x = field.portrait ? -0.75 : -0.35;
       this.arenaStage.add(mesh);
       this.board = { mesh, label };
     }
 
-    if (spec.picture && (spec.kind === "hotspot" || spec.kind === "point")) this.buildPicture(spec.picture, spec.areas);
+    if (spec.picture && (spec.kind === "hotspot" || spec.kind === "point")) this.buildPicture(spec.picture, spec.areas, field);
 
     if (spec.kind === "slider") {
-      const length = RUNWAY.x1 - RUNWAY.x0;
-      const line = new THREE.Mesh(new THREE.BoxGeometry(length + 0.8, 0.16, RUNWAY.halfD * 2), mat(a.pad, { flatShading: false }));
-      line.position.set((RUNWAY.x0 + RUNWAY.x1) / 2, 0.08, RUNWAY.z);
+      // The number line runs across a wide field and up an upright one.
+      const r = runwayOf(field);
+      const alongX = r.axis === "x";
+      const length = Math.abs(r.to - r.from);
+      const mid = (r.from + r.to) / 2;
+      const box = (along: number, height: number, across: number) =>
+        new THREE.BoxGeometry(alongX ? along : across, height, alongX ? across : along);
+      const at = (along: number, y: number, across: number): [number, number, number] =>
+        alongX ? [along, y, across] : [across, y, along];
+      const line = new THREE.Mesh(box(length + 0.8, 0.16, r.half * 2), mat(a.pad, { flatShading: false }));
+      line.position.set(...at(mid, 0.08, r.cross));
       line.receiveShadow = true;
       this.arenaStage.add(line);
-      const edge = new THREE.Mesh(new THREE.BoxGeometry(length + 1.0, 0.1, RUNWAY.halfD * 2 + 0.2), mat(a.padEdge));
-      edge.position.set((RUNWAY.x0 + RUNWAY.x1) / 2, 0.04, RUNWAY.z);
+      const edge = new THREE.Mesh(box(length + 1.0, 0.1, r.half * 2 + 0.2), mat(a.padEdge));
+      edge.position.set(...at(mid, 0.04, r.cross));
       this.arenaStage.add(edge);
       // Ticks: 10 small steps, a label on every second one.
       const majors = 10;
       for (let i = 0; i <= majors; i++) {
         const value = spec.min + ((spec.max - spec.min) * i) / majors;
-        const x = runwayX(spec, value);
+        const [x, z] = runwayPoint(spec, field, value);
         const big = i % 2 === 0;
         const tick = new THREE.Mesh(
-          new THREE.BoxGeometry(big ? 0.1 : 0.05, 0.02, big ? RUNWAY.halfD * 2 : RUNWAY.halfD),
+          box(big ? 0.1 : 0.05, 0.02, big ? r.half * 2 : r.half),
           new THREE.MeshBasicMaterial({ color: a.accent, toneMapped: false }),
         );
-        tick.position.set(x, 0.175, RUNWAY.z);
+        tick.position.set(x, 0.175, z);
         this.arenaStage.add(tick);
         if (big) {
           const label = makeLabelTexture(256, 128);
@@ -1196,8 +1219,10 @@ export class QuestScene {
             new THREE.PlaneGeometry(1.5, 0.75),
             new THREE.MeshBasicMaterial({ map: label.texture, transparent: true, toneMapped: false }),
           );
-          mesh.position.set(x, 0.9, RUNWAY.z - RUNWAY.halfD - 0.6);
-          mesh.rotation.x = -0.45;
+          // Behind the line when it runs across, to its left when it runs away from you.
+          if (alongX) mesh.position.set(x, 0.9, z - r.half - 0.6);
+          else mesh.position.set(x - r.half - 1.1, 0.5, z);
+          mesh.rotation.x = alongX ? -0.45 : -0.9;
           this.arenaStage.add(mesh);
         }
       }
@@ -1205,9 +1230,9 @@ export class QuestScene {
   }
 
   /** Lays the interaction's picture on the floor, so you answer by walking onto it. */
-  private buildPicture(source: Picture, areas: Area[]) {
+  private buildPicture(source: Picture, areas: Area[], field: Field) {
     const a = this.theme.arena;
-    const f = pictureFrame(source);
+    const f = pictureFrame(source, field);
     const frame = new THREE.Mesh(new THREE.BoxGeometry(f.w + 0.3, 0.12, f.d + 0.3), mat(a.padEdge));
     frame.position.set(f.cx, 0.06, f.cz);
     frame.receiveShadow = true;
@@ -1369,17 +1394,23 @@ export class QuestScene {
     this.applyInset();
   }
 
-  /** Reserve `px` on the left for a panel; the arena camera then centres on the rest. */
-  setInset(px: number) {
-    const next = Math.max(0, Math.min(px, this.width * 0.6));
-    if (next === this.inset) return;
-    this.inset = next;
+  /**
+   * Reserve room for a panel: `left` pixels beside the arena (a wide screen) or
+   * `top` pixels above it (a phone). The arena camera then frames the rest.
+   */
+  setInset(left: number, top = 0) {
+    const nextLeft = Math.max(0, Math.min(left, this.width * 0.6));
+    const nextTop = Math.max(0, Math.min(top, this.height * 0.6));
+    if (nextLeft === this.inset && nextTop === this.insetTop) return;
+    this.inset = nextLeft;
+    this.insetTop = nextTop;
     this.applyInset();
   }
 
   private applyInset() {
-    const shift = this.arenaSpec ? this.inset : 0;
-    if (shift > 0) this.camera.setViewOffset(this.width, this.height, -shift / 2, 0, this.width, this.height);
+    const left = this.arenaSpec ? this.inset : 0;
+    const top = this.arenaSpec ? this.insetTop : 0;
+    if (left > 0 || top > 0) this.camera.setViewOffset(this.width, this.height, -left / 2, -top / 2, this.width, this.height);
     else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
   }
@@ -1493,10 +1524,30 @@ export class QuestScene {
     const narrow = Math.max(1, 1.45 / free);
     let look: THREE.Vector3;
     let offset: THREE.Vector3;
-    if (inArena) {
+    const fog = this.scene.fog as THREE.Fog;
+    if (inArena && this.field.portrait) {
+      // An upright field is looked at from steeper above, from as far as it takes to fit:
+      // its width across the screen, its depth in the part of the screen below the panel.
+      const tanV = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+      const room = Math.max(0.25, (this.height - this.insetTop) / this.height);
+      const direction = new THREE.Vector3(0, 16, 8.5).normalize();
+      const forWidth = (this.field.halfW + 0.8) / (tanV * this.aspect);
+      const forDepth = ((this.field.halfD + 1.6) * direction.y) / (tanV * room);
+      const distance = Math.max(forWidth, forDepth);
+      // A little towards the near side: it looms larger, and it is where the hero starts.
+      look = new THREE.Vector3(state.player.x * 0.05, 0, 0.4 + state.player.z * 0.04);
+      offset = direction.multiplyScalar(distance);
+      // The world's fog would swallow a stage seen from this far.
+      fog.near = distance + 12;
+      fog.far = distance + 55;
+    } else if (inArena) {
       look = new THREE.Vector3(state.player.x * 0.12, 0, -2.6 + state.player.z * 0.1);
       offset = new THREE.Vector3(0, 13.5 * narrow, 12.5 * narrow);
+      fog.near = this.theme.fog.near * narrow;
+      fog.far = this.theme.fog.far * narrow + 10;
     } else {
+      fog.near = this.theme.fog.near;
+      fog.far = this.theme.fog.far;
       look = new THREE.Vector3(state.player.x, 0.4, state.player.z);
       const zoom = this.aspect < 1 ? 1.35 : 1;
       offset = new THREE.Vector3(0, 8.2 * zoom, 7.2 * zoom);

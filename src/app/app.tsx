@@ -57,12 +57,14 @@ const DevicePreview = lazy(() =>
  */
 function AssessmentRoute() {
   const [params] = useSearchParams();
-  // Game mode is a page of its own: the same assessment, played in a 3D world.
-  if (parsePlayerMode(params.get("mode")) === "game") return <QuestPage />;
   const framed =
     parsePlayerDevice(params.get("device")) !== DEFAULT_PLAYER_DEVICE &&
     window.self === window.top;
-  return framed ? <DevicePreview /> : <AssessmentPage />;
+  // The device frame comes first, so game mode can be previewed on a tablet or phone too.
+  if (framed) return <DevicePreview />;
+  // Game mode is a page of its own: the same assessment, played in a 3D world.
+  if (parsePlayerMode(params.get("mode")) === "game") return <QuestPage />;
+  return <AssessmentPage />;
 }
 
 export function App() {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowUp,
@@ -12,40 +12,45 @@ import {
   Lightbulb,
   ListChecks,
   Lock,
+  Monitor,
   RotateCcw,
+  Smartphone,
   Star,
+  Tablet,
   Volume2,
   VolumeX,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { assessmentTitleOf } from "../qti/assessment-title";
+import { availableDevices, type PlayerDevice } from "../qti/session-options";
 import { useStore } from "../store/store";
 import {
-  ARENA,
   HOTSPOT_SLACK,
   HOW_TO,
-  RUNWAY,
   afterWrong,
   areaAt,
   displayText,
   emptyAnswer,
+  fieldFor,
   fromPicture,
   landOnPicture,
   layoutPads,
   onRunway,
+  overflowsPortrait,
   padAt,
   padViews,
   pictureFrame,
   revealAnswer,
+  runwayPoint,
   runwayValue,
-  runwayX,
   stemHtml,
   stomp,
   toPicture,
   toResponse,
   type Answer,
   type ArenaSpec,
+  type Field,
   type Outcome,
   type Pad,
 } from "../quest/arena";
@@ -182,6 +187,19 @@ export function QuestPage() {
 
   const backToAssessment = assessmentId ? () => navigate(`/assessment/${assessmentId}`) : undefined;
 
+  // An assessment's game can be previewed on a tablet or a phone, in the same frame the player
+  // uses (pages/device-preview.tsx): the `device` parameter makes app.tsx put this page in it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [devices] = useState(() => (window.self === window.top ? availableDevices(window.innerWidth) : []));
+  const previewOn =
+    assessmentId && devices.length > 1
+      ? (device: PlayerDevice) => {
+          const next = new URLSearchParams(searchParams);
+          next.set("device", device);
+          setSearchParams(next, { replace: true });
+        }
+      : undefined;
+
   if (assessmentId) {
     const problem =
       loadFailed || !assessmentItems
@@ -216,6 +234,8 @@ export function QuestPage() {
         skipped={questions?.skipped ?? 0}
         leftOut={questions?.leftOut ?? 0}
         onBack={backToAssessment}
+        devices={previewOn ? devices.map((d) => d.value) : []}
+        onPreview={previewOn}
         onName={(name) => setSave((s) => ({ ...s, name }))}
         onPick={(id) => {
           sfx.open();
@@ -296,11 +316,17 @@ interface PickerProps {
   skipped: number;
   leftOut: number;
   onBack?: () => void;
+  /** Devices the game can be previewed on from here, and how to switch to one. */
+  devices: PlayerDevice[];
+  onPreview?: (device: PlayerDevice) => void;
   onName: (name: string) => void;
   onPick: (id: ThemeId) => void;
 }
 
-function WorldPicker({ save, sourceKey, ids, assessmentTitle, skipped, leftOut, onBack, onName, onPick }: PickerProps) {
+const DEVICE_ICONS = { desktop: Monitor, tablet: Tablet, mobile: Smartphone };
+const DEVICE_NAMES: Record<PlayerDevice, string> = { desktop: "Desktop", tablet: "Tablet", mobile: "Phone" };
+
+function WorldPicker({ save, sourceKey, ids, assessmentTitle, skipped, leftOut, onBack, devices, onPreview, onName, onPick }: PickerProps) {
   const total = ids.length;
   return (
     <div className="relative flex h-full flex-col items-center overflow-y-auto bg-gradient-to-b from-indigo-950 via-indigo-800 to-fuchsia-700 px-4 py-8 text-white">
@@ -330,8 +356,37 @@ function WorldPicker({ save, sourceKey, ids, assessmentTitle, skipped, leftOut, 
         </button>
       )}
 
+      {onPreview && (
+        <div
+          role="group"
+          aria-label="Preview on"
+          className="absolute right-3 top-3 z-20 flex items-center gap-0.5 rounded-full bg-white/15 p-1 text-sm font-bold backdrop-blur"
+        >
+          {devices.map((device) => {
+            const Icon = DEVICE_ICONS[device];
+            return (
+              <button
+                key={device}
+                type="button"
+                onClick={() => onPreview(device)}
+                disabled={device === "desktop"}
+                title={device === "desktop" ? "You are on the desktop view" : `Preview on a ${DEVICE_NAMES[device].toLowerCase()}`}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 transition",
+                  device === "desktop" ? "bg-white text-slate-900" : "hover:bg-white/25",
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                <span className="hidden md:inline">{DEVICE_NAMES[device]}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="relative z-10 flex w-full max-w-5xl flex-col items-center">
-        <div className="quest-pop-in text-center">
+        {/* On a narrow screen the back button sits above the title, not on it. */}
+        <div className={cn("quest-pop-in text-center", (onBack || onPreview) && "mt-9 lg:mt-0")}>
           <div className="text-sm font-bold uppercase tracking-[0.3em] text-yellow-300">
             {assessmentTitle ? "Game mode" : "A QTI adventure"}
           </div>
@@ -412,6 +467,8 @@ interface ArenaState {
   /** The answer to each part; the part being played lives in `answer` until you leave it. */
   answers: Answer[];
   stage: number;
+  /** The shape of the stage: wide, or deep for a phone held upright. Fixed when the question opens. */
+  field: Field;
   /** The part on stage now. */
   spec: ArenaSpec | null;
   pads: Pad[];
@@ -459,17 +516,18 @@ const outcomeOf = (state: Pick<ArenaState, "phase" | "specs"> | null | undefined
 };
 
 /** Where the flag stands: on the number line's answer, or on the last point marked on a picture. */
-const flagAt = (spec: ArenaSpec, answer: Answer): [number, number] | null => {
-  if (spec.kind === "slider") return answer.value !== null ? [runwayX(spec, answer.value), RUNWAY.z] : null;
+const flagAt = (spec: ArenaSpec, field: Field, answer: Answer): [number, number] | null => {
+  if (spec.kind === "slider") return answer.value !== null ? runwayPoint(spec, field, answer.value) : null;
   const last = answer.points[answer.points.length - 1];
-  return spec.kind === "point" && spec.picture && last ? fromPicture(spec.picture, last[0], last[1]) : null;
+  return spec.kind === "point" && spec.picture && last ? fromPicture(spec.picture, field, last[0], last[1]) : null;
 };
 
 /** The hotspot the hero stands on, so it can light up before the jump. */
-const hotspotUnder = (spec: ArenaSpec, x: number, z: number): string | null => {
+const hotspotUnder = (spec: ArenaSpec, field: Field, x: number, z: number): string | null => {
   if (spec.kind !== "hotspot" || !spec.picture) return null;
-  const pixel = toPicture(spec.picture, x, z);
-  return pixel ? (areaAt(spec.areas, pixel[0], pixel[1], HOTSPOT_SLACK / pictureFrame(spec.picture).scale)?.id ?? null) : null;
+  const pixel = toPicture(spec.picture, field, x, z);
+  const slack = HOTSPOT_SLACK / pictureFrame(spec.picture, field).scale;
+  return pixel ? (areaAt(spec.areas, pixel[0], pixel[1], slack)?.id ?? null) : null;
 };
 
 /** What a part's blank in the question shows: the answer so far. */
@@ -489,6 +547,57 @@ const LABEL_LOOK: Record<PadView["look"], string> = {
   wrong: "border-red-600 bg-red-100",
   gone: "border-slate-200 bg-slate-100 opacity-40 grayscale",
 };
+
+/**
+ * The on-screen thumb-stick, for a device without a keyboard: drag from the
+ * middle to walk that way, further to go faster. It reports each axis from -1
+ * to 1 and returns to rest when let go.
+ */
+function ThumbStick({ onMove }: { onMove: (x: number, z: number) => void }) {
+  const [knob, setKnob] = useState<[number, number]>([0, 0]);
+  const steer = (e: React.PointerEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const radius = rect.width / 2;
+    let x = (e.clientX - rect.left - radius) / radius;
+    let y = (e.clientY - rect.top - radius) / radius;
+    const reach = Math.hypot(x, y);
+    if (reach > 1) {
+      x /= reach;
+      y /= reach;
+    }
+    setKnob([x, y]);
+    // A little dead zone in the middle, so a resting thumb does not creep.
+    if (reach < 0.2) onMove(0, 0);
+    else onMove(x, y);
+  };
+  const rest = () => {
+    setKnob([0, 0]);
+    onMove(0, 0);
+  };
+  return (
+    <div
+      role="group"
+      aria-label="Walk: drag the stick"
+      onPointerDown={(e) => {
+        e.preventDefault();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        steer(e);
+      }}
+      onPointerMove={(e) => {
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) steer(e);
+      }}
+      onPointerUp={rest}
+      onPointerCancel={rest}
+      className="absolute bottom-4 left-4 z-20 grid h-28 w-28 touch-none place-items-center rounded-full border-4 border-white/80 bg-slate-900/25 shadow-lg backdrop-blur-sm"
+    >
+      <div
+        aria-hidden="true"
+        className="h-12 w-12 rounded-full border-2 border-white bg-white/90 shadow-md"
+        style={{ transform: `translate(${knob[0] * 30}px, ${knob[1] * 30}px)` }}
+      />
+    </div>
+  );
+}
 
 const NO_STYLESHEETS: string[] = [];
 /** How far behind its pad an HTML answer label hangs, in arena units. */
@@ -587,6 +696,8 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
     nearChest: null as string | null,
     target: null as [number, number] | null,
     zone: "meadow" as ZoneId,
+    /** The on-screen thumb-stick, each axis from -1 to 1. */
+    stick: [0, 0] as [number, number],
     frozen: false,
     /** A dialog has the keyboard: the game leaves every key alone. */
     paused: false,
@@ -636,6 +747,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       g.frozen = true;
       g.path = [];
       g.keys.clear();
+      g.stick = [0, 0];
       g.target = null;
       g.pendingChest = null;
       setShowList(false);
@@ -654,6 +766,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
           specs: [],
           answers: [],
           stage: 0,
+          field: fieldFor(false),
           spec: null,
           pads: [],
           answer: emptyAnswer(),
@@ -691,16 +804,29 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       handleRef.current = handle;
       const specs = handle.interactions.map((interaction) => interaction.arenaSpec());
       const spec = specs[0];
-      const pads = layoutPads(spec);
-      scene.setArena(spec, pads);
+      // A phone held upright gets a deep, narrow stage; everything else a wide one.
+      const box = containerRef.current;
+      const field = fieldFor(!!box && box.clientWidth < box.clientHeight * 0.8);
+      if (specs.some((part) => overflowsPortrait(part, field))) {
+        // More text than fits beside the pads on a phone: play the real interaction instead.
+        const item = arenaRef.current.item;
+        handleRef.current = null;
+        updateArena(null);
+        g.paused = true;
+        setFade(false);
+        setClassic(item);
+        return;
+      }
+      const pads = layoutPads(spec, field);
+      scene.setArena(spec, pads, field);
       g.worldPos = [g.x, g.z];
       g.mode = "arena";
-      [g.x, g.z] = ARENA.spawn;
+      [g.x, g.z] = field.spawn;
       g.y = 0;
       g.vy = 0;
       g.heading = Math.PI;
       g.frozen = false;
-      updateArena({ specs, answers: specs.map(emptyAnswer), stage: 0, spec, pads, phase: "playing" });
+      updateArena({ specs, answers: specs.map(emptyAnswer), stage: 0, field, spec, pads, phase: "playing" });
       setFade(false);
     },
     [say, updateArena],
@@ -811,9 +937,9 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       if (!current || !scene || index < 0 || index >= current.specs.length) return;
       const answers = current.answers.map((answer, i) => (i === current.stage ? current.answer : answer));
       const spec = current.specs[index];
-      const pads = layoutPads(spec);
-      scene.setArena(spec, pads);
-      [g.x, g.z] = ARENA.spawn;
+      const pads = layoutPads(spec, current.field);
+      scene.setArena(spec, pads, current.field);
+      [g.x, g.z] = current.field.spawn;
       g.y = 0;
       g.vy = 0;
       g.heading = Math.PI;
@@ -914,7 +1040,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
     const current = arenaRef.current;
     const handle = handleRef.current;
     if (g.mode !== "arena" || !current?.spec || current.phase !== "playing" || !handle) return;
-    const { spec, stage, specs, item } = current;
+    const { spec, stage, specs, item, field } = current;
     /** This part is answered: score the item if it was the last part, else bring on the next one. */
     const finishPart = (answer: Answer) => {
       if (stage >= specs.length - 1) {
@@ -934,13 +1060,13 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       }, 550);
     };
     if (spec.kind === "slider") {
-      if (!onRunway(g.x, g.z)) return;
-      finishPart({ ...current.answer, value: runwayValue(spec, g.x) });
+      if (!onRunway(field, g.x, g.z)) return;
+      finishPart({ ...current.answer, value: runwayValue(spec, field, g.x, g.z) });
       return;
     }
     const pad = padAt(current.pads, g.x, g.z);
     // On a pad, or on the picture of a hotspot or select-point question.
-    const result = pad ? stomp(spec, current.answer, pad) : landOnPicture(spec, current.answer, g.x, g.z);
+    const result = pad ? stomp(spec, current.answer, pad) : landOnPicture(spec, field, current.answer, g.x, g.z);
     if (!result) return;
     if (result.nudge) {
       sfx.bump();
@@ -1091,6 +1217,9 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
             dz += move[1];
           }
         }
+        // The on-screen thumb-stick: how far it is pushed is how fast you walk.
+        dx += g.stick[0];
+        dz += g.stick[1];
         if (dx || dz) {
           g.path = [];
           g.pendingChest = null;
@@ -1125,12 +1254,14 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       if (len > 0) {
         dx /= len;
         dz /= len;
-        const distance = Math.min(limit, (g.mode === "arena" ? 5.4 : 4.3) * dt);
+        const pace = g.path.length ? 1 : Math.min(1, len);
+        const distance = Math.min(limit, (g.mode === "arena" ? 5.4 : 4.3) * dt * pace);
         g.heading = Math.atan2(dx, dz);
         g.step += dt;
         if (g.mode === "arena") {
-          g.x = Math.min(ARENA.halfW, Math.max(-ARENA.halfW, g.x + dx * distance));
-          g.z = Math.min(ARENA.halfD, Math.max(-ARENA.halfD, g.z + dz * distance));
+          const field = arenaRef.current?.field ?? fieldFor(false);
+          g.x = Math.min(field.halfW, Math.max(-field.halfW, g.x + dx * distance));
+          g.z = Math.min(field.halfD, Math.max(-field.halfD, g.z + dz * distance));
         } else {
           const nx = g.x + dx * distance;
           const nz = g.z + dz * distance;
@@ -1192,14 +1323,16 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                 pads: padViews(a.spec, a.pads, a.answer, outcome),
                 display: displayText(a.spec, a.answer),
                 marker:
-                  a.spec.kind === "slider" && a.phase === "playing" && onRunway(g.x, g.z) ? String(runwayValue(a.spec, g.x)) : null,
-                flag: flagAt(a.spec, a.answer),
+                  a.spec.kind === "slider" && a.phase === "playing" && onRunway(a.field, g.x, g.z)
+                    ? String(runwayValue(a.spec, a.field, g.x, g.z))
+                    : null,
+                flag: flagAt(a.spec, a.field, a.answer),
                 flagLook: outcome === "wrong" ? "wrong" : outcome === "playing" ? "idle" : "correct",
                 picture: a.spec.picture
                   ? {
                       selected: a.answer.picked,
                       eliminated: a.answer.eliminated,
-                      hover: a.phase === "playing" ? hotspotUnder(a.spec, g.x, g.z) : null,
+                      hover: a.phase === "playing" ? hotspotUnder(a.spec, a.field, g.x, g.z) : null,
                       points: a.answer.points,
                       look: outcome === "wrong" ? "wrong" : outcome === "playing" ? "idle" : "correct",
                     }
@@ -1219,6 +1352,32 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
         if (!pad.overlay) continue;
         const el = labels.get(pad.id);
         if (!el) continue;
+        if (pad.side) {
+          // Beside its pad, as an entry in a list: as wide as the room there is.
+          const right = pad.side === "right";
+          const edge = pad.x + (right ? 1 : -1) * (pad.size / 2 + 0.35);
+          const p = scene.screenPoint(edge, 0.2, pad.z);
+          const far = scene.screenPoint(edge + (right ? 1 : -1) * (pad.span ?? 3), 0.2, pad.z);
+          const wide = Math.max(72, Math.abs(far.x - p.x));
+          el.style.maxWidth = `${wide.toFixed(0)}px`;
+          el.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px) translate(${right ? "0" : "-100%"}, -50%)`;
+          if (pad.html?.includes("<img") && labelTick % 15 === 0) {
+            // A picture is shrunk to its row, so the rows of a list never run into each other.
+            const content = el.querySelector("[data-rich]")?.shadowRoot?.lastElementChild;
+            const zoom = Number(el.dataset.zoom ?? 1);
+            const size = content?.getBoundingClientRect();
+            const high = pad.high ?? pad.size;
+            const tall = Math.abs(scene.screenPoint(edge, 0.2, pad.z + high / 2).y - scene.screenPoint(edge, 0.2, pad.z - high / 2).y);
+            if (size && size.width > 0 && size.height > 0) {
+              const fit = Math.min(1, (wide - 24) / (size.width / zoom), Math.max(0.25, (tall - 16) / (size.height / zoom)));
+              if (Math.abs(fit - zoom) > 0.02) {
+                el.dataset.zoom = fit.toFixed(3);
+                el.style.setProperty("--quest-label-zoom", fit.toFixed(3));
+              }
+            }
+          }
+          continue;
+        }
         if (pad.anchor === "left") {
           // A row heading: ends at its row, and may use the room between the question panel and the table.
           const p = scene.screenPoint(pad.x, 0.2, pad.z);
@@ -1340,14 +1499,16 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
     if (!scene) return;
     if (!inArena || !container || !panel) {
       insetRef.current = 0;
-      scene.setInset(0);
+      scene.setInset(0, 0);
       return;
     }
     const measure = () => {
+      // Beside the arena on a wide screen, above it on a narrow one.
       const wide = window.matchMedia("(min-width: 1024px)").matches;
-      const right = panel.getBoundingClientRect().right - container.getBoundingClientRect().left;
-      insetRef.current = wide ? right + 8 : 0;
-      sceneRef.current?.setInset(insetRef.current);
+      const box = container.getBoundingClientRect();
+      const rect = panel.getBoundingClientRect();
+      insetRef.current = wide ? rect.right - box.left + 8 : 0;
+      sceneRef.current?.setInset(insetRef.current, wide ? 0 : rect.bottom - box.top + 8);
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -1363,8 +1524,9 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
     const point = scene.pickGround(e.clientX, e.clientY);
     if (!point) return;
     if (g.mode === "arena") {
-      const x = Math.min(ARENA.halfW, Math.max(-ARENA.halfW, point[0]));
-      const z = Math.min(ARENA.halfD, Math.max(-ARENA.halfD, point[1]));
+      const field = arenaRef.current?.field ?? fieldFor(false);
+      const x = Math.min(field.halfW, Math.max(-field.halfW, point[0]));
+      const z = Math.min(field.halfD, Math.max(-field.halfD, point[1]));
       const pad = arenaRef.current ? padAt(arenaRef.current.pads, x, z) : null;
       if (pad) {
         goToPad(pad);
@@ -1373,7 +1535,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       const picture = arenaRef.current?.spec?.picture;
       g.path = [[x, z]];
       // A click on the picture is an answer: walk there and jump.
-      g.autoJump = !!picture && !!toPicture(picture, x, z);
+      g.autoJump = !!picture && !!toPicture(picture, field, x, z);
       g.pendingChest = null;
       g.target = g.path[0];
       return;
@@ -1406,6 +1568,19 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
 
   // ── HUD ───────────────────────────────────────────────────────────
 
+  /** A touch screen: show the thumb-stick and the action button, and say "tap" where a keyboard says "Space". */
+  const [touch] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      (window.matchMedia("(pointer: coarse)").matches ||
+        navigator.maxTouchPoints > 0 ||
+        // Inside the app's tablet or phone preview: show what that device would show.
+        window.self !== window.top),
+  );
+  const steer = useCallback((x: number, z: number) => {
+    gRef.current.stick = [x, z];
+  }, []);
+
   const attempts = arena ? (world.chests[arena.item.id]?.attempts ?? 0) : 0;
   const possible = starsForAttempt(attempts + 1);
   // What every part's blank shows, keyed by response identifier and flattened so the stem is only rebuilt on a change.
@@ -1428,7 +1603,23 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
   const nearItem = near ? itemById[near] : null;
   const nearLocked = !!(near && spotById[near]?.boss) && openCount < layout.bossNeeds;
   const nearOpen = near ? isOpen(world.chests[near]) : false;
-  const chip = "flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-sm font-bold text-slate-800 shadow-md";
+  const chip = "flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white/95 px-3 py-1.5 text-sm font-bold text-slate-800 shadow-md";
+  // A phone has no room for the score while a question is on screen.
+  const scoreChip = cn(chip, inArena && "hidden sm:flex");
+  const swatches = theme.heroColors.map((color) => (
+    <button
+      key={color}
+      type="button"
+      onClick={() => setWorld((w) => ({ ...w, color }))}
+      title="Change your colour"
+      aria-label={`Outfit colour ${color}`}
+      className={cn(
+        "h-6 w-6 rounded-full border-2 transition hover:scale-110",
+        world.color === color ? "border-slate-900 ring-2 ring-slate-300" : "border-white ring-1 ring-slate-300",
+      )}
+      style={{ background: color }}
+    />
+  ));
   const iconButton =
     "pointer-events-auto grid h-10 w-10 place-items-center rounded-full bg-white/95 text-slate-700 shadow-md transition hover:bg-white hover:text-slate-900 active:scale-95";
 
@@ -1464,8 +1655,13 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                 }}
                 style={view.tint ? { borderColor: view.tint } : undefined}
                 className={cn(
-                  pad.anchor === "left" ? "text-right" : "quest-label-above text-center",
-                  "quest-label pointer-events-auto absolute left-0 top-0 rounded-xl border-[3px] px-2.5 py-1.5 shadow-lg transition-colors",
+                  pad.side === "right"
+                    ? "quest-label-list text-left"
+                    : pad.anchor === "left" || pad.side === "left"
+                      ? cn("text-right", arena?.field.portrait && "quest-label-list")
+                      : "quest-label-above text-center",
+                  "quest-label pointer-events-auto absolute left-0 top-0 rounded-xl border-[3px] shadow-lg transition-colors",
+                  pad.side ? "px-2 py-1" : "px-2.5 py-1.5",
                   LABEL_LOOK[view.look],
                 )}
               >
@@ -1493,41 +1689,29 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
           </button>
           <DemoBadge />
           {!inArena && (
-            <div className={cn(chip, "pointer-events-auto gap-1 py-1 pl-3 pr-1.5")}>
-              <span className="mr-1 hidden sm:inline">
+            // On a phone the colours are in the quest list instead: the bar has no room.
+            <div className={cn(chip, "pointer-events-auto hidden gap-1 py-1 pl-3 pr-1.5 sm:flex")}>
+              <span className="mr-1">
                 {theme.emoji} {name}
               </span>
-              {theme.heroColors.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setWorld((w) => ({ ...w, color }))}
-                  title="Change your colour"
-                  aria-label={`Outfit colour ${color}`}
-                  className={cn(
-                    "h-6 w-6 rounded-full border-2 transition hover:scale-110",
-                    world.color === color ? "border-slate-900 ring-2 ring-white" : "border-white",
-                  )}
-                  style={{ background: color }}
-                />
-              ))}
+              {swatches}
             </div>
           )}
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <div className={chip} title="Stars collected">
+          <div className={scoreChip} title="Stars collected">
             <Star key={stars} className="quest-count h-5 w-5 fill-yellow-400 text-amber-500" />
             {stars}
             <span className="font-medium text-slate-400">/ {total * 3}</span>
           </div>
-          <div className={chip} title={`${theme.treasure}s opened`}>
+          <div className={scoreChip} title={`${theme.treasure}s opened`}>
             <span aria-hidden="true">🔑</span>
             {openCount}
             <span className="font-medium text-slate-400">/ {total}</span>
           </div>
           {world.streak >= 2 && (
-            <div className={cn(chip, "bg-orange-500 text-white")} title="Right first time, in a row">
+            <div className={cn(scoreChip, "bg-orange-500 text-white")} title="Right first time, in a row">
               <Flame className="h-4 w-4 fill-yellow-300 text-yellow-300" />
               {world.streak}
             </div>
@@ -1568,7 +1752,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
           </div>
 
           {nearItem && !nearOpen && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-24 z-10 flex justify-center px-4">
+            <div className={cn("pointer-events-none absolute inset-x-0 z-10 flex justify-center px-4", touch ? "bottom-40" : "bottom-24")}>
               <button
                 type="button"
                 onClick={() => openChest(nearItem.id)}
@@ -1580,17 +1764,20 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                   </>
                 ) : (
                   <>
-                    <kbd className="rounded-md bg-slate-900 px-2 py-0.5 text-sm text-white">Space</kbd> Open “{nearItem.title}”
+                    <kbd className="rounded-md bg-slate-900 px-2 py-0.5 text-sm text-white">{touch ? "Tap" : "Space"}</kbd> Open “
+                    {nearItem.title}”
                   </>
                 )}
               </button>
             </div>
           )}
 
-          <div className="pointer-events-none absolute bottom-3 left-3 z-10 hidden rounded-xl bg-black/35 px-3 py-2 text-xs font-medium text-white backdrop-blur sm:block">
-            <Footprints className="mr-1 inline h-3.5 w-3.5" />
-            Arrow keys or WASD to walk · Space to jump · or just click where you want to go
-          </div>
+          {!touch && (
+            <div className="pointer-events-none absolute bottom-3 left-3 z-10 hidden rounded-xl bg-black/35 px-3 py-2 text-xs font-medium text-white backdrop-blur sm:block">
+              <Footprints className="mr-1 inline h-3.5 w-3.5" />
+              Arrow keys or WASD to walk · Space to jump · or just click where you want to go
+            </div>
+          )}
 
           {showList && (
             <div className="quest-pop-in absolute right-3 top-16 z-20 max-h-[calc(100%-5rem)] w-80 max-w-[calc(100%-1.5rem)] overflow-y-auto rounded-2xl bg-white/97 p-3 shadow-2xl">
@@ -1643,6 +1830,9 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                   </div>
                 );
               })}
+              <div className="mb-2 flex items-center gap-2 rounded-lg bg-slate-50 px-2 py-1.5 text-xs font-bold text-slate-600 sm:hidden">
+                Your colour <span className="flex gap-1.5">{swatches}</span>
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -1663,6 +1853,28 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
         </>
       )}
 
+      {/* Touch controls: a thumb-stick to walk, and in the world a button to jump or open a chest */}
+      {touch && sceneReady && !classic && !reading && !finished && !zoomed && arena?.phase !== "celebrate" && arena?.phase !== "loading" && (
+        <>
+          <ThumbStick onMove={steer} />
+          {!arena && (
+            <button
+              type="button"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                act();
+              }}
+              className="absolute bottom-4 right-4 z-20 grid h-20 w-20 place-items-center rounded-full bg-emerald-500 text-base font-extrabold text-white shadow-[0_6px_0_#047857] active:translate-y-1 active:shadow-[0_2px_0_#047857]"
+            >
+              <span className="flex flex-col items-center leading-none">
+                <ArrowUp className="h-7 w-7" />
+                {nearItem && !nearOpen && !nearLocked ? "Open" : "Jump"}
+              </span>
+            </button>
+          )}
+        </>
+      )}
+
       {/* Arena: the question panel, the guide and the buttons */}
       {arena && (
         <>
@@ -1671,7 +1883,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
             <>
               <div
                 ref={panelRef}
-                className="quest-pop-in absolute inset-x-3 top-16 z-10 flex max-h-[40%] flex-col overflow-hidden rounded-2xl border-4 border-white bg-white/97 shadow-2xl lg:inset-x-auto lg:left-3 lg:max-h-[calc(100%-4.75rem)] lg:w-[23rem]"
+                className="quest-pop-in absolute inset-x-3 top-16 z-10 flex max-h-[36%] flex-col overflow-hidden rounded-2xl border-4 border-white bg-white/97 shadow-2xl lg:inset-x-auto lg:left-3 lg:max-h-[calc(100%-4.75rem)] lg:w-[23rem]"
               >
                 <div className="flex shrink-0 items-center gap-3 px-4 py-1.5 text-white" style={{ background: zoneInfo.color }}>
                   <div className="min-w-0 flex-1 truncate font-display text-base font-bold">

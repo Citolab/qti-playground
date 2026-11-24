@@ -254,7 +254,7 @@ export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, on
         {/* The cabinet's marquee */}
         <div className="flex shrink-0 items-center gap-3 px-5 py-2.5 text-white" style={{ background: zoneColor }}>
           <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-black/25 px-3 py-1 text-xs font-extrabold uppercase tracking-wider">
-            <Gamepad2 className="h-4 w-4" /> Mini game
+            <Gamepad2 className="h-4 w-4" /> <span className="hidden sm:inline">Mini game</span>
           </span>
           <h2 className="min-w-0 flex-1 truncate font-display text-lg font-bold">
             {boss ? "👑 " : ""}
