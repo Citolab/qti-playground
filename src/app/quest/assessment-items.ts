@@ -8,7 +8,7 @@
  * item has to declare its MAXSCORE.
  *
  * Any other question that can score itself is played as a mini game in a dialog,
- * with the real interaction (classic-dialog.tsx): gap match, hottext, a custom
+ * with the real interaction (classic-dialog.tsx): hottext, associate, a custom
  * interaction and so on. Only questions nothing can score are left out (an essay,
  * an upload) and counted, so the game can say so.
  *
@@ -42,7 +42,19 @@ const withResolvedAssets = (xml: string, href: string) => {
   return resolve ? mapItemAssetUrls(xml, resolve) : xml;
 };
 
-const PICTURE_TAGS = ["qti-hotspot-interaction", "qti-select-point-interaction"];
+const PICTURE_TAGS = ["qti-hotspot-interaction", "qti-select-point-interaction", "qti-graphic-gap-match-interaction"];
+
+/**
+ * A gap match is carried by hand, one piece at a time. With more pieces or gaps
+ * than this the arena would be a crowd of tiny pads, and the real interaction
+ * (the mini game) serves the question better.
+ */
+const MAX_CARRIED = 8;
+const MAX_GAPS = 8;
+const CARRY_TAGS = ["qti-gap-match-interaction", "qti-graphic-gap-match-interaction"];
+const carryFits = (el: Element) =>
+  el.querySelectorAll("qti-gap-text, qti-gap-img").length <= MAX_CARRIED &&
+  el.querySelectorAll("qti-gap, qti-associable-hotspot").length <= MAX_GAPS;
 
 const interactionsOf = (doc: Document) =>
   Array.from(doc.getElementsByTagName("*")).filter((el) => el.localName.endsWith("-interaction"));
@@ -71,6 +83,7 @@ const isPlayable = (doc: Document) => {
     return !!image && Number(image.getAttribute("width")) > 0 && Number(image.getAttribute("height")) > 0;
   });
   if (!sized) return false;
+  if (!interactions.filter((el) => CARRY_TAGS.includes(el.localName)).every(carryFits)) return false;
   // With several parts, "all right" is only knowable when the item says what its full score is.
   if (interactions.length === 1) return true;
   const maxScore = Array.from(doc.getElementsByTagName("qti-outcome-declaration")).find(
@@ -207,6 +220,8 @@ export async function loadAssessmentQuestions(list: ItemInfoWithBlobRef[]): Prom
           // Filled in below, once every question has its number.
           title: readableTitle(doc, info),
           stimulus: await loadStimulus(doc),
+          // By the text's own address, so the questions stay together even when the text could not be loaded.
+          group: doc.getElementsByTagName("qti-assessment-stimulus-ref")[0]?.getAttribute("href") || undefined,
           stylesheets: sameOriginStylesheets(doc),
           dialog: !staged,
           href: info.href,

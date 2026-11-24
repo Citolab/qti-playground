@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { qtiTransformItem } from "@citolab/qti-components/qti-transformers";
 import { QTI_PKG_URL_PREFIX, createModuleResolutionFetcher, detectPciBaseUrl } from "@citolab/qti-browser-import";
-import { Eye, Gamepad2, Lightbulb, Star, X } from "lucide-react";
+import { ArrowRight, Eye, Gamepad2, Lightbulb, Star, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { itemCss } from "../itemCss";
 import { syncScopedRegistry } from "../scoped-registry";
 import { useScopedQtiRegistry } from "../use-scoped-registry";
 import type { QuestItem } from "./items";
 import { starsForAttempt } from "./rewards";
+import { Scroller } from "./scroller";
 import type { Theme } from "./themes";
 
 /**
@@ -139,9 +140,13 @@ interface Props {
   onSolved: (stars: number) => void;
   onReveal: () => void;
   onClose: () => void;
+  /** Go straight on to the next question about the same text, when there is one. */
+  onNext?: () => void;
+  /** The title of that text. */
+  about?: string;
 }
 
-export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, onWrong, onSolved, onReveal, onClose }: Props) {
+export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, onWrong, onSolved, onReveal, onClose, onNext, about }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const { registry, attachRef } = useScopedQtiRegistry();
   const [itemDoc, setItemDoc] = useState<DocumentFragment | null>(null);
@@ -278,7 +283,8 @@ export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, on
         </div>
 
         {/* The screen: the real item */}
-        <div ref={hostRef} className="mx-3 min-h-0 flex-1 select-text overflow-y-auto rounded-2xl bg-white px-4 py-4 sm:px-8">
+        <div ref={hostRef} className="mx-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-white">
+          <Scroller className="select-text px-4 py-4 sm:px-8">
           {failed ? (
             <p className="py-10 text-center text-slate-600">This mini game could not be loaded.</p>
           ) : !itemDoc ? (
@@ -290,6 +296,7 @@ export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, on
               </item-container>
             </qti-item>
           )}
+          </Scroller>
         </div>
 
         {/* The controls */}
@@ -334,10 +341,10 @@ export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, on
             {phase === "revealed" && (
               <button
                 type="button"
-                onClick={onClose}
+                onClick={onNext ?? onClose}
                 className="rounded-full bg-sky-500 px-7 py-2.5 text-lg font-extrabold text-white shadow-[0_5px_0_#0369a1] hover:bg-sky-400 active:translate-y-0.5"
               >
-                Continue
+                {onNext ? "Next question" : "Continue"}
               </button>
             )}
           </div>
@@ -367,14 +374,34 @@ export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, on
               +{earned} {earned === 1 ? "star" : "stars"}
               {earned === 3 ? ". Right the first time, wow!" : ". Get it right the first time for 3 stars!"}
             </p>
-            <button
-              type="button"
-              autoFocus
-              onClick={onClose}
-              className="rounded-full bg-emerald-500 px-8 py-3 text-lg font-extrabold text-white shadow-[0_5px_0_#047857] hover:bg-emerald-400 active:translate-y-0.5"
-            >
-              Continue adventure
-            </button>
+            {onNext ? (
+              // More questions about the same text: go straight on, the text is still fresh.
+              <>
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={onNext}
+                  className="flex max-w-full flex-col items-center rounded-3xl bg-emerald-500 px-8 py-2.5 font-extrabold text-white shadow-[0_5px_0_#047857] hover:bg-emerald-400 active:translate-y-0.5"
+                >
+                  <span className="flex items-center gap-1.5 text-lg">
+                    Next question <ArrowRight className="h-5 w-5" strokeWidth={3} />
+                  </span>
+                  {about && <span className="max-w-full truncate text-xs font-bold text-emerald-50">about “{about}”</span>}
+                </button>
+                <button type="button" onClick={onClose} className="text-sm font-bold text-amber-900 underline-offset-2 hover:underline">
+                  Back to the world
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                autoFocus
+                onClick={onClose}
+                className="rounded-full bg-emerald-500 px-8 py-3 text-lg font-extrabold text-white shadow-[0_5px_0_#047857] hover:bg-emerald-400 active:translate-y-0.5"
+              >
+                Continue adventure
+              </button>
+            )}
           </div>
         )}
       </div>

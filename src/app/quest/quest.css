@@ -115,3 +115,8 @@
 @media (min-width: 640px) {
   .quest-label-list { font-size: 1rem; line-height: 1.25; }
 }
+
+/* A gap match on the card: an empty gap wears the number of its pad, a filled one the word that was carried into it. */
+.quest-stem .quest-blank.quest-gap { min-width: 1.9em; color: #fff; background: #64748b; border-bottom-color: #334155; border-radius: 0.4rem; }
+.quest-stem .quest-blank.quest-filled { color: #075985; background: #e0f2fe; border-bottom-color: #0ea5e9; }
+.quest-stem .quest-gap-text { line-height: 1.9; }

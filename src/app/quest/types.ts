@@ -14,8 +14,10 @@ export interface PadView {
   badge?: string;
   /** Overrides the pad colour, e.g. to show which two pads are paired. */
   tint?: string;
-  /** What is written on the pad's face instead of its label: the tick in a table box. */
+  /** What is written on the pad instead of its label: the tick in a table box, the word put in a gap. */
   mark?: string;
+  /** The same as safe HTML, when what was put in a gap is a picture or a formula. */
+  html?: string;
 }
 
 export interface ArenaFrame {
@@ -29,6 +31,8 @@ export interface ArenaFrame {
   flagLook: "idle" | "correct" | "wrong";
   /** A hotspot or select-point picture on the floor, or null. */
   picture: PictureView | null;
+  /** Gap match: the hero carries something above its head. */
+  carrying: boolean;
 }
 
 export interface PictureView {
@@ -38,6 +42,8 @@ export interface PictureView {
   hover: string | null;
   /** Marked points, in picture pixels. */
   points: [number, number][];
+  /** Graphic gap match: what lies on which hotspot, as [hotspot, choice]. */
+  placed: [string, string][];
   look: "idle" | "correct" | "wrong";
 }
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
+  ArrowRight,
   ArrowUp,
   BookOpen,
   Code2,
@@ -34,6 +35,7 @@ import {
   emptyAnswer,
   fieldFor,
   fromPicture,
+  gapKey,
   landOnPicture,
   layoutPads,
   onRunway,
@@ -56,6 +58,7 @@ import {
 } from "../quest/arena";
 import { loadAssessmentQuestions, type AssessmentQuestions } from "../quest/assessment-items";
 import { ClassicDialog } from "../quest/classic-dialog";
+import { Scroller } from "../quest/scroller";
 import { buildItems, type QuestItem } from "../quest/items";
 import { QtiItemHost, type QtiHandle } from "../quest/qti-item-host";
 import { starsForAttempt } from "../quest/rewards";
@@ -524,7 +527,7 @@ const flagAt = (spec: ArenaSpec, field: Field, answer: Answer): [number, number]
 
 /** The hotspot the hero stands on, so it can light up before the jump. */
 const hotspotUnder = (spec: ArenaSpec, field: Field, x: number, z: number): string | null => {
-  if (spec.kind !== "hotspot" || !spec.picture) return null;
+  if ((spec.kind !== "hotspot" && spec.kind !== "gap") || !spec.picture) return null;
   const pixel = toPicture(spec.picture, field, x, z);
   const slack = HOTSPOT_SLACK / pictureFrame(spec.picture, field).scale;
   return pixel ? (areaAt(spec.areas, pixel[0], pixel[1], slack)?.id ?? null) : null;
@@ -539,6 +542,30 @@ const blankText = (spec: ArenaSpec, answer: Answer) =>
       : spec.kind === "slider" && answer.value !== null
         ? String(answer.value)
         : "?";
+
+/** What the blanks of a gap match show, as "key NUL text" entries: only the filled gaps; an empty one keeps its number. */
+const gapBlanks = (spec: ArenaSpec, answer: Answer) =>
+  spec.targets.flatMap((gap) => {
+    const inside = answer.pairs.filter(([, target]) => target === gap.id).map(([id]) => spec.choices.find((c) => c.id === id)?.label || "●");
+    return inside.length ? [`${gapKey(spec.responseId, gap.id)}\u0000${inside.join(", ")}`] : [];
+  });
+
+/** Straight on to the next question about the same text. */
+function NextButton({ onClick, about }: { onClick: () => void; about?: string }) {
+  return (
+    <button
+      type="button"
+      autoFocus
+      onClick={onClick}
+      className="flex max-w-full flex-col items-center rounded-3xl bg-emerald-500 px-8 py-2.5 font-extrabold text-white shadow-[0_5px_0_#047857] hover:bg-emerald-400 active:translate-y-0.5"
+    >
+      <span className="flex items-center gap-1.5 text-lg">
+        Next question <ArrowRight className="h-5 w-5" strokeWidth={3} />
+      </span>
+      {about && <span className="max-w-full truncate text-xs font-bold text-emerald-50">about “{about}”</span>}
+    </button>
+  );
+}
 
 const LABEL_LOOK: Record<PadView["look"], string> = {
   idle: "border-slate-300 bg-white",
@@ -626,7 +653,14 @@ function RichLabel({ html, stylesheets }: { html: string; stylesheets: string[] 
 
 function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMuted, onExit }: GameProps) {
   const itemById = useMemo(() => Object.fromEntries(items.map((i) => [i.id, i])), [items]);
-  const layout = useMemo<Layout>(() => makeLayout(items.map((i) => i.id)), [items]);
+  const layout = useMemo<Layout>(
+    () =>
+      makeLayout(
+        items.map((i) => i.id),
+        items.map((i) => i.group),
+      ),
+    [items],
+  );
   const spotById = useMemo(() => Object.fromEntries(layout.chests.map((c) => [c.id, c])), [layout]);
   const ids = useMemo(() => layout.chests.map((c) => c.id), [layout]);
   const total = ids.length;
@@ -634,6 +668,11 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const labelEls = useRef(new Map<string, HTMLElement>());
+  const carryEl = useRef<HTMLDivElement>(null);
+  /** The question to go straight on to when the current one is left: the next one about the same text. */
+  const nextUpRef = useRef<string | null>(null);
+  /** Set further down, where everything it needs exists: called when a question is left. */
+  const goOnRef = useRef<() => void>(() => undefined);
   /** How far the question panel reaches in from the left, in pixels: labels keep clear of it. */
   const insetRef = useRef(0);
   const sceneRef = useRef<QuestScene | null>(null);
@@ -858,10 +897,12 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       setFade(false);
       const progress = worldRef.current.chests[current.item.id];
       const spot = spotById[current.item.id];
-      if (spot && progress?.solved && current.earned > 0) {
+      // Going straight on to the next question, the stars would burst into its arena.
+      if (spot && progress?.solved && current.earned > 0 && !nextUpRef.current) {
         window.setTimeout(() => scene?.celebrate(spot.tile[0] + 0.5, spot.tile[1] + 0.5, current.earned, !!spot.boss), 350);
       }
       if (spot?.boss && isOpen(progress)) window.setTimeout(() => setFinished(true), 1900);
+      goOnRef.current();
     }, 280);
   }, [spotById, updateArena]);
 
@@ -920,10 +961,11 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
     g.paused = false;
     g.keys.clear();
     setClassic(null);
-    if (spot && progress?.solved) {
+    if (spot && progress?.solved && !nextUpRef.current) {
       window.setTimeout(() => sceneRef.current?.celebrate(spot.tile[0] + 0.5, spot.tile[1] + 0.5, progress.stars, !!spot.boss), 250);
     }
     if (spot?.boss && isOpen(progress)) window.setTimeout(() => setFinished(true), 1800);
+    goOnRef.current();
   }, [classic, spotById]);
 
   // ── Answering ─────────────────────────────────────────────────────
@@ -1156,6 +1198,40 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
     g.target = [pad.x, pad.z];
   }, []);
 
+  /**
+   * Back in the world with a next question lined up (the next one about the same
+   * text): step over to its chest, which stands beside this one, and open it.
+   */
+  const goOn = useCallback(() => {
+    const next = nextUpRef.current;
+    nextUpRef.current = null;
+    const spot = next ? spotById[next] : undefined;
+    if (!next || !spot) return;
+    const g = gRef.current;
+    const stand = standingSpot(spot.tile, [Math.floor(g.x), Math.floor(g.z)], blockersRef.current);
+    if (stand) {
+      g.x = stand[0] + 0.5;
+      g.z = stand[1] + 0.5;
+      g.path = [];
+      g.target = null;
+    }
+    // After the stars of the chest just opened have had their moment.
+    window.setTimeout(() => openChest(next), 750);
+  }, [openChest, spotById]);
+  useEffect(() => {
+    goOnRef.current = goOn;
+  });
+
+  /** Leave this question and go straight on to another one. */
+  const goToNext = useCallback(
+    (id: string, fromDialog: boolean) => {
+      nextUpRef.current = id;
+      if (fromDialog) closeClassic();
+      else leaveArena();
+    },
+    [closeClassic, leaveArena],
+  );
+
   // The frame loop calls these through a ref, so it always gets the latest ones.
   const live = useRef({ openChest, handleLand, act, leaveArena });
   useEffect(() => {
@@ -1334,9 +1410,11 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                       eliminated: a.answer.eliminated,
                       hover: a.phase === "playing" ? hotspotUnder(a.spec, a.field, g.x, g.z) : null,
                       points: a.answer.points,
+                      placed: a.spec.kind === "gap" ? a.answer.pairs.map(([choice, spot]): [string, string] => [spot, choice]) : [],
                       look: outcome === "wrong" ? "wrong" : outcome === "playing" ? "idle" : "correct",
                     }
                   : null,
+                carrying: a.spec.kind === "gap" && a.answer.pending !== null,
               }
             : null,
       };
@@ -1348,6 +1426,12 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       labelTick += 1;
       const a = arenaRef.current;
       if (!scene || g.mode !== "arena" || !a) return;
+      const held = carryEl.current;
+      if (held) {
+        // Above the crate the hero holds up.
+        const p = scene.screenPoint(g.x, g.y + 2.15, g.z);
+        held.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px) translate(-50%, -100%)`;
+      }
       for (const pad of a.pads) {
         if (!pad.overlay) continue;
         const el = labels.get(pad.id);
@@ -1390,7 +1474,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
         // of it all stay in view.
         const p = scene.screenPoint(pad.x, 0.3, pad.z - pad.size / 2 - LABEL_GAP);
         // As wide as the pad and a little more, so neighbours never overlap.
-        const half = pad.size / 2 + 0.3;
+        const half = pad.span ? pad.span / 2 : pad.size / 2 + 0.3;
         const width = scene.screenPoint(pad.x + half, 0.3, pad.z).x - scene.screenPoint(pad.x - half, 0.3, pad.z).x;
         el.style.maxWidth = `${Math.max(72, width).toFixed(0)}px`;
         // A picture keeps its own size where there is room, and the label shrinks as a whole where
@@ -1540,7 +1624,9 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       g.target = g.path[0];
       return;
     }
-    const chest = layout.chests.find((c) => Math.hypot(c.tile[0] + 0.5 - point[0], c.tile[1] + 0.3 - point[1]) < 0.85);
+    // The nearest one: chests about the same text stand side by side.
+    const reach = (c: Layout["chests"][number]) => Math.hypot(c.tile[0] + 0.5 - point[0], c.tile[1] + 0.3 - point[1]);
+    const chest = layout.chests.filter((c) => reach(c) < 0.85).sort((a, b) => reach(a) - reach(b))[0];
     if (chest) {
       goToChest(chest.id);
       return;
@@ -1585,7 +1671,14 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
   const possible = starsForAttempt(attempts + 1);
   // What every part's blank shows, keyed by response identifier and flattened so the stem is only rebuilt on a change.
   const blankKey = arena
-    ? arena.specs.map((spec, i) => `${spec.responseId}\u0000${blankText(spec, i === arena.stage ? arena.answer : arena.answers[i])}`).join("\u0001")
+    ? arena.specs
+        .flatMap((spec, i) => {
+          const answer = i === arena.stage ? arena.answer : arena.answers[i];
+          // A gap match has a blank for every gap: it shows what was carried into it.
+          if (spec.kind === "gap") return gapBlanks(spec, answer);
+          return [`${spec.responseId}\u0000${blankText(spec, answer)}`];
+        })
+        .join("\u0001")
     : "";
   const currentId = arena?.specs.length && arena.specs.length > 1 ? arena.spec?.responseId : undefined;
   const stem = useMemo(() => {
@@ -1597,6 +1690,22 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
   const canSwitchPart = arena?.phase === "playing" || arena?.phase === "revealed";
   const overlayPads = useMemo(() => (inArena && arena ? arena.pads.filter((pad) => pad.overlay) : []), [arena, inArena]);
   const labelViews = arena?.spec && overlayPads.length ? padViews(arena.spec, arena.pads, arena.answer, outcomeOf(arena)) : {};
+  /** The next unopened question about the same text: the ones after this one first, then the ones before it. */
+  const nextAbout = (item: QuestItem | null | undefined): QuestItem | null => {
+    if (!item?.group) return null;
+    const at = items.indexOf(item);
+    return (
+      [...items.slice(at + 1), ...items.slice(0, Math.max(0, at))].find((other) => {
+        const spot = spotById[other.id];
+        return other.group === item.group && !!spot && !isOpen(world.chests[other.id]) && !(spot.boss && openCount < layout.bossNeeds);
+      }) ?? null
+    );
+  };
+  const nextUp = nextAbout(arena?.item ?? classic);
+  const carried =
+    inArena && arena?.spec?.kind === "gap" && arena.answer.pending
+      ? (arena.spec.choices.find((choice) => choice.id === arena.answer.pending) ?? null)
+      : null;
   const arenaSpot = arena ? spotById[arena.item.id] : undefined;
   const zoneInfo = theme.zones[arenaSpot ? arenaSpot.zone : zone];
   const topicOf = (zoneId: ZoneId) => (builtIn ? theme.zones[zoneId].topic : `Part ${ZONES.indexOf(zoneId) + 1} of 3`);
@@ -1673,10 +1782,27 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                     {view.badge}
                   </span>
                 )}
-                {pad.html ? <RichLabel html={pad.html} stylesheets={arena?.item.stylesheets ?? NO_STYLESHEETS} /> : pad.label}
+                {/* A gap shows what was put in it; any other label its own text. */}
+                {(view.html ?? (view.mark === undefined ? pad.html : undefined)) ? (
+                  <RichLabel html={view.html ?? pad.html ?? ""} stylesheets={arena?.item.stylesheets ?? NO_STYLESHEETS} />
+                ) : (
+                  (view.mark ?? pad.label)
+                )}
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* What the hero carries (gap match): it rides above the hero's head until it is put down. */}
+      {carried && (
+        <div className="pointer-events-none absolute inset-0 z-[6] overflow-hidden">
+          <div
+            ref={carryEl}
+            className="quest-label quest-carried absolute left-0 top-0 rounded-xl border-[3px] border-amber-500 bg-amber-50 px-2.5 py-1.5 text-center shadow-xl"
+          >
+            {carried.html ? <RichLabel html={carried.html} stylesheets={arena?.item.stylesheets ?? NO_STYLESHEETS} /> : carried.label}
+          </div>
         </div>
       )}
 
@@ -1780,13 +1906,14 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
           )}
 
           {showList && (
-            <div className="quest-pop-in absolute right-3 top-16 z-20 max-h-[calc(100%-5rem)] w-80 max-w-[calc(100%-1.5rem)] overflow-y-auto rounded-2xl bg-white/97 p-3 shadow-2xl">
-              <div className="mb-2 flex items-center justify-between">
+            <div className="quest-pop-in absolute right-3 top-16 z-20 flex max-h-[calc(100%-5rem)] w-80 max-w-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-2xl bg-white p-3 shadow-2xl">
+              <div className="mb-2 flex shrink-0 items-center justify-between">
                 <h2 className="font-display text-lg font-extrabold text-slate-900">Quest list</h2>
                 <button type="button" onClick={() => setShowList(false)} className="rounded-full p-1 text-slate-500 hover:bg-slate-100" aria-label="Close quest list">
                   <X className="h-4 w-4" />
                 </button>
               </div>
+              <Scroller>
               {ZONES.map((zoneId) => {
                 const here = layout.chests.filter((c) => c.zone === zoneId);
                 if (!here.length) return null;
@@ -1848,6 +1975,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
               >
                 <RotateCcw className="h-3.5 w-3.5" /> Start this world again
               </button>
+              </Scroller>
             </div>
           )}
         </>
@@ -1898,7 +2026,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                     </div>
                   )}
                 </div>
-                <div className="min-h-0 flex-1 select-text overflow-y-auto px-4 py-2.5">
+                <Scroller className="select-text px-4 py-2.5">
                   {arena.item.stimulus && (
                     <button
                       type="button"
@@ -1918,7 +2046,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                     }}
                     dangerouslySetInnerHTML={{ __html: stem }}
                   />
-                </div>
+                </Scroller>
                 {parts > 1 && (
                   <div className="flex shrink-0 items-center gap-1.5 border-t border-slate-200 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">
                     Part
@@ -1985,10 +2113,10 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                 {arena.phase === "revealed" ? (
                   <button
                     type="button"
-                    onClick={leaveArena}
+                    onClick={nextUp ? () => goToNext(nextUp.id, false) : leaveArena}
                     className="pointer-events-auto rounded-full bg-sky-500 px-7 py-3 text-lg font-extrabold text-white shadow-[0_5px_0_#0369a1] hover:bg-sky-400 active:translate-y-0.5"
                   >
-                    Continue
+                    {nextUp ? "Next question" : "Continue"}
                   </button>
                 ) : (
                   <button
@@ -2020,7 +2148,9 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                   </button>
                 </div>
                 {/* Built by bodyHtml from the stimulus, through the same allow-list. */}
-                <div className="quest-reader min-h-0 flex-1 select-text overflow-y-auto px-6 py-4" dangerouslySetInnerHTML={{ __html: arena.item.stimulus.html }} />
+                <Scroller className="select-text px-6 py-4">
+                  <div className="quest-reader" dangerouslySetInnerHTML={{ __html: arena.item.stimulus.html }} />
+                </Scroller>
                 <div className="flex shrink-0 justify-end border-t border-slate-200 px-5 py-3">
                   <button
                     type="button"
@@ -2072,14 +2202,24 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                   +{arena.earned} {arena.earned === 1 ? "star" : "stars"}
                   {arena.earned === 3 ? ". Right the first time, wow!" : ". Get it right the first time for 3 stars!"}
                 </p>
-                <button
-                  type="button"
-                  autoFocus
-                  onClick={leaveArena}
-                  className="rounded-full bg-emerald-500 px-8 py-3 text-lg font-extrabold text-white shadow-[0_5px_0_#047857] hover:bg-emerald-400 active:translate-y-0.5"
-                >
-                  Continue adventure
-                </button>
+                {nextUp ? (
+                  // More questions about the same text: go straight on, the text is still fresh.
+                  <>
+                    <NextButton onClick={() => goToNext(nextUp.id, false)} about={arena.item.stimulus?.title} />
+                    <button type="button" onClick={leaveArena} className="text-sm font-bold text-amber-900 underline-offset-2 hover:underline">
+                      Back to the world
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    autoFocus
+                    onClick={leaveArena}
+                    className="rounded-full bg-emerald-500 px-8 py-3 text-lg font-extrabold text-white shadow-[0_5px_0_#047857] hover:bg-emerald-400 active:translate-y-0.5"
+                  >
+                    Continue adventure
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -2099,6 +2239,8 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
           onSolved={classicSolved}
           onReveal={classicReveal}
           onClose={closeClassic}
+          onNext={nextUp ? () => goToNext(nextUp.id, true) : undefined}
+          about={classic.stimulus?.title}
         />
       )}
 

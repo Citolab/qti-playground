@@ -19,6 +19,8 @@
  */
 import {
   QtiChoiceInteraction,
+  QtiGapMatchInteraction,
+  QtiGraphicGapMatchInteraction,
   QtiHotspotInteraction,
   QtiInlineChoiceInteraction,
   QtiMatchInteraction,
@@ -27,7 +29,7 @@ import {
   QtiSliderInteraction,
   QtiTextEntryInteraction,
 } from "@citolab/qti-components";
-import { DIGITS, LETTERS, richHtml, type ArenaSpec, type Choice, type Picture } from "./arena";
+import { DIGITS, GAP_MARK, LETTERS, richHtml, type Area, type ArenaSpec, type Choice, type Picture } from "./arena";
 
 export const SUFFIX_3D = "3d";
 
@@ -120,12 +122,58 @@ const DEFAULTS: ArenaSpec = {
  * `height` attributes define the pixel grid the coords are written in.
  */
 function pictureOf(el: HTMLElement): Picture | null {
-  const image = el.querySelector("img, object");
+  // Not a picture you carry (graphic gap match): those are choices, not the background.
+  const image = Array.from(el.querySelectorAll("img, object")).find((candidate) => !candidate.closest("qti-gap-img"));
   if (!image) return null;
   const src = image.getAttribute("src") ?? image.getAttribute("data") ?? "";
   const width = Number(image.getAttribute("width")) || (image instanceof HTMLImageElement ? image.naturalWidth : 0);
   const height = Number(image.getAttribute("height")) || (image instanceof HTMLImageElement ? image.naturalHeight : 0);
   return src && width > 0 && height > 0 ? { src, width, height } : null;
+}
+
+const areaOf = (choice: Element): Area => ({
+  id: choice.getAttribute("identifier") ?? "",
+  shape: choice.getAttribute("shape") ?? "default",
+  coords: (choice.getAttribute("coords") ?? "").split(",").map(Number).filter(Number.isFinite),
+});
+
+/** What there is to carry in a gap match: words, and in a graphic one usually pictures. */
+const carriedOf = (el: Element): Choice[] => {
+  const sources = Array.from(el.querySelectorAll("qti-gap-text, qti-gap-img"));
+  return choicesOf(el, "qti-gap-text, qti-gap-img").map((choice, i) => {
+    const img = sources[i].localName === "qti-gap-img" ? sources[i].querySelector("img") : null;
+    const image = img?.getAttribute("src");
+    return image ? { ...choice, label: choice.label || img?.getAttribute("alt") || "", image } : choice;
+  });
+};
+
+/**
+ * A few words on either side of a gap ("Three tickets cost ___ altogether"),
+ * so a gap can be recognised where the text itself is out of sight: on a phone
+ * the question card is small and the gaps are a list.
+ */
+function gapContext(gap: Element): string {
+  const block = gap.closest("p, li, td, th, h1, h2, h3, h4") ?? gap.parentElement;
+  if (!block) return "";
+  let text = "";
+  const read = (node: Node) => {
+    if (node === gap) text += " \u0000 ";
+    else if (node.nodeType === Node.TEXT_NODE) text += node.textContent ?? "";
+    else if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as Element;
+      // Another gap in the same sentence is only hinted at; other QTI elements are not text.
+      if (el.localName === "qti-gap") text += " … ";
+      else if (!el.localName.startsWith("qti-")) el.childNodes.forEach(read);
+    }
+  };
+  block.childNodes.forEach(read);
+  const [before = "", after = ""] = text.split("\u0000").map((part) => part.replace(/\s+/g, " ").trim());
+  const head = before ? before.split(" ").slice(-4) : [];
+  const tail = after ? after.split(" ").slice(0, 3) : [];
+  if (!head.length && !tail.length) return "";
+  const cutBefore = before && head.join(" ").length < before.length ? "…" : "";
+  const cutAfter = after && tail.join(" ").length < after.length ? "…" : "";
+  return `${cutBefore}${head.join(" ")} ${GAP_MARK} ${tail.join(" ")}${cutAfter}`.replace(/ ([.,;:!?])/g, "$1").trim();
 }
 
 /** `max-choices`: left out it is 1, and 0 means no limit. */
@@ -218,12 +266,40 @@ const VARIANTS: [
       multiple: maxChoicesOf(el) !== 1,
       maxChoices: maxChoicesOf(el),
       picture: pictureOf(el),
-      areas: Array.from(el.querySelectorAll("qti-hotspot-choice")).map((choice) => ({
-        id: choice.getAttribute("identifier") ?? "",
-        shape: choice.getAttribute("shape") ?? "default",
-        coords: (choice.getAttribute("coords") ?? "").split(",").map(Number).filter(Number.isFinite),
+      areas: Array.from(el.querySelectorAll("qti-hotspot-choice")).map(areaOf),
+    }),
+  ],
+  [
+    // Carry: the words are picked up and put into the gaps of the text.
+    "qti-gap-match-interaction",
+    QtiGapMatchInteraction,
+    (el) => ({
+      kind: "gap",
+      choices: carriedOf(el),
+      // A gap has no text of its own: it is known by its number, in reading order.
+      targets: Array.from(el.querySelectorAll("qti-gap")).map((gap, i) => ({
+        id: gap.getAttribute("identifier") ?? "",
+        label: String(i + 1),
+        context: gapContext(gap),
       })),
     }),
+  ],
+  [
+    // The same, and the gaps are hotspots on the picture.
+    "qti-graphic-gap-match-interaction",
+    QtiGraphicGapMatchInteraction,
+    (el) => {
+      const choices = carriedOf(el);
+      const hotspots = Array.from(el.querySelectorAll("qti-associable-hotspot"));
+      const picture = pictureOf(el);
+      return {
+        kind: "gap",
+        choices,
+        targets: choicesOf(el, "qti-associable-hotspot").map((target, i) => ({ ...target, label: String(i + 1) })),
+        picture: picture && { ...picture, shelf: choices.length },
+        areas: hotspots.map(areaOf),
+      };
+    },
   ],
   [
     "qti-select-point-interaction",

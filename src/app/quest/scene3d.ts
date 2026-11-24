@@ -11,6 +11,7 @@
  */
 import * as THREE from "three";
 import {
+  areaBox,
   fieldFor,
   pictureFrame,
   runwayOf,
@@ -108,7 +109,11 @@ function makeLabelTexture(width: number, height: number) {
         }
       }
       const twoLine = Math.floor(height * 0.34);
-      if (fits(twoLine, best)) {
+      // One line set a little smaller reads better than two, as long as it still comes out the larger.
+      let single = size;
+      while (single > twoLine && !fits(single, lines)) single -= 3;
+      if (single > twoLine) size = single;
+      else if (fits(twoLine, best)) {
         lines = best;
         size = twoLine;
       }
@@ -217,7 +222,11 @@ export class QuestScene {
     /** Canvas pixels per picture pixel. */
     px: number;
     key: string;
+    /** Graphic gap match: the pictures you carry, by choice, once they are loaded. */
+    carried: Map<string, HTMLImageElement>;
   } | null = null;
+  /** What the hero holds up while carrying something. */
+  private crate!: THREE.Mesh;
   private marker = makeSpriteLabel(256, 128);
   private flag = new THREE.Group();
   private flagCloth!: THREE.Mesh;
@@ -965,6 +974,12 @@ export class QuestScene {
       if ((o as THREE.Mesh).isMesh && !(o as THREE.Mesh).material.toString().includes("Basic")) o.castShadow = true;
     });
     this.limbs = { body, legL, legR, armL, armR };
+    // Held above the head while carrying (gap match); what it holds is written on a label above it.
+    this.crate = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.3, 0.44), smooth(this.theme.arena.accent, { roughness: 0.5 }));
+    this.crate.position.set(0, 1.62, 0.02);
+    this.crate.castShadow = true;
+    this.crate.visible = false;
+    p.add(this.crate);
     this.scene.add(p);
 
     // A soft blob under the hero, so a jump reads clearly.
@@ -1144,7 +1159,8 @@ export class QuestScene {
         face.position.y = 0.085;
       } else if (!pad.overlay) {
         // A signpost behind the pad, tilted towards the camera
-        const signW = Math.max(pad.size, 2.6) + 0.6;
+        // As wide as a short answer needs, unless the layout says its neighbours stand closer than that.
+        const signW = Math.min(Math.max(pad.size, 2.6) + 0.6, pad.span ?? Infinity);
         const signH = signW * (208 / 512);
         const post = new THREE.Group();
         const board = new THREE.Mesh(
@@ -1181,7 +1197,20 @@ export class QuestScene {
       this.board = { mesh, label };
     }
 
-    if (spec.picture && (spec.kind === "hotspot" || spec.kind === "point")) this.buildPicture(spec.picture, spec.areas, field);
+    if (spec.picture && (spec.kind === "hotspot" || spec.kind === "point" || spec.kind === "gap")) {
+      this.buildPicture(spec.picture, spec.areas, field);
+      // The pictures you carry are drawn on the floor picture where you put them down.
+      const picture = this.picture as NonNullable<QuestScene["picture"]> | null;
+      for (const choice of spec.choices) {
+        if (!choice.image || !picture) continue;
+        const image = new Image();
+        image.onload = () => {
+          picture.carried.set(choice.id, image);
+          picture.key = "";
+        };
+        image.src = choice.image;
+      }
+    }
 
     if (spec.kind === "slider") {
       // The number line runs across a wide field and up an upright one.
@@ -1278,7 +1307,7 @@ export class QuestScene {
     marks.position.set(f.cx, 0.135, f.cz);
     marks.renderOrder = 1;
     this.arenaStage.add(marks);
-    this.picture = { source, areas, canvas, texture, px: canvas.width / source.width, key: "" };
+    this.picture = { source, areas, canvas, texture, px: canvas.width / source.width, key: "", carried: new Map() };
   }
 
   /** Repaints the marks on the picture: hotspot outlines, what is picked, and marked points. */
@@ -1302,7 +1331,15 @@ export class QuestScene {
     const tone = view.look === "correct" ? "34,197,94" : view.look === "wrong" ? "239,68,68" : "14,165,233";
     for (const area of picture.areas) {
       trace(area);
-      if (view.eliminated.includes(area.id)) {
+      const filled = view.placed.some(([spot]) => spot === area.id);
+      if (filled) {
+        // Something was put down here: the spot takes the colour of the answer, and what lies on it is drawn below.
+        ctx.fillStyle = `rgba(${tone},0.3)`;
+        ctx.fill();
+        ctx.lineWidth = view.hover === area.id ? 10 : 6;
+        ctx.strokeStyle = view.hover === area.id ? "#f59e0b" : `rgb(${tone})`;
+        ctx.stroke();
+      } else if (view.eliminated.includes(area.id)) {
         ctx.fillStyle = "rgba(100,116,139,0.6)";
         ctx.fill();
         ctx.lineWidth = 4;
@@ -1329,6 +1366,67 @@ export class QuestScene {
         ctx.strokeStyle = "rgba(255,255,255,0.95)";
         ctx.stroke();
       }
+    }
+    // What was carried here: its picture, or its text on a card, inside the spot it lies on.
+    for (const area of picture.areas) {
+      const here = view.placed.filter(([spot]) => spot === area.id);
+      if (!here.length) continue;
+      const [left, top, right, bottom] = areaBox(area, picture.source).map((n) => n * k);
+      // Several on one spot share it, one under the other.
+      const slot = (bottom - top) / here.length;
+      here.forEach(([, choiceId], i) => {
+        const cx = (left + right) / 2;
+        const cy = top + slot * (i + 0.5);
+        const maxW = Math.max(24, right - left - 8);
+        const maxH = Math.max(18, slot - 8);
+        const image = picture.carried.get(choiceId);
+        if (image && image.naturalWidth > 0) {
+          const fit = Math.min(maxW / image.naturalWidth, maxH / image.naturalHeight);
+          const w = image.naturalWidth * fit;
+          const h = image.naturalHeight * fit;
+          ctx.drawImage(image, cx - w / 2, cy - h / 2, w, h);
+          return;
+        }
+        const text = this.arenaSpec?.choices.find((choice) => choice.id === choiceId)?.label || "●";
+        // A card may be a little wider than a small spot, so a word stays readable.
+        const room = Math.max(maxW, 150);
+        const fitted = (lines: string[], rows: number) => {
+          let size = Math.min(40, (maxH * 0.72) / rows);
+          ctx.font = `bold ${size}px system-ui, sans-serif`;
+          while (size > 12 && lines.some((line) => ctx.measureText(line).width > room - 24)) {
+            size -= 2;
+            ctx.font = `bold ${size}px system-ui, sans-serif`;
+          }
+          return size;
+        };
+        // One line when that stays readable, else two, split at the space nearest the middle.
+        let lines = [text];
+        let size = fitted(lines, 1);
+        const spaces = [...text.matchAll(/ /g)].map((match) => match.index);
+        if (size < 34 && spaces.length) {
+          const cut = spaces.reduce((best, at) => (Math.abs(at - text.length / 2) < Math.abs(best - text.length / 2) ? at : best));
+          const two = [text.slice(0, cut), text.slice(cut + 1)];
+          const twoSize = fitted(two, 2);
+          if (twoSize > size) {
+            lines = two;
+            size = twoSize;
+          }
+        }
+        ctx.font = `bold ${size}px system-ui, sans-serif`;
+        const w = Math.min(room, Math.max(...lines.map((line) => ctx.measureText(line).width)) + 24);
+        const h = size * (lines.length * 1.2 + 0.4);
+        ctx.fillStyle = "#ffffff";
+        ctx.strokeStyle = `rgb(${tone})`;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.roundRect(cx - w / 2, cy - h / 2, w, h, 10);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#0f172a";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        lines.forEach((line, n) => ctx.fillText(line, cx, cy + (n - (lines.length - 1) / 2) * size * 1.2 + size * 0.05, room - 12));
+      });
     }
     for (const [u, v] of view.points) {
       const x = u * k;
@@ -1505,8 +1603,12 @@ export class QuestScene {
     const { legL, legR, armL, armR, body } = this.limbs;
     legL.rotation.x = air ? 0.5 : walk * 0.7;
     legR.rotation.x = air ? -0.3 : -walk * 0.7;
-    armL.rotation.x = air ? -2.6 : -walk * 0.8;
-    armR.rotation.x = air ? -2.6 : walk * 0.8;
+    // Carrying: both arms hold the crate up, whatever the legs do.
+    const carrying = !!state.arena?.carrying;
+    this.crate.visible = carrying;
+    if (carrying) this.crate.position.y = 1.62 + Math.sin(t * 6) * 0.015;
+    armL.rotation.x = air || carrying ? -2.6 : -walk * 0.8;
+    armR.rotation.x = air || carrying ? -2.6 : walk * 0.8;
     body.position.y = state.player.walking && !air ? Math.abs(walk) * 0.04 : Math.sin(t * 2.5) * 0.012;
     if (state.player.color !== this.playerColor) {
       this.playerColor = state.player.color;

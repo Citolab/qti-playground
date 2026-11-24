@@ -125,26 +125,116 @@ export const GATES: Gate[] = [
  * opens when (nearly) everything before it is open, so one hard question never
  * blocks the way.
  */
-export function makeLayout(ids: string[]): Layout {
+/** Beside the final challenge: where questions of its own group stand. */
+const FORECOURT: [number, number][] = [
+  [BOSS_SPOT[0] - 1, BOSS_SPOT[1]],
+  [BOSS_SPOT[0] + 1, BOSS_SPOT[1]],
+];
+
+/** How many chests of one group stand side by side at one spot: what fits in the clearing around it. */
+const ROW = 3;
+
+/** The tiles of a row of chests at a spot. */
+export const rowTiles = ([x, y]: [number, number], size: number): [number, number][] =>
+  size <= 1
+    ? [[x, y]]
+    : size === 2
+      ? [
+          [x, y],
+          [x + 1, y],
+        ]
+      : [
+          [x - 1, y],
+          [x, y],
+          [x + 1, y],
+        ];
+
+/** Every spot a chest (or a row of them) can stand at, for tests. */
+export const CHEST_SPOTS: [number, number][] = ZONE_ORDER.flatMap((zone) => SPOTS[zone]);
+
+/**
+ * `groups` names, per question, what it belongs to: the shared text it is
+ * about. Questions that follow each other in the same group are kept together:
+ * their chests stand side by side in a row (three at most; a longer run goes on
+ * at the nearest spot), and no gate comes between them where that can be helped.
+ */
+export function makeLayout(ids: string[], groups: (string | undefined)[] = []): Layout {
   const list = ids.slice(0, MAX_QUESTIONS);
-  const rest = list.slice(0, -1);
-  const first = Math.ceil(rest.length / 3);
-  const second = Math.ceil((rest.length - first) / 2);
-  const counts = [first, second, rest.length - first - second];
+  /** Everything but the final challenge. */
+  const n = Math.max(0, list.length - 1);
+  const together = (i: number, j: number) => groups[i] !== undefined && groups[i] === groups[j];
+
+  // The final challenge stands at the landmark; the questions of its group that come right before it stand beside it.
+  let mates = 0;
+  while (mates < FORECOURT.length && n - mates - 1 >= 0 && together(n - mates - 1, n)) mates += 1;
+  const loose = n - mates;
+
+  // A unit is what stands at one spot: a single chest, or a row of one group.
+  const units: { from: number; size: number }[] = [];
+  for (let i = 0; i < loose; ) {
+    let size = 1;
+    while (size < ROW && i + size < loose && together(i, i + size)) size += 1;
+    units.push({ from: i, size });
+    i += size;
+  }
+
+  // Where the zones begin, as a unit index. Evenly, as far as that keeps a group in one zone.
+  const before = (u: number) => (u < units.length ? units[u].from : loose);
+  const ideal1 = Math.ceil(n / 3);
+  const ideal2 = ideal1 + Math.ceil((n - ideal1) / 2);
+  const splits = (u: number) =>
+    u > 0 && (u < units.length ? together(units[u - 1].from, units[u].from) : mates > 0 && together(units[u - 1].from, n));
+  const room = SPOTS.meadow.length;
+  let cuts: [number, number] = [0, 0];
+  let least = Infinity;
+  for (let u1 = 0; u1 <= units.length; u1++) {
+    for (let u2 = u1; u2 <= units.length; u2++) {
+      if (u1 > room || u2 - u1 > room || units.length - u2 > room) continue;
+      const cost =
+        Math.abs(before(u1) - ideal1) +
+        Math.abs(before(u2) - ideal2) +
+        1000 * (Number(splits(u1)) + Number(splits(u2))) +
+        // A zone without a chest is dull: only when a group asks for it.
+        0.25 * (Number(u1 === 0) + Number(u2 === u1));
+      if (cost < least) {
+        least = cost;
+        cuts = [u1, u2];
+      }
+    }
+  }
+  const first = before(cuts[0]);
+  const second = before(cuts[1]) - first;
+
   const chests: ChestSpot[] = [];
-  let next = 0;
+  const starts = [0, cuts[0], cuts[1], units.length];
   ZONE_ORDER.forEach((zone, z) => {
-    for (let i = 0; i < counts[z]; i++) chests.push({ id: rest[next++], tile: SPOTS[zone][i], zone });
+    const free = [...SPOTS[zone]];
+    let last: [number, number] | null = null;
+    for (let u = starts[z]; u < starts[z + 1]; u++) {
+      const unit = units[u];
+      // A group that needs a second row gets the spot nearest to its first; anything else the next spot in line.
+      let take = 0;
+      if (last && u > starts[z] && together(units[u - 1].from, unit.from)) {
+        const [lx, ly] = last;
+        free.forEach(([x, y], i) => {
+          if (Math.hypot(x - lx, y - ly) < Math.hypot(free[take][0] - lx, free[take][1] - ly)) take = i;
+        });
+      }
+      const spot = free.splice(take, 1)[0];
+      last = spot;
+      rowTiles(spot, unit.size).forEach((tile, i) => chests.push({ id: list[unit.from + i], tile, zone }));
+    }
   });
+  for (let i = 0; i < mates; i++) chests.push({ id: list[loose + i], tile: FORECOURT[i], zone: "mountain" });
   if (list.length) chests.push({ id: list[list.length - 1], tile: BOSS_SPOT, zone: "mountain", boss: true });
-  const spare = (n: number, from: number) => (n >= from ? n - 1 : n);
+  const spare = (count: number, from: number) => (count >= from ? count - 1 : count);
   return {
     chests,
     gateNeeds: {
       "forest-bridge": spare(first, 3),
       "mountain-bridge": spare(first + second, 5),
     },
-    bossNeeds: rest.length,
+    bossNeeds: n,
   };
 }
 

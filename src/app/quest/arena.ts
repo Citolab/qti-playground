@@ -13,16 +13,24 @@
  *   slider                 → walk along the number line and jump on the spot
  *   hotspot                → the picture lies on the floor: jump on the right spot
  *   select point           → the same, and where you land is the point you mark
+ *   gap match              → carry: jump on a word to pick it up, jump on a gap to put it in, then ✔
+ *   graphic gap match      → the same, and the gaps are places on the picture on the floor
  */
 import type { PadView } from "./types";
 
-export type ArenaKind = "choice" | "entry" | "order" | "match" | "slider" | "hotspot" | "point";
+export type ArenaKind = "choice" | "entry" | "order" | "match" | "slider" | "hotspot" | "point" | "gap";
 
 /** The picture of a hotspot or select-point interaction. Sizes are in the picture's own pixels, as its coords are. */
 export interface Picture {
   src: string;
   width: number;
   height: number;
+  /**
+   * Graphic gap match: how many things to carry stand beside the picture. The
+   * picture then leaves room for them: a row behind it, or a list above it on
+   * an upright screen.
+   */
+  shelf?: number;
 }
 
 /** A hotspot: a QTI shape with its coords, in picture pixels. */
@@ -40,7 +48,14 @@ export interface Choice {
   html?: string;
   /** Match: in how many pairs this choice may take part; 0 means as many as you like. Left out means once. */
   matchMax?: number;
+  /** Graphic gap match: the picture you carry, drawn on the floor picture where you put it down. */
+  image?: string;
+  /** A gap: a few words on either side of it, with `GAP_MARK` where the gap is. */
+  context?: string;
 }
+
+/** Stands for the gap itself in a gap's `context`. */
+export const GAP_MARK = "___";
 
 export interface ArenaSpec {
   kind: ArenaKind;
@@ -48,7 +63,10 @@ export interface ArenaSpec {
   /** Choice with more than one answer. */
   multiple: boolean;
   choices: Choice[];
-  /** The second set of a match interaction. */
+  /**
+   * The second set of a match interaction. For a gap match: the gaps, numbered
+   * in reading order; with a picture they are its hotspots (`areas`).
+   */
   targets: Choice[];
   /**
    * Match shown as a table: the first set are the rows, the second the columns,
@@ -89,6 +107,7 @@ export interface Pad {
   /**
    * Portrait: the pad's own label sits beside it instead of behind it, on this
    * side, and may be `span` arena units wide. Answers then read as a list.
+   * Without a side, `span` is how wide the label behind the pad may be.
    */
   side?: "left" | "right";
   span?: number;
@@ -108,6 +127,7 @@ export interface Answer {
   /** What was hopped on a text entry's pads so far. */
   digits: string;
   pairs: [string, string][];
+  /** Match: the one jumped on first, waiting for its partner. Gap match: what the hero carries. */
   pending: string | null;
   value: number | null;
   /** Select point: the points marked, in picture pixels. */
@@ -146,6 +166,9 @@ export const fieldFor = (portrait: boolean): Field =>
 
 export const PAIR_COLORS = ["#f43f5e", "#3b82f6", "#f59e0b", "#a855f7", "#14b8a6"];
 
+/** An empty gap: a dark slot, so it reads as a hole to fill. */
+export const GAP_EMPTY = "#64748b";
+
 /**
  * The number line of a slider: which way it runs, from where to where, where
  * it lies across, and half its width. Upright, the lowest value is nearest and
@@ -158,11 +181,35 @@ export const runwayOf = (field: Field) =>
 
 /** The floor rectangle a picture covers, and how many arena units one of its pixels is. */
 export function pictureFrame(picture: Picture, field: Field) {
-  const box = field.portrait ? { cx: 0, cz: -1.7, maxW: 10.4, maxD: 12.4 } : { cx: 0, cz: -1.3, maxW: 15, maxD: 8 };
+  const shelf = picture.shelf ?? 0;
+  let box = field.portrait ? { cx: 0, cz: -1.7, maxW: 10.4, maxD: 12.4 } : { cx: 0, cz: -1.3, maxW: 15, maxD: 8 };
+  if (shelf > 0 && field.portrait) {
+    // Under the list of things to carry, down to where the hero starts.
+    const top = PORTRAIT_TOP + shelfDepth(shelf) + 0.6;
+    box = { cx: 0, cz: (top + 4.6) / 2, maxW: 10.4, maxD: 4.6 - top };
+  } else if (shelf > 0) {
+    // In front of the row of things to carry.
+    box = { cx: 0, cz: 0.9, maxW: 13, maxD: 6.2 };
+  }
   const scale = Math.min(box.maxW / picture.width, box.maxD / picture.height);
   const w = picture.width * scale;
   const d = picture.height * scale;
   return { scale, w, d, x0: box.cx - w / 2, z0: box.cz - d / 2, cx: box.cx, cz: box.cz };
+}
+
+/** The box around a hotspot, in picture pixels: [left, top, right, bottom]. */
+export function areaBox(area: Area, picture: Picture): [number, number, number, number] {
+  const c = area.coords;
+  if (area.shape === "circle" && c.length >= 3) return [c[0] - c[2], c[1] - c[2], c[0] + c[2], c[1] + c[2]];
+  if (area.shape === "ellipse" && c.length >= 4) return [c[0] - c[2], c[1] - c[3], c[0] + c[2], c[1] + c[3]];
+  if (area.shape === "rect" && c.length >= 4)
+    return [Math.min(c[0], c[2]), Math.min(c[1], c[3]), Math.max(c[0], c[2]), Math.max(c[1], c[3])];
+  if (area.shape === "poly" && c.length >= 6) {
+    const xs = c.filter((_, i) => i % 2 === 0);
+    const ys = c.filter((_, i) => i % 2 === 1);
+    return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  }
+  return [0, 0, picture.width, picture.height];
 }
 
 /** A spot on the floor as a picture pixel, or null when it is off the picture. */
@@ -234,6 +281,8 @@ export const HOTSPOT_SLACK = 0.3;
 export const DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 export const LETTERS = "abcdefghijklmnopqrstuvwxyz".split("");
 
+const cn = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(" ");
+
 const row = (n: number, spacing: number) => Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * spacing);
 
 /** Text that is too long for a painted sign reads better as an HTML label. */
@@ -262,6 +311,13 @@ const listPad = (choice: Choice, role: Pad["role"], x: number, row: { z: number;
 /** Where the pads of an upright field go: from here, this deep, above the controls in the bottom corners. */
 const PORTRAIT_TOP = -8.3;
 const PORTRAIT_DEEP = 12.4;
+
+/** Upright, a graphic gap match lists what there is to carry above its picture: a row each, this deep. */
+const SHELF_ROW = 1.35;
+const SHELF_MAX = 5;
+function shelfDepth(count: number) {
+  return Math.min(count, SHELF_MAX) * SHELF_ROW;
+}
 
 /**
  * How deep a list row has to be for its label, in arena units. Text is counted
@@ -305,7 +361,10 @@ const portraitLists = (spec: ArenaSpec): { groups: Choice[][]; gap: number } | n
     ? { groups: [spec.choices], gap: 0 }
     : spec.kind === "match" && !spec.tabular
       ? { groups: [spec.choices, spec.targets], gap: 0.9 }
-      : null;
+      : spec.kind === "gap" && !spec.picture
+        ? // The question card is small on a phone, so every gap brings the words around it.
+          { groups: [spec.choices, spec.targets.map((gap) => (gap.context ? { ...gap, label: `${gap.label}. ${gap.context}` } : gap))], gap: 0.9 }
+        : null;
 
 /**
  * Whether an interaction has more text than fits beside its pads on an upright
@@ -314,6 +373,8 @@ const portraitLists = (spec: ArenaSpec): { groups: Choice[][]; gap: number } | n
 export function overflowsPortrait(spec: ArenaSpec, field: Field): boolean {
   if (!field.portrait) return false;
   if (spec.kind === "match" && spec.tabular) return tableRows(spec).overflow;
+  // More to carry than fits above the picture would leave no room for the picture itself.
+  if (spec.kind === "gap" && spec.picture) return spec.choices.length > SHELF_MAX;
   const lists = portraitLists(spec);
   return !!lists && stackRows(lists.groups, lists.gap).overflow;
 }
@@ -333,6 +394,14 @@ function layoutPortrait(spec: ArenaSpec, field: Field): Pad[] {
       group.forEach((choice, i) => pads.push(listPad(choice, g === 0 ? "choice" : "target", x, stack.rows[g][i], stack.size, field))),
     );
     if (spec.multiple || spec.kind !== "choice") pads.push(check);
+  } else if (spec.kind === "gap") {
+    // What there is to carry, as a list above the picture.
+    const size = SHELF_ROW - 0.3;
+    const x = -field.halfW + size / 2 + 0.45;
+    spec.choices.forEach((choice, i) =>
+      pads.push(listPad(choice, "choice", x, { z: PORTRAIT_TOP + 0.3 + (i + 0.5) * SHELF_ROW, h: SHELF_ROW }, size, field)),
+    );
+    pads.push(check);
   } else if (spec.kind === "match" && spec.tabular) {
     // The table hugs the right edge; the statements get the room on the left.
     const cols = spec.targets;
@@ -398,7 +467,20 @@ function layoutPortrait(spec: ArenaSpec, field: Field): Pad[] {
 }
 
 export function layoutPads(spec: ArenaSpec, field: Field): Pad[] {
-  if (field.portrait) return layoutPortrait(spec, field);
+  const pads = field.portrait ? layoutPortrait(spec, field) : layoutWide(spec, field);
+  // The answers of one set get the same kind of label, so they look like one set: when one of
+  // them needs an HTML label (a picture, a formula, a long sentence), they all get one.
+  for (const role of ["choice", "target"] as const)
+    if (pads.some((pad) => pad.role === role && pad.overlay)) for (const pad of pads) if (pad.role === role) pad.overlay = true;
+  // A gap shows what was put in it, so it follows the things there are to carry.
+  if (spec.kind === "gap" && pads.some((pad) => pad.role === "choice" && pad.overlay))
+    for (const pad of pads) if (pad.role === "target") pad.overlay = true;
+  return pads;
+}
+
+/** The layouts for a wide screen. */
+function layoutWide(spec: ArenaSpec, field: Field): Pad[] {
+  void field;
   const pads: Pad[] = [];
   const check: Pad = { id: "__check", role: "check", x: 7, z: 3.2, size: 2, label: "✔", overlay: false };
   if (spec.kind === "choice" || spec.kind === "order") {
@@ -437,6 +519,38 @@ export function layoutPads(spec: ArenaSpec, field: Field): Pad[] {
     });
     // ✔ sits under the last column, in walking distance and clear of the Jump button.
     pads.push({ ...check, x: xs[xs.length - 1], z: zs[zs.length - 1] + Math.max(dz, 1.9), size: 1.6 });
+  } else if (spec.kind === "gap" && spec.picture) {
+    // What there is to carry stands in a row behind the picture.
+    const n = spec.choices.length;
+    const spacing = Math.min(3.4, 13 / n);
+    const size = Math.min(1.7, spacing - 0.7);
+    // A label may be as wide as the room between two neighbours.
+    row(n, spacing).forEach((x, i) => pads.push({ ...choicePad(spec.choices[i], "choice", x, -4.3, size), span: spacing - 0.3 }));
+    pads.push({ ...check, x: 7.6, z: 3.7, size: 1.5 });
+  } else if (spec.kind === "gap") {
+    // The words stand at the back, the gaps in front. Each row is spread over the width by itself, and a
+    // sign is never wider than the room between two neighbours.
+    const signed = (pad: Pad, spacing: number): Pad => ({ ...pad, span: Math.min(3.2, spacing - 0.15) });
+    const n = spec.choices.length;
+    if (n > 5) {
+      // Many words: two rows, far enough apart that the signs of the front row do not hide the pads behind them.
+      const back = Math.ceil(n / 2);
+      const spacing = Math.min(4.2, 15 / back);
+      const size = Math.min(1.6, spacing - 1);
+      row(back, spacing).forEach((x, i) => pads.push(signed(choicePad(spec.choices[i], "choice", x - spacing / 4, -5.2, size), spacing)));
+      row(n - back, spacing).forEach((x, i) =>
+        pads.push(signed(choicePad(spec.choices[back + i], "choice", x + spacing / 4, -1.9, size), spacing)),
+      );
+    } else {
+      const spacing = Math.min(4.4, 15 / n);
+      const size = Math.min(2, spacing - 0.8);
+      row(n, spacing).forEach((x, i) => pads.push(signed(choicePad(spec.choices[i], "choice", x, -3.7, size), spacing)));
+    }
+    const apart = Math.min(4.4, 15 / spec.targets.length);
+    row(spec.targets.length, apart).forEach((x, i) =>
+      pads.push(signed(choicePad(spec.targets[i], "target", x, n > 5 ? 2.4 : 1.7, Math.min(2, apart - 0.8)), apart)),
+    );
+    pads.push({ ...check, x: 7.4, z: n > 5 ? 4.4 : 3.7, size: 1.8 });
   } else if (spec.kind === "match") {
     const widest = Math.max(spec.choices.length, spec.targets.length);
     const spacing = Math.min(4.4, 15 / widest);
@@ -520,6 +634,16 @@ export function stomp(spec: ArenaSpec, answer: Answer, pad: Pad): StompResult {
       return { answer, submit: false, nudge: "Jump on a spot in the picture first." };
     if (spec.kind === "point" && a.points.length === 0)
       return { answer, submit: false, nudge: "Mark a point in the picture first: jump on it." };
+    if (spec.kind === "gap" && a.pairs.length === 0)
+      return {
+        answer,
+        submit: false,
+        nudge: spec.picture
+          ? "Nothing is in place yet. Pick one up and carry it to its spot on the picture."
+          : "The gaps are still empty. Pick one up and carry it to its gap.",
+      };
+    // Whatever is still in the hero's hands goes back where it came from.
+    if (spec.kind === "gap") a.pending = null;
     return { answer: a, submit: true };
   }
   if (pad.role === "key") {
@@ -545,16 +669,15 @@ export function stomp(spec: ArenaSpec, answer: Answer, pad: Pad): StompResult {
   if (pad.role === "cell" && pad.pair) {
     // A box in the table. A row or column that may be used once behaves like a
     // radio button: ticking another box moves the tick.
-    const room = (choice: Choice | undefined) => (choice?.matchMax === 0 ? Infinity : (choice?.matchMax ?? 1));
     const [rowId, colId] = pad.pair;
     const ticked = a.pairs.findIndex(([l, r]) => l === rowId && r === colId);
     if (ticked >= 0) {
       a.pairs.splice(ticked, 1);
       return { answer: a, submit: false };
     }
-    const rowRoom = room(spec.choices.find((c) => c.id === rowId));
+    const rowRoom = roomOf(spec.choices.find((c) => c.id === rowId));
     while (a.pairs.filter(([l]) => l === rowId).length >= rowRoom) a.pairs.splice(a.pairs.findIndex(([l]) => l === rowId), 1);
-    const colRoom = room(spec.targets.find((c) => c.id === colId));
+    const colRoom = roomOf(spec.targets.find((c) => c.id === colId));
     if (a.pairs.filter(([, r]) => r === colId).length >= colRoom) {
       if (colRoom !== 1) return { answer, submit: false, nudge: "That column is full. Untick one of its boxes first." };
       a.pairs.splice(a.pairs.findIndex(([, r]) => r === colId), 1);
@@ -562,8 +685,20 @@ export function stomp(spec: ArenaSpec, answer: Answer, pad: Pad): StompResult {
     a.pairs.push([rowId, colId]);
     return { answer: a, submit: false };
   }
+  if (spec.kind === "gap") {
+    if (pad.role === "target") return dropInGap(spec, answer, a, pad.id);
+    if (a.pending === pad.id) {
+      // A second jump on where it came from puts it back.
+      a.pending = null;
+      return { answer: a, submit: false };
+    }
+    // When every copy of it is out in a gap, the first one is fetched back.
+    const source = spec.choices.find((c) => c.id === pad.id);
+    if (a.pairs.filter(([l]) => l === pad.id).length >= roomOf(source)) a.pairs.splice(a.pairs.findIndex(([l]) => l === pad.id), 1);
+    a.pending = pad.id;
+    return { answer: a, submit: false };
+  }
   if (spec.kind === "match") {
-    const room = (choice: Choice | undefined) => (choice?.matchMax === 0 ? Infinity : (choice?.matchMax ?? 1));
     if (pad.role === "choice") {
       if (a.pending === pad.id) {
         // A second jump on the same one lets go of it, and of what it was paired with.
@@ -582,17 +717,44 @@ export function stomp(spec: ArenaSpec, answer: Answer, pad: Pad): StompResult {
     }
     // Make room on the side you came from: its oldest pair goes when it may not have more.
     const left = spec.choices.find((c) => c.id === from);
-    while (a.pairs.filter(([l]) => l === from).length >= room(left)) {
+    while (a.pairs.filter(([l]) => l === from).length >= roomOf(left)) {
       a.pairs.splice(a.pairs.findIndex(([l]) => l === from), 1);
     }
     const target = spec.targets.find((c) => c.id === pad.id);
-    if (a.pairs.filter(([, r]) => r === pad.id).length >= room(target))
+    if (a.pairs.filter(([, r]) => r === pad.id).length >= roomOf(target))
       return { answer, submit: false, nudge: "That one is already taken. Free it first, or pick another." };
     a.pairs.push([from, pad.id]);
     a.pending = null;
     return { answer: a, submit: false };
   }
   return { answer, submit: false };
+}
+
+/** In how many pairs a choice may take part: once when it does not say, without limit when it says 0. */
+const roomOf = (choice: Choice | undefined) => (choice?.matchMax === 0 ? Infinity : (choice?.matchMax ?? 1));
+
+/**
+ * Carry: the hero jumped on a gap. With something in hand it goes in, and what
+ * was there makes room; empty-handed, the hero takes out what is in the gap.
+ * `a` is the working copy of `answer`.
+ */
+function dropInGap(spec: ArenaSpec, answer: Answer, a: Answer, gapId: string): StompResult {
+  const held = a.pending;
+  const inGap = (pair: [string, string]) => pair[1] === gapId;
+  if (!held) {
+    const last = a.pairs.map(inGap).lastIndexOf(true);
+    if (last < 0) return { answer, submit: false, nudge: "Your hands are empty. Jump on one to pick it up first." };
+    a.pending = a.pairs[last][0];
+    a.pairs.splice(last, 1);
+    return { answer: a, submit: false };
+  }
+  a.pending = null;
+  // It is in this gap already: just let go.
+  if (a.pairs.some((pair) => inGap(pair) && pair[0] === held)) return { answer: a, submit: false };
+  const gap = spec.targets.find((c) => c.id === gapId);
+  while (a.pairs.filter(inGap).length >= roomOf(gap)) a.pairs.splice(a.pairs.findIndex(inGap), 1);
+  a.pairs.push([held, gapId]);
+  return { answer: a, submit: false };
 }
 
 /** The hero landed on the picture of a hotspot or select-point interaction; null when off the picture. */
@@ -602,6 +764,14 @@ export function landOnPicture(spec: ArenaSpec, field: Field, answer: Answer, x: 
   if (!pixel) return null;
   const { scale } = pictureFrame(spec.picture, field);
   const full = (count: number) => spec.maxChoices > 0 && count >= spec.maxChoices;
+  if (spec.kind === "gap") {
+    const area = areaAt(spec.areas, pixel[0], pixel[1], HOTSPOT_SLACK / scale);
+    if (!area)
+      return answer.pending
+        ? { answer, submit: false, nudge: "That is not one of the places. Jump on a marked spot to put it down." }
+        : { answer, submit: false };
+    return dropInGap(spec, answer, { ...answer, pairs: [...answer.pairs] }, area.id);
+  }
   if (spec.kind === "hotspot") {
     const area = areaAt(spec.areas, pixel[0], pixel[1], HOTSPOT_SLACK / scale);
     if (!area) return { answer, submit: false, nudge: "Nothing to pick there. Jump on one of the marked spots." };
@@ -633,6 +803,7 @@ export function toResponse(spec: ArenaSpec, answer: Answer): string | string[] {
       return spec.accepted.find((value) => value.toLowerCase() === typed.toLowerCase()) ?? typed;
     }
     case "match":
+    case "gap":
       return answer.pairs.map(([l, r]) => `${l} ${r}`);
     case "slider":
       return String(answer.value ?? "");
@@ -664,7 +835,8 @@ export function revealAnswer(spec: ArenaSpec): Answer {
       .map((value) => value.trim().split(/\s+/).map(Number) as [number, number])
       .filter(([u, v]) => Number.isFinite(u) && Number.isFinite(v));
   else if (spec.kind === "entry") a.digits = spec.correct[0] ?? "";
-  else if (spec.kind === "match") a.pairs = spec.correct.map((v) => v.split(" ") as [string, string]);
+  else if (spec.kind === "match" || spec.kind === "gap")
+    a.pairs = spec.correct.map((v) => v.trim().split(/\s+/) as [string, string]).filter((pair) => pair.length === 2);
   else if (spec.kind === "slider") a.value = Number(spec.correct[0]);
   return a;
 }
@@ -695,6 +867,24 @@ export function padViews(spec: ArenaSpec, pads: Pad[], answer: Answer, outcome: 
       const rank = answer.picked.indexOf(pad.id);
       if (rank >= 0)
         view = { look: done ? "correct" : outcome === "wrong" ? "wrong" : "selected", badge: String(rank + 1) };
+    } else if (spec.kind === "gap") {
+      if (pad.role === "target") {
+        // A gap shows what was put in it.
+        const inside = answer.pairs.filter(([, r]) => r === pad.id).map(([l]) => spec.choices.find((c) => c.id === l));
+        if (inside.length) {
+          const rich = inside.find((choice) => choice?.html)?.html;
+          const words = inside.map((choice) => choice?.label || "●").join(", ");
+          view = {
+            look: done ? "correct" : outcome === "wrong" ? "wrong" : "selected",
+            // Where the gap is shown with the words around it, the word goes into that sentence.
+            mark: pad.label.includes(GAP_MARK) ? pad.label.replace(GAP_MARK, words) : words,
+            ...(rich && inside.length === 1 && !pad.label.includes(GAP_MARK) ? { html: rich } : {}),
+          };
+        } else view = { look: "idle", tint: GAP_EMPTY };
+      } else if (answer.pending === pad.id) view = { look: "selected" };
+      else if (answer.pairs.filter(([l]) => l === pad.id).length >= roomOf(spec.choices.find((c) => c.id === pad.id)))
+        // Every copy of it is out in a gap: its place on the shelf is empty.
+        view = { look: "gone" };
     } else if (spec.kind === "match") {
       // A pair wears the colour and number of its target, so a target that takes several stays readable.
       const pair = answer.pairs.find(([l, r]) => l === pad.id || r === pad.id);
@@ -732,6 +922,10 @@ export const HOW_TO: Record<ArenaKind, (spec: ArenaSpec) => string> = {
     spec.multiple ? "Jump on every right spot in the picture, then on ✔" : "Walk onto the picture and jump on the right spot!",
   point: (spec) =>
     spec.multiple ? "Jump on each point you want to mark, then on ✔" : "Walk onto the picture and jump exactly on the right point",
+  gap: (spec) =>
+    spec.picture
+      ? "Jump on one to pick it up, carry it to its place on the picture and jump again. Then on ✔"
+      : "Jump on one to pick it up, carry it to its gap and jump again. Then on ✔",
 };
 
 // ── Safe HTML out of item markup ─────────────────────────────────────
@@ -774,13 +968,19 @@ interface CopyOptions {
   current?: string;
   /** Keep `class` (and a picture's size), for markup that is shown with the item's own stylesheet. */
   keepClass?: boolean;
+  /** Inside a gap match: whose gaps these are, and how many were numbered so far. */
+  gaps?: { owner: string; count: number; current: boolean };
 }
+
+/** The key under which a gap's blank is looked up in `blanks`. */
+export const gapKey = (responseId: string, gapId: string) => `${responseId}\u0002${gapId}`;
 
 /**
  * Copies item markup into `target` through an allow-list of tags and
  * attributes. Works on the item's XML as well as on the rendered item.
  * An interaction is not copied: a block one leaves its prompt, an inline one a
- * blank showing `blank`.
+ * blank showing `blank`. A gap match is the exception: its sentences are the
+ * question, so they stay, with every gap as a numbered blank.
  */
 function copySafe(node: Node, target: HTMLElement, options: CopyOptions) {
   const { blank, keepClass } = options;
@@ -808,6 +1008,24 @@ function copySafe(node: Node, target: HTMLElement, options: CopyOptions) {
         target.append(span);
       }
       // A block interaction without a prompt leaves nothing behind: the question is in the text around it.
+      if (name.startsWith("qti-gap-match-interaction")) {
+        // The words to carry are pads in the arena, and are skipped below like any other QTI element.
+        const text = document.createElement("div");
+        text.className = "quest-gap-text";
+        copySafe(el, text, { ...options, gaps: { owner: responseId, count: 0, current: isCurrent } });
+        target.append(text);
+      }
+      return;
+    }
+    if (name === "qti-gap" && options.gaps) {
+      // Numbered in reading order, as the gaps in the arena are.
+      const gaps = options.gaps;
+      gaps.count += 1;
+      const span = document.createElement("span");
+      const filled = options.blanks?.[gapKey(gaps.owner, el.getAttribute("identifier") ?? "")];
+      span.className = cn("quest-blank", filled ? "quest-filled" : "quest-gap", gaps.current && "quest-current");
+      span.textContent = filled ?? String(gaps.count);
+      target.append(span);
       return;
     }
     if (name === "math") {
