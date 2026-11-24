@@ -1429,7 +1429,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       const held = carryEl.current;
       if (held) {
         // Above the crate the hero holds up.
-        const p = scene.screenPoint(g.x, g.y + 2.15, g.z);
+        const p = scene.screenPoint(g.x, g.y + 2.15 * scene.heroScale, g.z);
         held.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px) translate(-50%, -100%)`;
       }
       for (const pad of a.pads) {

@@ -27,6 +27,12 @@ import type { FrameState, PadView, PictureView } from "./types";
 import { GATES, MAP, MAP_H, MAP_W, groundHeight, rng, type Layout, type Tile } from "./world";
 
 const UP = new THREE.Vector3(0, 1, 0);
+/**
+ * How much larger the hero is drawn on an upright stage. The camera stands far
+ * back and steep there to fit the whole stage on a phone, which leaves a
+ * life-sized hero a speck that is hard to follow.
+ */
+const HERO_UPRIGHT = 1.8;
 /** A picked pad is blue in every world: a theme's own accent can be red or green, which would read as wrong or right. */
 const SELECTED = "#0ea5e9";
 
@@ -1258,6 +1264,11 @@ export class QuestScene {
     }
   }
 
+  /** How much larger than life the hero is drawn on the current stage; what floats above its head moves up with it. */
+  get heroScale() {
+    return this.field.portrait ? HERO_UPRIGHT : 1;
+  }
+
   /** Lays the interaction's picture on the floor, so you answer by walking onto it. */
   private buildPicture(source: Picture, areas: Area[], field: Field) {
     const a = this.theme.arena;
@@ -1594,6 +1605,8 @@ export class QuestScene {
 
     // Hero
     const p = this.player;
+    const grow = inArena ? this.heroScale : 1;
+    p.scale.setScalar(grow);
     p.position.set(state.player.x, floor + state.player.y, state.player.z);
     let dh = state.player.heading - p.rotation.y;
     dh = Math.atan2(Math.sin(dh), Math.cos(dh));
@@ -1616,7 +1629,7 @@ export class QuestScene {
     }
     this.shadowBlob.position.set(state.player.x, floor + (inArena ? 0.24 : 0.02), state.player.z);
     const blob = Math.max(0.35, 1 - state.player.y * 0.35);
-    this.shadowBlob.scale.setScalar(blob);
+    this.shadowBlob.scale.setScalar(blob * grow);
     // On a picture the hero casts no real shadow (it is unlit), so the blob stays to show where the feet are.
     this.shadowBlob.visible = air || (inArena && !!this.picture);
 
@@ -1737,7 +1750,7 @@ export class QuestScene {
     this.marker.sprite.visible = arena.marker !== null;
     if (arena.marker !== null) {
       this.marker.draw(arena.marker, { bg: "#fde047", fg: "#78350f", border: "#b45309", pill: true });
-      this.marker.sprite.position.set(state.player.x, 2.0 + state.player.y + Math.sin(t * 5) * 0.05, state.player.z);
+      this.marker.sprite.position.set(state.player.x, 2.0 * this.heroScale + state.player.y + Math.sin(t * 5) * 0.05, state.player.z);
     }
     if (this.picture && arena.picture) {
       const key = JSON.stringify(arena.picture);

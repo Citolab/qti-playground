@@ -129,6 +129,13 @@
 /* You can add global styles to this file, and also import other style files */
 #root {
   @apply h-screen w-screen;
+  /*
+   * On a phone, 100vh is the screen with the browser's bars tucked away, so with
+   * the bars showing the bottom of the app falls off screen: the player's
+   * navigation, the game's thumb-stick. The dynamic unit is what is really in
+   * view; the line above stays as the fallback for browsers without it.
+   */
+  height: 100dvh;
 }
 
 main {
