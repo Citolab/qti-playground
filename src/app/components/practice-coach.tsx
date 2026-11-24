@@ -292,6 +292,7 @@ export function PracticeCoach({
   busy,
   canShowAnswer,
   answerShown,
+  showCheck = true,
   onCheck,
   onToggleAnswer,
   onDismiss,
@@ -306,6 +307,8 @@ export function PracticeCoach({
   busy: boolean;
   canShowAnswer: boolean;
   answerShown: boolean;
+  /** Off on a page with nothing to answer (an info page): there is nothing to check. */
+  showCheck?: boolean;
   onCheck: () => void;
   onToggleAnswer: () => void;
   onDismiss: () => void;
@@ -345,18 +348,20 @@ export function PracticeCoach({
             <span className="absolute -right-2 bottom-4 h-4 w-4 rotate-45 border-t border-r border-citolab-200 bg-white" />
           </div>
         ) : null}
-        <button
-          type="button"
-          onClick={onCheck}
-          disabled={busy}
-          className={cn(
-            "pointer-events-auto inline-flex items-center gap-1.5 rounded-btn bg-citolab-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-citolab-700",
-            busy && "opacity-60",
-          )}
-        >
-          <Check className="h-4 w-4" />
-          {checkLabel}
-        </button>
+        {showCheck ? (
+          <button
+            type="button"
+            onClick={onCheck}
+            disabled={busy}
+            className={cn(
+              "pointer-events-auto inline-flex items-center gap-1.5 rounded-btn bg-citolab-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-citolab-700",
+              busy && "opacity-60",
+            )}
+          >
+            <Check className="h-4 w-4" />
+            {checkLabel}
+          </button>
+        ) : null}
       </div>
       <div
         key={`sprout-${checkCount}`}

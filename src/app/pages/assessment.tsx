@@ -1657,6 +1657,16 @@ export const AssessmentPage: React.FC = () => {
       wrongItems: [],
     }));
   }
+  /**
+   * Whether the page asks anything. An info page (an intro, a reading text) has
+   * nothing to check, so the coach stays but its Check button does not.
+   */
+  const practicePageHasQuestions = useMemo(() => {
+    if (isVerticalLayout) return regularItemCount > 0;
+    return items.some(
+      (item) => item.type !== "info" && activeItemRefIds.has(itemKey(item)),
+    );
+  }, [activeItemRefIds, isVerticalLayout, items, regularItemCount]);
   const handlePracticeCheck = useCallback(async () => {
     const root = testContainerRef.current?.shadowRoot;
     if (!root) return;
@@ -2511,6 +2521,11 @@ export const AssessmentPage: React.FC = () => {
                         busy={coach.busy}
                         canShowAnswer={coach.wrongItems.length > 0}
                         answerShown={coach.answerShown}
+                        // The tour's Check step points at the button, even when it starts on an info page.
+                        showCheck={
+                          practicePageHasQuestions ||
+                          (tourOpen && tourStep === "check")
+                        }
                         onCheck={() => void handlePracticeCheck()}
                         onToggleAnswer={handleToggleAnswer}
                         onDismiss={() =>
