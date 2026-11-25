@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { qtiTransformItem } from "@citolab/qti-components/qti-transformers";
 import { QTI_PKG_URL_PREFIX, createModuleResolutionFetcher, detectPciBaseUrl } from "@citolab/qti-browser-import";
-import { ArrowRight, Eye, Feather, Gamepad2, Lightbulb, Star, X } from "lucide-react";
+import { ArrowRight, BookOpen, Eye, Feather, Gamepad2, Lightbulb, PencilLine, Star, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { itemCss } from "../itemCss";
 import { syncScopedRegistry } from "../scoped-registry";
@@ -161,6 +161,9 @@ interface Props {
 
 export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, onWrong, onSolved, onReveal, onHandedIn, onClose, onNext, about }: Props) {
   const writing = !!item.writing;
+  /** The text the question is about. It stands beside the question; on a narrow screen the two take turns. */
+  const text = item.stimulus;
+  const [pane, setPane] = useState<"text" | "question">("question");
   const hostRef = useRef<HTMLDivElement>(null);
   const { registry, attachRef } = useScopedQtiRegistry();
   const [itemDoc, setItemDoc] = useState<DocumentFragment | null>(null);
@@ -277,7 +280,7 @@ export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, on
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-slate-900/60 p-3 backdrop-blur-sm sm:p-6">
       {/* Two elements, so the shake after a wrong try does not restart the pop-in. */}
-      <div className="quest-pop-in flex max-h-full w-full max-w-4xl">
+      <div className={cn("quest-pop-in flex max-h-full w-full", text ? "max-w-6xl" : "max-w-4xl")}>
       <div
         role="dialog"
         aria-modal="true"
@@ -308,27 +311,68 @@ export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, on
             <X className="h-5 w-5" />
           </button>
         </div>
+        {/* The cabinet's lights. They stand still: a row of bouncing dots reads as "loading". */}
         <div className="flex shrink-0 justify-center gap-2 bg-slate-800 py-1.5" aria-hidden="true">
           {[theme.arena.accent, "#facc15", "#22c55e", "#38bdf8", "#f472b6"].map((color, i) => (
-            <span key={i} className="quest-bounce h-2 w-2 rounded-full" style={{ background: color, animationDelay: `${i * 0.12}s` }} />
+            <span key={i} className="h-2 w-2 rounded-full" style={{ background: color }} />
           ))}
         </div>
 
         {/* The screen: the real item */}
         <div ref={hostRef} className="mx-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-white">
-          <Scroller className="select-text px-4 py-4 sm:px-8">
-          {failed ? (
-            <p className="py-10 text-center text-slate-600">This mini game could not be loaded.</p>
-          ) : !itemDoc ? (
-            <p className="py-10 text-center text-slate-500">Starting the mini game...</p>
-          ) : (
-            <qti-item>
-              <item-container ref={attachRef} customElementRegistry={registry} itemDoc={itemDoc}>
-                <template dangerouslySetInnerHTML={{ __html: `<style>${itemCss}</style>` }}></template>
-              </item-container>
-            </qti-item>
+          {text && (
+            <div className="flex shrink-0 gap-1 border-b border-slate-200 bg-slate-100 p-1 md:hidden" role="tablist" aria-label="Text or question">
+              {(["text", "question"] as const).map((which) => {
+                const Icon = which === "text" ? BookOpen : PencilLine;
+                return (
+                  <button
+                    key={which}
+                    type="button"
+                    role="tab"
+                    aria-selected={pane === which}
+                    onClick={() => setPane(which)}
+                    className={cn(
+                      "flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold",
+                      pane === which ? "bg-white text-sky-900 shadow" : "text-slate-600 hover:bg-white/60",
+                    )}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{which === "text" ? text.title : "Question"}</span>
+                  </button>
+                );
+              })}
+            </div>
           )}
-          </Scroller>
+          <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+            {text && (
+              <div className={cn("min-h-0 min-w-0 flex-1 flex-col border-slate-200 md:flex md:border-r", pane === "text" ? "flex" : "hidden")}>
+                <div className="hidden shrink-0 items-center gap-2 bg-sky-50 px-6 py-2 text-sm font-bold text-sky-900 md:flex">
+                  <BookOpen className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{text.title}</span>
+                </div>
+                {/* Built by bodyHtml from the stimulus, through a tag and attribute allow-list. */}
+                <Scroller className="select-text px-4 py-4 sm:px-6">
+                  <div className="quest-reader" dangerouslySetInnerHTML={{ __html: text.html }} />
+                </Scroller>
+              </div>
+            )}
+            {/* Stays mounted while the text is read: what is written must not be lost. */}
+            <div className={cn("min-h-0 min-w-0 flex-1 flex-col md:flex", !text || pane === "question" ? "flex" : "hidden")}>
+              <Scroller className={cn("select-text px-4 py-4", text ? "sm:px-6" : "sm:px-8")}>
+                {failed ? (
+                  <p className="py-10 text-center text-slate-600">This mini game could not be loaded.</p>
+                ) : !itemDoc ? (
+                  <p className="py-10 text-center text-slate-500">Starting the mini game...</p>
+                ) : (
+                  <qti-item>
+                    <item-container ref={attachRef} customElementRegistry={registry} itemDoc={itemDoc}>
+                      <template dangerouslySetInnerHTML={{ __html: `<style>${itemCss}</style>` }}></template>
+                    </item-container>
+                  </qti-item>
+                )}
+              </Scroller>
+            </div>
+          </div>
         </div>
 
         {/* The controls */}
