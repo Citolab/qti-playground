@@ -184,12 +184,19 @@ export function ExampleCard({
             </li>
           ) : null}
         </ul>
-        <div className="mt-auto flex flex-wrap gap-2 pt-2">
+        {/* On the landing page the buttons share one row of two equal columns, so
+            "Play test" lines up across cards whether or not a game button follows. */}
+        <div
+          className={cn(
+            "mt-auto gap-2 pt-2",
+            compact ? "grid grid-cols-2" : "flex flex-wrap",
+          )}
+        >
           <button
             type="button"
             onClick={() => onOpen("play")}
             disabled={disabled}
-            className="inline-flex items-center gap-2 rounded-btn bg-citolab-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-citolab-700 disabled:opacity-60"
+            className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-btn bg-citolab-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-citolab-700 disabled:opacity-60"
           >
             <Play className="h-3.5 w-3.5 fill-current" />
             Play test
@@ -200,11 +207,13 @@ export function ExampleCard({
               onClick={() => onOpen("game")}
               disabled={disabled}
               title="Game mode is a demo, not for real tests"
-              className="inline-flex items-center gap-2 rounded-btn border border-citolab-600 px-4 py-2 text-sm font-semibold text-citolab-700 transition-colors hover:bg-citolab-50 disabled:opacity-60"
+              aria-label={`Play ${example.title} as a game (demo)`}
+              className="relative inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-btn border border-citolab-600 px-4 text-sm font-semibold text-citolab-700 transition-colors hover:bg-citolab-50 disabled:opacity-60"
             >
               <Gamepad2 className="h-4 w-4" />
-              Play as game
-              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+              {compact ? "Game" : "Play as game"}
+              {/* A tag on the corner, so it adds no width or height to the button. */}
+              <span className="absolute -right-1.5 -top-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none tracking-wider text-amber-800 ring-2 ring-white">
                 Demo
               </span>
             </button>
@@ -214,7 +223,7 @@ export function ExampleCard({
               type="button"
               onClick={() => onOpen("browse")}
               disabled={disabled}
-              className="inline-flex items-center gap-2 rounded-btn border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:border-citolab-600 hover:text-citolab-700 disabled:opacity-60"
+              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-btn border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition-colors hover:border-citolab-600 hover:text-citolab-700 disabled:opacity-60"
             >
               <LayoutGrid className="h-3.5 w-3.5" />
               Browse items
