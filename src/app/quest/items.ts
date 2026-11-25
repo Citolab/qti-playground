@@ -16,6 +16,11 @@ export interface QuestItem {
   hint?: string;
   /** A reading text or figure the question refers to, as safe HTML. */
   stimulus?: { title: string; html: string };
+  /**
+   * Answered in writing (an essay). Nothing can score it, so it is not checked:
+   * you hand it in, and its chest opens without stars.
+   */
+  writing?: boolean;
   /** What the question belongs with: the shared text it is about. Questions of one group are kept together in the world. */
   group?: string;
   /** The item's own stylesheets, so pictures in its choices look the way its author styled them. */

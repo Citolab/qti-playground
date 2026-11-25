@@ -9,8 +9,12 @@
  *
  * Any other question that can score itself is played as a mini game in a dialog,
  * with the real interaction (classic-dialog.tsx): hottext, associate, a custom
- * interaction and so on. Only questions nothing can score are left out (an essay,
- * an upload) and counted, so the game can say so.
+ * interaction and so on.
+ *
+ * An essay cannot be scored by anything but a person. It is in the game all the
+ * same, as a writing question: you write, hand it in, and the chest opens
+ * without stars. Only what the game cannot even take in is left out (an upload,
+ * a drawing) and counted, so the game can say so.
  *
  * Nothing leaves the browser: the items come from the package cache the player
  * itself reads from.
@@ -22,12 +26,50 @@ import { ARENA_TAGS } from "./interactions-3d";
 import type { QuestItem } from "./items";
 import { MAX_QUESTIONS } from "./world";
 
+/**
+ * Why a question is not in the game:
+ *  - `handmade`: an upload or a drawing, which the game cannot take in;
+ *  - `custom`: an older custom interaction that cannot be answered here yet;
+ *  - `unscored`: the item has no rules to score an answer with;
+ *  - `unreadable`: its file could not be read (the package is gone from this browser's storage).
+ */
+export type SkipReason = "handmade" | "custom" | "unscored" | "unreadable";
+
 export interface AssessmentQuestions {
   items: QuestItem[];
   /** Questions the game cannot present. */
   skipped: number;
+  /** The same, counted by reason. */
+  why: Record<SkipReason, number>;
   /** Playable questions that did not fit in the world. */
   leftOut: number;
+}
+
+/** In words why questions were left out, as the clauses of one sentence. Empty when nothing was. */
+export function whyLeftOut(why: Record<SkipReason, number>): string {
+  const one = (n: number, single: string, several: string) => `${n} ${n === 1 ? single : several}`;
+  const clauses = [
+    why.handmade &&
+      one(
+        why.handmade,
+        "asks for an upload or a drawing, which the game cannot take in",
+        "ask for an upload or a drawing, which the game cannot take in",
+      ),
+    why.unscored &&
+      one(
+        why.unscored,
+        "has no scoring rules, so the game cannot tell a right answer from a wrong one",
+        "have no scoring rules, so the game cannot tell a right answer from a wrong one",
+      ),
+    why.custom &&
+      one(
+        why.custom,
+        "uses an older kind of custom interaction that cannot be answered here yet",
+        "use an older kind of custom interaction that cannot be answered here yet",
+      ),
+    why.unreadable && one(why.unreadable, "could not be read", "could not be read"),
+  ].filter((clause): clause is string => !!clause);
+  return clauses.join("; ");
 }
 
 const fetchText = async (href: string) => {
@@ -104,8 +146,11 @@ const sameOriginStylesheets = (doc: Document) =>
       }
     });
 
-/** Interactions a machine cannot score: an item with one of these can never be "all right". */
-const UNSCORABLE = ["qti-extended-text-interaction", "qti-upload-interaction", "qti-drawing-interaction"];
+/** Answered in writing: only a person can mark it. Such a question is handed in, not checked. */
+const WRITTEN = ["qti-extended-text-interaction"];
+
+/** Interactions the game cannot take in at all. */
+const UNSCORABLE = ["qti-upload-interaction", "qti-drawing-interaction"];
 
 /**
  * Interactions that render in the dialog but cannot be answered there yet. The
@@ -115,6 +160,23 @@ const UNSCORABLE = ["qti-extended-text-interaction", "qti-upload-interaction", "
  * would lock the final challenge, so it stays out until that works.
  */
 const UNANSWERABLE = ["qti-custom-interaction"];
+
+/** Why a question that has no jump stage cannot be played in a dialog either; null when it can. */
+const dialogObstacle = (doc: Document): SkipReason | null => {
+  const interactions = interactionsOf(doc);
+  if (interactions.some((el) => UNSCORABLE.includes(el.localName))) return "handmade";
+  if (interactions.some((el) => UNANSWERABLE.includes(el.localName))) return "custom";
+  return isDialogPlayable(doc) ? null : "unscored";
+};
+
+/** A question with an essay in it, and nothing the game cannot show: played in the dialog and handed in. */
+const isWriting = (doc: Document) => {
+  const interactions = interactionsOf(doc);
+  return (
+    interactions.some((el) => WRITTEN.includes(el.localName)) &&
+    !interactions.some((el) => UNSCORABLE.includes(el.localName) || UNANSWERABLE.includes(el.localName))
+  );
+};
 
 /** Can the real item be played in a dialog and scored? */
 const isDialogPlayable = (doc: Document) => {
@@ -200,7 +262,7 @@ async function loadStimulus(doc: Document): Promise<QuestItem["stimulus"]> {
 export async function loadAssessmentQuestions(list: ItemInfoWithBlobRef[]): Promise<AssessmentQuestions> {
   // Whether an item is a question is read from the item itself: a page without an
   // interaction (an intro, a text) is not one, and is not counted as left out.
-  let questions = 0;
+  const why: Record<SkipReason, number> = { handmade: 0, custom: 0, unscored: 0, unreadable: 0 };
   // Numbered in test order, counting every question, so "Question 7" is the test's seventh.
   const numbers = new Map<ItemInfoWithBlobRef, number>();
   const loaded = await Promise.all(
@@ -208,13 +270,21 @@ export async function loadAssessmentQuestions(list: ItemInfoWithBlobRef[]): Prom
       try {
         const xml = withResolvedAssets(await fetchText(info.href), info.href);
         const doc = new DOMParser().parseFromString(xml, "application/xml");
-        if (doc.getElementsByTagName("parsererror").length) return null;
-        if (interactionsOf(doc).length > 0) {
-          questions += 1;
-          numbers.set(info, 0);
+        if (doc.getElementsByTagName("parsererror").length) {
+          // Not XML: the package is gone and the server answered with a page of its own.
+          why.unreadable += 1;
+          return null;
         }
+        // A page without an interaction is not a question, and is not counted as left out.
+        if (interactionsOf(doc).length === 0) return null;
+        numbers.set(info, 0);
         const staged = isPlayable(doc);
-        if (!staged && !isDialogPlayable(doc)) return null;
+        const writing = !staged && isWriting(doc);
+        const obstacle = staged || writing ? null : dialogObstacle(doc);
+        if (obstacle) {
+          why[obstacle] += 1;
+          return null;
+        }
         return {
           id: info.itemRefIdentifier || info.identifier,
           // Filled in below, once every question has its number.
@@ -224,12 +294,14 @@ export async function loadAssessmentQuestions(list: ItemInfoWithBlobRef[]): Prom
           group: doc.getElementsByTagName("qti-assessment-stimulus-ref")[0]?.getAttribute("href") || undefined,
           stylesheets: sameOriginStylesheets(doc),
           dialog: !staged,
+          ...(writing ? { writing } : {}),
           href: info.href,
           maxScore: fullScoreOf(doc),
           xml,
         };
       } catch (error) {
         console.warn(`Could not prepare "${info.identifier}" for the game:`, error);
+        why.unreadable += 1;
         return null;
       }
     }),
@@ -246,7 +318,8 @@ export async function loadAssessmentQuestions(list: ItemInfoWithBlobRef[]): Prom
   const playable = loaded.filter((item): item is QuestItem => item !== null);
   return {
     items: playable.slice(0, MAX_QUESTIONS),
-    skipped: questions - playable.length,
+    skipped: why.handmade + why.custom + why.unscored + why.unreadable,
+    why,
     leftOut: Math.max(0, playable.length - MAX_QUESTIONS),
   };
 }

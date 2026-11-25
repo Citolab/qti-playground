@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Feather,
   BookOpen,
   Code2,
   Eye,
@@ -56,7 +57,8 @@ import {
   type Outcome,
   type Pad,
 } from "../quest/arena";
-import { loadAssessmentQuestions, type AssessmentQuestions } from "../quest/assessment-items";
+import { EXAMPLE_PACKAGES, buildExamplePackage } from "../examples/catalog";
+import { loadAssessmentQuestions, whyLeftOut, type AssessmentQuestions } from "../quest/assessment-items";
 import { ClassicDialog } from "../quest/classic-dialog";
 import { Scroller } from "../quest/scroller";
 import { buildItems, type QuestItem } from "../quest/items";
@@ -117,6 +119,9 @@ function storeSave(save: Save) {
 }
 
 const newWorld = (theme: Theme): WorldSave => ({ color: theme.heroColors[0], chests: {}, streak: 0, bestStreak: 0 });
+/** Set once the page reloaded itself to get the service worker back in charge. */
+const RELOADED_KEY = "qti_quest_reloaded_once";
+
 const isOpen = (p: ChestProgress | undefined) => !!p && (p.solved || p.revealed);
 /** Stars and opened chests, counting only the questions that are in the game now. */
 const tally = (world: WorldSave | undefined, ids: string[]) => {
@@ -151,7 +156,10 @@ export function QuestPage() {
 
   const [save, setSave] = useState<Save>(loadSave);
   const [themeId, setThemeId] = useState<ThemeId | null>(null);
-  const [questions, setQuestions] = useState<AssessmentQuestions | null>(null);
+  // Kept with the list they were made from, so a list that changes (an example fetched again)
+  // is not judged by the questions of the old one.
+  const [prepared, setPrepared] = useState<{ list: unknown; result: AssessmentQuestions } | null>(null);
+  const questions = prepared && prepared.list === assessmentItems ? prepared.result : null;
   const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => storeSave(save), [save]);
@@ -162,7 +170,7 @@ export function QuestPage() {
     let cancelled = false;
     loadAssessmentQuestions(assessmentItems)
       .then((result) => {
-        if (!cancelled) setQuestions(result);
+        if (!cancelled) setPrepared({ list: assessmentItems, result });
       })
       .catch((error) => {
         console.error("Could not prepare the assessment for the game:", error);
@@ -172,6 +180,45 @@ export function QuestPage() {
       cancelled = true;
     };
   }, [assessmentItems]);
+
+  // Every question's file failed to load: the package is gone from this browser's storage (it was
+  // cleared, or the page was loaded around the service worker that serves it), which says nothing
+  // about the questions themselves.
+  const filesGone = !!questions && questions.items.length === 0 && questions.why.unreadable > 0 && questions.why.unreadable === questions.skipped;
+  const isExample = !!assessmentId && EXAMPLE_PACKAGES.some((example) => example.id === assessmentId);
+  const processPackage = useStore((state) => state.processPackage);
+  const [restoring, setRestoring] = useState(false);
+  /** The one attempt to fetch the example again is over, whatever came of it. */
+  const [restoreDone, setRestoreDone] = useState(false);
+  const triedRestore = useRef(false);
+  useEffect(() => {
+    if (!assessmentId || triedRestore.current) return;
+    if (assessmentItems && !filesGone) return;
+    // A hard reload goes around the service worker, and then no package file can be read.
+    // A normal reload puts it back in charge; once, so a real problem cannot loop.
+    if (filesGone && "serviceWorker" in navigator && !navigator.serviceWorker.controller && !sessionStorage.getItem(RELOADED_KEY)) {
+      triedRestore.current = true;
+      sessionStorage.setItem(RELOADED_KEY, "1");
+      void navigator.serviceWorker.ready.then(() => window.location.reload());
+      return;
+    }
+    // An example comes with the app, so it can simply be fetched again: after its files were
+    // cleared, or when someone opens a link to its game without having opened it first.
+    if (!isExample) return;
+    triedRestore.current = true;
+    // Not cancelled when this effect runs again: the store changing under it is the fetch succeeding.
+    void Promise.resolve()
+      .then(() => {
+        setRestoring(true);
+        return buildExamplePackage(assessmentId);
+      })
+      .then((file) => processPackage(file, { removeStylesheets: false, skipValidation: false, source: "example" }))
+      .catch((error) => console.error("Could not fetch the example again:", error))
+      .finally(() => {
+        setRestoring(false);
+        setRestoreDone(true);
+      });
+  }, [assessmentId, assessmentItems, filesGone, isExample, processPackage]);
 
   const sourceKey = assessmentId ? `assessment:${assessmentId}` : "built-in";
   const theme = themeId ? THEMES[themeId] : null;
@@ -204,12 +251,16 @@ export function QuestPage() {
       : undefined;
 
   if (assessmentId) {
+    // Being fetched again (an example), or about to be: not a problem to report.
+    if (restoring || (isExample && (!assessmentItems || filesGone) && !restoreDone)) return <Notice text="Getting the questions ready..." />;
     const problem =
       loadFailed || !assessmentItems
         ? "This assessment is not loaded in this browser (any more)."
-        : questions && questions.items.length === 0
-          ? "None of the questions in this assessment can be played as a game yet. The game can present single choice, multiple choice, text entry, inline choice, order, match and slider questions."
-          : null;
+        : filesGone
+          ? "The files of this assessment are no longer in this browser's storage. Open the package again to play it."
+          : questions && questions.items.length === 0
+            ? `None of the ${questions.skipped === 1 ? "questions" : `${questions.skipped} questions`} in this assessment can be played as a game: ${whyLeftOut(questions.why)}.`
+            : null;
     if (problem) {
       return (
         <Notice text={problem}>
@@ -234,7 +285,9 @@ export function QuestPage() {
         sourceKey={sourceKey}
         ids={ids}
         assessmentTitle={assessmentId ? (assessmentTitleOf(assessment) ?? "Your assessment") : null}
+        writing={(questions?.items ?? []).filter((item) => item.writing).length}
         skipped={questions?.skipped ?? 0}
+        why={questions ? whyLeftOut(questions.why) : ""}
         leftOut={questions?.leftOut ?? 0}
         onBack={backToAssessment}
         devices={previewOn ? devices.map((d) => d.value) : []}
@@ -316,7 +369,11 @@ interface PickerProps {
   sourceKey: string;
   ids: string[];
   assessmentTitle: string | null;
+  /** How many of the questions are writing questions: handed in, without stars. */
+  writing: number;
   skipped: number;
+  /** Why they were skipped, as the clauses of a sentence. */
+  why: string;
   leftOut: number;
   onBack?: () => void;
   /** Devices the game can be previewed on from here, and how to switch to one. */
@@ -329,7 +386,7 @@ interface PickerProps {
 const DEVICE_ICONS = { desktop: Monitor, tablet: Tablet, mobile: Smartphone };
 const DEVICE_NAMES: Record<PlayerDevice, string> = { desktop: "Desktop", tablet: "Tablet", mobile: "Phone" };
 
-function WorldPicker({ save, sourceKey, ids, assessmentTitle, skipped, leftOut, onBack, devices, onPreview, onName, onPick }: PickerProps) {
+function WorldPicker({ save, sourceKey, ids, assessmentTitle, writing, skipped, why, leftOut, onBack, devices, onPreview, onName, onPick }: PickerProps) {
   const total = ids.length;
   return (
     <div className="relative flex h-full flex-col items-center overflow-y-auto bg-gradient-to-b from-indigo-950 via-indigo-800 to-fuchsia-700 px-4 py-8 text-white">
@@ -431,9 +488,14 @@ function WorldPicker({ save, sourceKey, ids, assessmentTitle, skipped, leftOut, 
                 <div className="mt-3 font-display text-3xl font-extrabold drop-shadow">{theme.name}</div>
                 <p className="mt-2 min-h-[3.5rem] text-[15px] font-medium text-white/95 drop-shadow">{theme.tagline}</p>
                 <div className="mt-3 flex items-center gap-2 rounded-full bg-black/25 px-3 py-1 text-sm font-bold">
-                  <Star className="h-4 w-4 fill-yellow-300 text-yellow-300" />
-                  {stars} / {total * 3}
-                  <span className="opacity-70">·</span>
+                  {/* Stars are for the questions that can be checked; a writing question has none. */}
+                  {total > writing && (
+                    <>
+                      <Star className="h-4 w-4 fill-yellow-300 text-yellow-300" />
+                      {stars} / {(total - writing) * 3}
+                      <span className="opacity-70">·</span>
+                    </>
+                  )}
                   {open} / {total} found
                 </div>
                 <div className="mt-4 rounded-full bg-white px-7 py-2.5 text-lg font-extrabold text-slate-900 shadow-[0_4px_0_rgba(0,0,0,0.2)] transition group-hover:bg-yellow-300">
@@ -449,8 +511,9 @@ function WorldPicker({ save, sourceKey, ids, assessmentTitle, skipped, leftOut, 
             : "Every question is a real QTI 3 item."}{" "}
           Each one is scored by its own response processing; the world is just a more adventurous way to answer it. Your
           progress stays in this browser.
-          {skipped > 0 &&
-            ` ${skipped} ${skipped === 1 ? "question is" : "questions are"} left out, because the game cannot present that kind yet.`}
+          {writing > 0 &&
+            ` ${writing === 1 ? "One is a writing question" : `${writing} are writing questions`}: you hand ${writing === 1 ? "it" : "those"} in, without stars, because only a person can mark ${writing === 1 ? "it" : "them"}.`}
+          {skipped > 0 && ` Left out: ${why}.`}
           {leftOut > 0 && ` ${leftOut} more did not fit in the world.`}
         </p>
       </div>
@@ -702,6 +765,8 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
   const [classic, setClassic] = useState<QuestItem | null>(null);
 
   const { stars, open: openCount } = tally(world, ids);
+  /** The most stars there are to win: three for every question that can be checked. A writing question has none. */
+  const starMax = ids.filter((id) => !itemById[id]?.writing).length * 3;
   const closedGates = useMemo(
     () => new Set(GATES.filter((gate) => openCount < (layout.gateNeeds[gate.id] ?? 0)).map((gate) => gate.id)),
     [layout, openCount],
@@ -779,7 +844,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
         return;
       }
       if (isOpen(progress)) {
-        say(progress!.solved ? `Already opened: ${"★".repeat(progress!.stars)}` : "Already opened.");
+        say(item.writing ? "Already handed in." : progress!.solved ? `Already opened: ${"★".repeat(progress!.stars)}` : "Already opened.");
         return;
       }
       sfx.open();
@@ -947,6 +1012,14 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
     patchChest(classic.id, { attempts: (worldRef.current.chests[classic.id]?.attempts ?? 0) + 1 }, false);
     sfx.wrong();
   }, [classic, patchChest]);
+
+  /** A writing question was handed in: its chest opens, without stars and without touching the streak. */
+  const classicHandedIn = useCallback(() => {
+    if (!classic) return;
+    patchChest(classic.id, { attempts: (worldRef.current.chests[classic.id]?.attempts ?? 0) + 1, solved: true, stars: 0 });
+    sfx.correct(1);
+    if (spotById[classic.id]?.boss) window.setTimeout(() => sfx.fanfare(), 500);
+  }, [classic, patchChest, spotById]);
 
   const classicReveal = useCallback(() => {
     if (classic) patchChest(classic.id, { revealed: true, stars: 0 });
@@ -1826,11 +1899,13 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <div className={scoreChip} title="Stars collected">
-            <Star key={stars} className="quest-count h-5 w-5 fill-yellow-400 text-amber-500" />
-            {stars}
-            <span className="font-medium text-slate-400">/ {total * 3}</span>
-          </div>
+          {starMax > 0 && (
+            <div className={scoreChip} title="Stars collected">
+              <Star key={stars} className="quest-count h-5 w-5 fill-yellow-400 text-amber-500" />
+              {stars}
+              <span className="font-medium text-slate-400">/ {starMax}</span>
+            </div>
+          )}
           <div className={scoreChip} title={`${theme.treasure}s opened`}>
             <span aria-hidden="true">🔑</span>
             {openCount}
@@ -1928,13 +2003,21 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                       const locked = !!spot.boss && openCount < layout.bossNeeds;
                       return (
                         <div key={spot.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50">
-                          <span aria-hidden="true" title={itemById[spot.id]?.dialog ? "Mini game" : undefined}>
-                            {spot.boss ? "👑" : open ? "📭" : itemById[spot.id]?.dialog ? "🕹️" : "🎁"}
+                          <span
+                            aria-hidden="true"
+                            title={itemById[spot.id]?.writing ? "Writing question" : itemById[spot.id]?.dialog ? "Mini game" : undefined}
+                          >
+                            {spot.boss ? "👑" : open ? "📭" : itemById[spot.id]?.writing ? "✍️" : itemById[spot.id]?.dialog ? "🕹️" : "🎁"}
                           </span>
                           <span className={cn("min-w-0 flex-1 truncate text-sm font-semibold", open ? "text-slate-400" : "text-slate-800")}>
                             {itemById[spot.id]?.title}
                           </span>
-                          {open ? (
+                          {open && itemById[spot.id]?.writing ? (
+                            // Handed in: a writing question has no stars to show.
+                            <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
+                              <Feather className="h-4 w-4" /> handed in
+                            </span>
+                          ) : open ? (
                             <span className="flex">
                               {[0, 1, 2].map((i) => (
                                 <Star key={i} className={cn("h-4 w-4", i < progress!.stars ? "fill-yellow-400 text-amber-500" : "text-slate-300")} />
@@ -2238,6 +2321,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
           onWrong={classicWrong}
           onSolved={classicSolved}
           onReveal={classicReveal}
+          onHandedIn={classicHandedIn}
           onClose={closeClassic}
           onNext={nextUp ? () => goToNext(nextUp.id, true) : undefined}
           about={classic.stimulus?.title}
@@ -2259,9 +2343,11 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
               🏆
             </div>
             <div className="font-display text-4xl font-extrabold drop-shadow">Quest complete, {name}!</div>
-            <div className="flex items-center gap-2 rounded-full bg-black/30 px-5 py-2 text-2xl font-extrabold">
-              <Star className="h-7 w-7 fill-yellow-300 text-yellow-300" /> {stars} / {total * 3}
-            </div>
+            {starMax > 0 && (
+              <div className="flex items-center gap-2 rounded-full bg-black/30 px-5 py-2 text-2xl font-extrabold">
+                <Star className="h-7 w-7 fill-yellow-300 text-yellow-300" /> {stars} / {starMax}
+              </div>
+            )}
             <div className="flex flex-wrap justify-center gap-2">
               {ZONES.map((zoneId) => {
                 const here = layout.chests.filter((c) => c.zone === zoneId);

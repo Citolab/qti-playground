@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { qtiTransformItem } from "@citolab/qti-components/qti-transformers";
 import { QTI_PKG_URL_PREFIX, createModuleResolutionFetcher, detectPciBaseUrl } from "@citolab/qti-browser-import";
-import { ArrowRight, Eye, Gamepad2, Lightbulb, Star, X } from "lucide-react";
+import { ArrowRight, Eye, Feather, Gamepad2, Lightbulb, Star, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { itemCss } from "../itemCss";
 import { syncScopedRegistry } from "../scoped-registry";
@@ -37,6 +37,16 @@ const isEmpty = (value: unknown) =>
 const hasResponse = (item: ItemElement) =>
   (item.variables ?? []).some(
     (v) => v.type === "response" && v.identifier !== "numAttempts" && v.identifier !== "duration" && !isEmpty(v.value),
+  );
+
+/** Something was written: more than spaces. */
+const hasWritten = (item: ItemElement) =>
+  (item.variables ?? []).some(
+    (v) =>
+      v.type === "response" &&
+      v.identifier !== "numAttempts" &&
+      v.identifier !== "duration" &&
+      [v.value].flat().some((value) => typeof value === "string" && value.trim().length > 0),
   );
 
 const pick = (messages: string[]) => messages[Math.floor(Math.random() * messages.length)];
@@ -126,7 +136,8 @@ async function withLegacyCustomInteractions(transformer: Transformer, href: stri
   return transformer;
 }
 
-type Phase = "answering" | "correct" | "revealed";
+/** `handed`: a writing question was handed in. It is not checked, so it is neither right nor wrong. */
+type Phase = "answering" | "correct" | "revealed" | "handed";
 
 interface Props {
   item: QuestItem;
@@ -139,6 +150,8 @@ interface Props {
   onWrong: () => void;
   onSolved: (stars: number) => void;
   onReveal: () => void;
+  /** A writing question was handed in. */
+  onHandedIn: () => void;
   onClose: () => void;
   /** Go straight on to the next question about the same text, when there is one. */
   onNext?: () => void;
@@ -146,7 +159,8 @@ interface Props {
   about?: string;
 }
 
-export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, onWrong, onSolved, onReveal, onClose, onNext, about }: Props) {
+export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, onWrong, onSolved, onReveal, onHandedIn, onClose, onNext, about }: Props) {
+  const writing = !!item.writing;
   const hostRef = useRef<HTMLDivElement>(null);
   const { registry, attachRef } = useScopedQtiRegistry();
   const [itemDoc, setItemDoc] = useState<DocumentFragment | null>(null);
@@ -157,7 +171,9 @@ export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, on
   const [shake, setShake] = useState(false);
   const [mood, setMood] = useState<"idle" | "hint" | "happy">("idle");
   const [message, setMessage] = useState(() =>
-    boss
+    writing
+      ? `${boss ? "The final challenge is a writing question" : "A writing question"}, ${name}. Take your time, then hand it in.`
+      : boss
       ? `The final challenge is a mini game, ${name}. Take your time!`
       : attempts > 0
         ? `Welcome back, ${name}! Have another go.`
@@ -225,6 +241,21 @@ export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, on
     );
   };
 
+  /** A writing question is not checked: once something is written, it is handed in and the chest opens. */
+  const handIn = () => {
+    const el = itemElement();
+    if (!el) return;
+    if (!hasWritten(el)) {
+      setMood("hint");
+      setMessage(pick(["Nothing written yet. Write your answer first, then hand it in.", "The page is still empty! Write something first."]));
+      return;
+    }
+    setPhase("handed");
+    setMood("happy");
+    setMessage("Handed in. Well done for writing it!");
+    onHandedIn();
+  };
+
   const reveal = () => {
     itemElement()?.showCorrectResponse?.(true);
     setPhase("revealed");
@@ -259,13 +290,14 @@ export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, on
         {/* The cabinet's marquee */}
         <div className="flex shrink-0 items-center gap-3 px-5 py-2.5 text-white" style={{ background: zoneColor }}>
           <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-black/25 px-3 py-1 text-xs font-extrabold uppercase tracking-wider">
-            <Gamepad2 className="h-4 w-4" /> <span className="hidden sm:inline">Mini game</span>
+            {writing ? <Feather className="h-4 w-4" /> : <Gamepad2 className="h-4 w-4" />}{" "}
+            <span className="hidden sm:inline">{writing ? "Writing" : "Mini game"}</span>
           </span>
           <h2 className="min-w-0 flex-1 truncate font-display text-lg font-bold">
             {boss ? "👑 " : ""}
             {item.title}
           </h2>
-          {phase === "answering" && (
+          {phase === "answering" && !writing && (
             <div className="flex shrink-0 items-center gap-0.5" title="Stars you can still win">
               {[0, 1, 2].map((i) => (
                 <Star key={i} className={cn("h-5 w-5", i < possible ? "fill-yellow-300 text-yellow-300" : "text-white/40")} />
@@ -319,7 +351,7 @@ export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, on
             </p>
           </div>
           <div className="flex shrink-0 items-center justify-end gap-2">
-            {phase === "answering" && attempts >= 2 && (
+            {phase === "answering" && !writing && attempts >= 2 && (
               <button
                 type="button"
                 onClick={reveal}
@@ -331,11 +363,11 @@ export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, on
             {phase === "answering" && (
               <button
                 type="button"
-                onClick={() => void check()}
+                onClick={() => (writing ? handIn() : void check())}
                 disabled={checking || !itemDoc}
                 className="rounded-full bg-emerald-500 px-7 py-2.5 text-lg font-extrabold text-white shadow-[0_5px_0_#047857] transition hover:bg-emerald-400 active:translate-y-0.5 active:shadow-[0_2px_0_#047857] disabled:opacity-60"
               >
-                Check!
+                {writing ? "Hand in" : "Check!"}
               </button>
             )}
             {phase === "revealed" && (
@@ -350,30 +382,45 @@ export function ClassicDialog({ item, theme, zoneColor, boss, attempts, name, on
           </div>
         </div>
 
-        {phase === "correct" && (
+        {(phase === "correct" || phase === "handed") && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-gradient-to-b from-amber-100 to-orange-200 p-6 text-center">
             <div className="text-sm font-extrabold uppercase tracking-widest text-amber-800">
-              {boss ? "Final challenge beaten!" : "Mini game won!"}
+              {phase === "handed" ? (boss ? "Final challenge handed in!" : `${theme.treasure} unlocked!`) : boss ? "Final challenge beaten!" : "Mini game won!"}
             </div>
-            <div className="flex gap-3">
-              {[0, 1, 2].map((i) => (
-                <Star
-                  key={i}
-                  style={{ animationDelay: `${0.15 + i * 0.22}s` }}
-                  className={cn(
-                    "quest-star-pop h-20 w-20",
-                    i < earned ? "fill-yellow-400 text-amber-600 drop-shadow-[0_4px_0_rgba(180,83,9,0.5)]" : "fill-white/60 text-amber-300",
-                  )}
-                />
-              ))}
-            </div>
-            <div className="font-display text-4xl font-extrabold text-amber-900">
-              {earned === 3 ? "Perfect!" : earned === 2 ? "Great job!" : "You did it!"}
-            </div>
-            <p className="text-amber-900">
-              +{earned} {earned === 1 ? "star" : "stars"}
-              {earned === 3 ? ". Right the first time, wow!" : ". Get it right the first time for 3 stars!"}
-            </p>
+            {phase === "handed" ? (
+              // No stars: nothing checked the answer, so there is nothing to grade it with.
+              <>
+                <div className="quest-star-pop grid h-24 w-24 place-items-center rounded-full bg-white/70 text-amber-700 shadow-[0_5px_0_rgba(180,83,9,0.35)]">
+                  <Feather className="h-14 w-14" strokeWidth={2.2} />
+                </div>
+                <div className="font-display text-4xl font-extrabold text-amber-900">Handed in!</div>
+                <p className="max-w-sm text-amber-900">
+                  A writing question has no stars: only a person can say how good an answer is, and in this demo nobody reads it.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex gap-3">
+                  {[0, 1, 2].map((i) => (
+                    <Star
+                      key={i}
+                      style={{ animationDelay: `${0.15 + i * 0.22}s` }}
+                      className={cn(
+                        "quest-star-pop h-20 w-20",
+                        i < earned ? "fill-yellow-400 text-amber-600 drop-shadow-[0_4px_0_rgba(180,83,9,0.5)]" : "fill-white/60 text-amber-300",
+                      )}
+                    />
+                  ))}
+                </div>
+                <div className="font-display text-4xl font-extrabold text-amber-900">
+                  {earned === 3 ? "Perfect!" : earned === 2 ? "Great job!" : "You did it!"}
+                </div>
+                <p className="text-amber-900">
+                  +{earned} {earned === 1 ? "star" : "stars"}
+                  {earned === 3 ? ". Right the first time, wow!" : ". Get it right the first time for 3 stars!"}
+                </p>
+              </>
+            )}
             {onNext ? (
               // More questions about the same text: go straight on, the text is still fresh.
               <>
