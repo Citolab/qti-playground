@@ -5,15 +5,16 @@
  * response; the item's own response processing still decides whether it is right.
  *
  *   choice / inline choice → jump on the answer
+ *   choice between two     → a fork in the road: walk left for the first, right for the second
  *   choice (several)       → jump on every right answer, then on ✔
- *   text entry             → hop the digits (or letters) like hopscotch, then ✔
- *   order                  → jump on them from first to last, then ✔
- *   match                  → jump on one, then on its partner, then ✔
+ *   text entry             → type the answer in the box, with your own keyboard; a number can also be hopped on the digits; then ✔
+ *   order                  → they stand in a row: jump on one to lift it, jump where it belongs to put it in, then ✔
+ *   match                  → throw: jump on one to pick it up, face its partner and throw it there, then ✔
  *   match as a table       → the table lies on the floor: jump on a box in each row, then ✔
  *   slider                 → walk along the number line and jump on the spot
  *   hotspot                → the picture lies on the floor: jump on the right spot
  *   select point           → the same, and where you land is the point you mark
- *   gap match              → carry: jump on a word to pick it up, jump on a gap to put it in, then ✔
+ *   gap match              → throw: jump on a word to pick it up, face a gap and throw it in, then ✔
  *   graphic gap match      → the same, and the gaps are places on the picture on the floor
  */
 import type { PadView } from "./types";
@@ -113,6 +114,10 @@ export interface Pad {
   span?: number;
   /** Portrait: how deep the pad's row is, in arena units. A picture label is shrunk to fit it. */
   high?: number;
+  /** A fork in the road: this pad is the gate at its left or right end. Walking onto it is the answer. */
+  gate?: "left" | "right";
+  /** Order: this pad is a place in the row (0 is first). What stands on it changes; the pad stays. */
+  slot?: number;
   x: number;
   z: number;
   size: number;
@@ -123,11 +128,12 @@ export interface Pad {
 }
 
 export interface Answer {
+  /** What was chosen. For an order: all of its choices, in the order they stand in now. */
   picked: string[];
-  /** What was hopped on a text entry's pads so far. */
+  /** Text entry: what was typed, or hopped on the digits, so far. */
   digits: string;
   pairs: [string, string][];
-  /** Match: the one jumped on first, waiting for its partner. Gap match: what the hero carries. */
+  /** What the hero carries: one of a match on its way to its partner, a word for a gap, one lifted out of a row. */
   pending: string | null;
   value: number | null;
   /** Select point: the points marked, in picture pixels. */
@@ -144,6 +150,34 @@ export const emptyAnswer = (): Answer => ({
   points: [],
   eliminated: [],
 });
+
+/**
+ * The row an order starts in: the order the item shows its choices in. Only
+ * when that happens to be the declared answer are they mixed, always the same
+ * way, so the question is never handed over already solved.
+ */
+export function startOrder(ids: string[], correct: string[]): string[] {
+  const same = (order: string[]) => order.length === correct.length && order.every((id, i) => id === correct[i]);
+  if (ids.length < 2 || !same(ids)) return [...ids];
+  let seed = [...ids.join(" ")].reduce((sum, ch) => (sum * 31 + ch.charCodeAt(0)) >>> 0, 7);
+  const next = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const mixed = [...ids];
+    for (let i = mixed.length - 1; i > 0; i--) {
+      const j = Math.floor(next() * (i + 1));
+      [mixed[i], mixed[j]] = [mixed[j], mixed[i]];
+    }
+    if (!same(mixed)) return mixed;
+  }
+  return [...ids.slice(1), ids[0]];
+}
+
+/** The answer a part starts with: empty, except an order, whose choices already stand in a row. */
+export function startAnswer(spec: ArenaSpec): Answer {
+  const answer = emptyAnswer();
+  if (spec.kind === "order") answer.picked = startOrder(spec.choices.map((choice) => choice.id), spec.correct);
+  return answer;
+}
 
 /**
  * The playing field, in arena units. On a wide screen it is wide and shallow;
@@ -163,6 +197,30 @@ export const fieldFor = (portrait: boolean): Field =>
     ? // The start is in the middle: the bottom corners are under the thumb-stick and the Jump button.
       { portrait: true, halfW: 5.6, halfD: 9.4, spawn: [0, 6.5] }
     : { portrait: false, halfW: 9.2, halfD: 6.2, spawn: [0, 4.4] };
+
+/** A sign this long still reads on a gate of an upright stage, where each gate has half the width. */
+const FORK_LABEL = 40;
+
+/**
+ * A choice between two is a fork in the road: walk left for the first, right
+ * for the second. Any two choices will do; yes/no and true/false are the usual
+ * ones. Not on an upright phone when the choices are long or pictures: there
+ * they read better as a list.
+ */
+export const isFork = (spec: ArenaSpec, field: Field) =>
+  spec.kind === "choice" &&
+  !spec.multiple &&
+  spec.choices.length === 2 &&
+  (!field.portrait || spec.choices.every((choice) => !choice.html && choice.label.length <= FORK_LABEL));
+
+/** How far to either side of the fork's middle the hero has not chosen a side yet. */
+const FORK_MIDDLE = 0.6;
+
+/** Where the hero starts. At a fork that is its middle, so that left and right are equally far. */
+export const spawnOf = (spec: ArenaSpec, field: Field): [number, number] =>
+  isFork(spec, field) ? [0, field.portrait ? 1.6 : 0.9] : field.spawn;
+
+export const slotId = (index: number) => `slot:${index}`;
 
 export const PAIR_COLORS = ["#f43f5e", "#3b82f6", "#f59e0b", "#a855f7", "#14b8a6"];
 
@@ -357,9 +415,12 @@ const tableRows = (spec: ArenaSpec) => stackRows([spec.choices], 0, 24, TABLE_HE
 
 /** The lists an upright layout stacks for this interaction, or null when it is not laid out as a list. */
 const portraitLists = (spec: ArenaSpec): { groups: Choice[][]; gap: number } | null =>
-  spec.kind === "choice" || spec.kind === "order"
+  spec.kind === "choice"
     ? { groups: [spec.choices], gap: 0 }
-    : spec.kind === "match" && !spec.tabular
+    : spec.kind === "order"
+      ? // Any choice can end up in any place of the row, so every place is as deep as the one that needs most.
+        { groups: [spec.choices.map(() => spec.choices.reduce((most, choice) => (rowNeed(choice) > rowNeed(most) ? choice : most)))], gap: 0 }
+      : spec.kind === "match" && !spec.tabular
       ? { groups: [spec.choices, spec.targets], gap: 0.9 }
       : spec.kind === "gap" && !spec.picture
         ? // The question card is small on a phone, so every gap brings the words around it.
@@ -371,7 +432,7 @@ const portraitLists = (spec: ArenaSpec): { groups: Choice[][]; gap: number } | n
  * phone. Such a question is better played with the real interaction.
  */
 export function overflowsPortrait(spec: ArenaSpec, field: Field): boolean {
-  if (!field.portrait) return false;
+  if (!field.portrait || isFork(spec, field)) return false;
   if (spec.kind === "match" && spec.tabular) return tableRows(spec).overflow;
   // More to carry than fits above the picture would leave no room for the picture itself.
   if (spec.kind === "gap" && spec.picture) return spec.choices.length > SHELF_MAX;
@@ -385,9 +446,11 @@ function layoutPortrait(spec: ArenaSpec, field: Field): Pad[] {
   // ✔ is at the bottom, between the thumb-stick and the Jump button.
   const check: Pad = { id: "__check", role: "check", x: 0, z: 8.3, size: 2, label: "✔", overlay: false };
   const lists = portraitLists(spec);
-  if (lists) {
+  if (isFork(spec, field)) {
+    pads.push(...forkPads(spec, field));
+  } else if (lists) {
     // A list: a pad on the left, its answer beside it. A match is two lists under each
-    // other: pick one from the first, then its partner from the second.
+    // other: pick one up from the first, and throw it to its partner in the second.
     const stack = stackRows(lists.groups, lists.gap);
     const x = -field.halfW + stack.size / 2 + 0.45;
     lists.groups.forEach((group, g) =>
@@ -431,15 +494,16 @@ function layoutPortrait(spec: ArenaSpec, field: Field): Pad[] {
       );
     });
     pads.push(check);
+  } else if (spec.kind === "entry" && entryMode(spec) === "word") {
+    // A word is typed in the box: the floor only has ✔.
+    pads.push(check);
   } else if (spec.kind === "entry") {
-    // A phone keypad for numbers; five letters to a row for words.
-    const letters = spec.keys.some((k) => k >= "a" && k <= "z");
-    const cols = letters ? 5 : 3;
-    const zero = !letters && spec.keys.includes("0");
+    // A phone keypad, ending on a row of ⌫ 0 ✔.
+    const cols = 3;
+    const zero = spec.keys.includes("0");
     const keys = spec.keys.filter((k) => !(zero && k === "0"));
-    // Numbers end on a row of ⌫ 0 ✔, like a phone; words get ⌫ and ✔ after the last letter.
-    const cells: { id: string; role: Pad["role"]; label: string }[] = keys.map((k) => ({ id: k, role: "key", label: k === " " ? "␣" : k }));
-    if (!letters) while (cells.length % cols !== 0) cells.push({ id: "", role: "label", label: "" });
+    const cells: { id: string; role: Pad["role"]; label: string }[] = keys.map((k) => ({ id: k, role: "key", label: k }));
+    while (cells.length % cols !== 0) cells.push({ id: "", role: "label", label: "" });
     cells.push({ id: "__back", role: "back", label: "⌫" });
     if (zero) cells.push({ id: "0", role: "key", label: "0" });
     cells.push({ id: "__check", role: "check", label: "✔" });
@@ -466,8 +530,32 @@ function layoutPortrait(spec: ArenaSpec, field: Field): Pad[] {
   return pads;
 }
 
+/**
+ * The two gates of a fork: the first choice on the left, the second on the
+ * right, level with where the hero starts.
+ */
+function forkPads(spec: ArenaSpec, field: Field): Pad[] {
+  const z = spawnOf(spec, field)[1];
+  const [x, size, span] = field.portrait ? [3.3, 2.4, 4.2] : [6.6, 2.8, 5.6];
+  return spec.choices.map((choice, i) => ({
+    ...choicePad(choice, "choice", i === 0 ? -x : x, z, size),
+    gate: i === 0 ? ("left" as const) : ("right" as const),
+    span,
+    // A signpost is hard to read from as steep above as an upright stage is seen.
+    ...(field.portrait ? { overlay: true } : {}),
+  }));
+}
+
 export function layoutPads(spec: ArenaSpec, field: Field): Pad[] {
   const pads = field.portrait ? layoutPortrait(spec, field) : layoutWide(spec, field);
+  if (spec.kind === "order") {
+    // The pads of an order are the places in its row. What stands on a place changes, so a
+    // place has no label of its own, and is drawn the way the choice that needs most is.
+    const rich = (spec.choices.find((choice) => choice.html?.includes("<img")) ?? spec.choices.find((choice) => choice.html))?.html;
+    pads
+      .filter((pad) => pad.role === "choice")
+      .forEach((pad, i) => Object.assign(pad, { id: slotId(i), slot: i, label: "", html: rich }));
+  }
   // The answers of one set get the same kind of label, so they look like one set: when one of
   // them needs an HTML label (a picture, a formula, a long sentence), they all get one.
   for (const role of ["choice", "target"] as const)
@@ -480,10 +568,11 @@ export function layoutPads(spec: ArenaSpec, field: Field): Pad[] {
 
 /** The layouts for a wide screen. */
 function layoutWide(spec: ArenaSpec, field: Field): Pad[] {
-  void field;
   const pads: Pad[] = [];
   const check: Pad = { id: "__check", role: "check", x: 7, z: 3.2, size: 2, label: "✔", overlay: false };
-  if (spec.kind === "choice" || spec.kind === "order") {
+  if (isFork(spec, field)) {
+    pads.push(...forkPads(spec, field));
+  } else if (spec.kind === "choice" || spec.kind === "order") {
     const n = spec.choices.length;
     const spacing = Math.min(4.2, 16.5 / n);
     row(n, spacing).forEach((x, i) => pads.push(choicePad(spec.choices[i], "choice", x, -1.6, Math.min(2.4, spacing - 0.7))));
@@ -560,6 +649,9 @@ function layoutWide(spec: ArenaSpec, field: Field): Pad[] {
     pads.push({ ...check, x: 7, z: 3.7, size: 1.8 });
   } else if ((spec.kind === "hotspot" || spec.kind === "point") && spec.multiple) {
     pads.push({ ...check, x: 8.4, z: 3.9, size: 1.5 });
+  } else if (spec.kind === "entry" && entryMode(spec) === "word") {
+    // A word is typed in the box: the floor only has ✔, in front of the board.
+    pads.push({ ...check, x: 0, z: -1.6 });
   } else if (spec.kind === "entry") {
     const rows = spec.keys.length <= 12 ? 2 : 3;
     const perRow = Math.ceil(spec.keys.length / rows);
@@ -612,21 +704,45 @@ export interface StompResult {
   nudge?: string;
 }
 
-const lettersOnly = (spec: ArenaSpec) => spec.keys.some((k) => k >= "a" && k <= "z");
+/**
+ * How a text entry is filled in. A number has digits to hop on as well as the
+ * box to type in; a word is only typed, because a pad for every letter makes
+ * spelling a chore.
+ */
+export const entryMode = (spec: ArenaSpec): "number" | "word" => (spec.keys.some((k) => k >= "a" && k <= "z") ? "word" : "number");
+
+/** A typed answer may be longer than the board has places for, up to this many characters. */
+const TYPED_MAX = 40;
+
+/**
+ * The answer box changed: `text` is everything in it. A number keeps what a
+ * number is written with; a word keeps whatever a keyboard can type.
+ */
+export function typeInto(spec: ArenaSpec, answer: Answer, text: string): Answer {
+  const kept =
+    entryMode(spec) === "number"
+      ? text.replace(/[^0-9.,-]/g, "")
+      : // eslint-disable-next-line no-control-regex
+        text.replace(/[\u0000-\u001f\u007f]/g, "").replace(/^\s+/, "");
+  const digits = [...kept].slice(0, Math.max(spec.maxLength, TYPED_MAX)).join("");
+  return digits === answer.digits ? answer : { ...answer, digits };
+}
 
 /** The hero landed on a pad. */
 export function stomp(spec: ArenaSpec, answer: Answer, pad: Pad): StompResult {
   const a: Answer = { ...answer, picked: [...answer.picked], pairs: [...answer.pairs] };
   if (pad.role === "check") {
     if (spec.kind === "entry" && !a.digits.trim())
-      return { answer, submit: false, nudge: lettersOnly(spec) ? "Hop on the letters first!" : "Hop on the numbers first!" };
-    if (spec.kind === "order" && a.picked.length < spec.choices.length)
-      return { answer, submit: false, nudge: "Jump on all of them first, from first to last." };
+      return {
+        answer,
+        submit: false,
+        nudge: entryMode(spec) === "word" ? "Type your answer in the box first!" : "Type your number in the box first, or hop on the digits!",
+      };
     if (spec.kind === "match" && a.pairs.length === 0)
       return {
         answer,
         submit: false,
-        nudge: spec.tabular ? "Tick a box first: jump on it." : "Make a pair first: jump on one, then on its partner.",
+        nudge: spec.tabular ? "Tick a box first: jump on it." : "Make a pair first: jump on one to pick it up, then throw it to its partner.",
       };
     if (spec.kind === "choice" && a.picked.length === 0)
       return { answer, submit: false, nudge: "Jump on the answers you think are right first." };
@@ -639,11 +755,11 @@ export function stomp(spec: ArenaSpec, answer: Answer, pad: Pad): StompResult {
         answer,
         submit: false,
         nudge: spec.picture
-          ? "Nothing is in place yet. Pick one up and carry it to its spot on the picture."
-          : "The gaps are still empty. Pick one up and carry it to its gap.",
+          ? "Nothing is in place yet. Pick one up and throw it onto its spot on the picture."
+          : "The gaps are still empty. Pick one up and throw it into its gap.",
       };
     // Whatever is still in the hero's hands goes back where it came from.
-    if (spec.kind === "gap") a.pending = null;
+    if (spec.kind === "gap" || spec.kind === "order" || spec.kind === "match") a.pending = null;
     return { answer: a, submit: true };
   }
   if (pad.role === "key") {
@@ -663,7 +779,17 @@ export function stomp(spec: ArenaSpec, answer: Answer, pad: Pad): StompResult {
     return { answer: a, submit: false };
   }
   if (spec.kind === "order") {
-    a.picked = a.picked.includes(pad.id) ? a.picked.filter((id) => id !== pad.id) : [...a.picked, pad.id];
+    if (pad.slot === undefined) return { answer, submit: false };
+    const held = a.pending;
+    if (held === null) {
+      // Lifted out of the row: its place stays empty until it is put down.
+      a.pending = a.picked[pad.slot] ?? null;
+      return { answer: a, submit: false };
+    }
+    // Put down here: the others move over towards the place it left. On its own place it simply goes back.
+    a.picked = a.picked.filter((id) => id !== held);
+    a.picked.splice(pad.slot, 0, held);
+    a.pending = null;
     return { answer: a, submit: false };
   }
   if (pad.role === "cell" && pad.pair) {
@@ -707,25 +833,7 @@ export function stomp(spec: ArenaSpec, answer: Answer, pad: Pad): StompResult {
       } else a.pending = pad.id;
       return { answer: a, submit: false };
     }
-    const from = a.pending;
-    if (!from) return { answer, submit: false, nudge: "Start with one from the back row, then jump on its partner." };
-    const same = a.pairs.findIndex(([l, r]) => l === from && r === pad.id);
-    if (same >= 0) {
-      a.pairs.splice(same, 1);
-      a.pending = null;
-      return { answer: a, submit: false };
-    }
-    // Make room on the side you came from: its oldest pair goes when it may not have more.
-    const left = spec.choices.find((c) => c.id === from);
-    while (a.pairs.filter(([l]) => l === from).length >= roomOf(left)) {
-      a.pairs.splice(a.pairs.findIndex(([l]) => l === from), 1);
-    }
-    const target = spec.targets.find((c) => c.id === pad.id);
-    if (a.pairs.filter(([, r]) => r === pad.id).length >= roomOf(target))
-      return { answer, submit: false, nudge: "That one is already taken. Free it first, or pick another." };
-    a.pairs.push([from, pad.id]);
-    a.pending = null;
-    return { answer: a, submit: false };
+    return linkTo(spec, answer, a, pad.id);
   }
   return { answer, submit: false };
 }
@@ -734,9 +842,92 @@ export function stomp(spec: ArenaSpec, answer: Answer, pad: Pad): StompResult {
 const roomOf = (choice: Choice | undefined) => (choice?.matchMax === 0 ? Infinity : (choice?.matchMax ?? 1));
 
 /**
- * Carry: the hero jumped on a gap. With something in hand it goes in, and what
- * was there makes room; empty-handed, the hero takes out what is in the gap.
- * `a` is the working copy of `answer`.
+ * What the hero points at before anything is decided: the side of a fork it
+ * has stepped towards, the gap or partner it would throw at, the place in a row it
+ * would put down on. It lights up, so a child sees what a step or a throw will
+ * do. Null when there is nothing to point at.
+ */
+export interface Focus {
+  id: string;
+  x: number;
+  z: number;
+}
+
+/** How much a step further away counts against a gap, next to how far off the hero's nose it is (in radians). */
+const AIM_DISTANCE = 0.06;
+
+export function focusOf(spec: ArenaSpec, pads: Pad[], field: Field, answer: Answer, x: number, z: number, heading: number): Focus | null {
+  const at = (pad: Pad): Focus => ({ id: pad.id, x: pad.x, z: pad.z });
+  if (isFork(spec, field)) {
+    if (Math.abs(x) < FORK_MIDDLE) return null;
+    const gate = pads.find((pad) => pad.gate === (x < 0 ? "left" : "right"));
+    return gate && !answer.eliminated.includes(gate.id) ? at(gate) : null;
+  }
+  if (answer.pending === null) return null;
+  const under = padAt(pads, x, z);
+  if (spec.kind === "order") return under?.slot !== undefined ? at(under) : null;
+  if (!throws(spec)) return null;
+  // On a gap or a partner: that one. On a word or on ✔ a jump is a jump (swap what is carried, hand in), so nothing is aimed at.
+  if (under) return under.role === "target" ? at(under) : null;
+  let spots: Focus[] = pads.filter((pad) => pad.role === "target").map(at);
+  const picture = spec.picture;
+  if (picture) {
+    const pixel = toPicture(picture, field, x, z);
+    const on = pixel && areaAt(spec.areas, pixel[0], pixel[1], HOTSPOT_SLACK / pictureFrame(picture, field).scale);
+    spots = spec.areas.map((area) => {
+      const [left, top, right, bottom] = areaBox(area, picture);
+      const [sx, sz] = fromPicture(picture, field, (left + right) / 2, (top + bottom) / 2);
+      return { id: area.id, x: sx, z: sz };
+    });
+    if (on) return spots.find((spot) => spot.id === on.id) ?? null;
+  }
+  // The gap most in front of the hero's nose; of two about as much in front, the nearer one.
+  let best: Focus | null = null;
+  let bestScore = Infinity;
+  for (const spot of spots) {
+    const off = Math.atan2(spot.x - x, spot.z - z) - heading;
+    const score = Math.abs(Math.atan2(Math.sin(off), Math.cos(off))) + AIM_DISTANCE * Math.hypot(spot.x - x, spot.z - z);
+    if (score < bestScore) {
+      best = spot;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+/** Whether what is picked up here is thrown: a word at its gap, one of a match at its partner. */
+export const throws = (spec: ArenaSpec) => spec.kind === "gap" || (spec.kind === "match" && !spec.tabular);
+
+/** What was thrown lands: a word goes into its gap, one of a match is paired with its partner. What was there makes room. */
+export function throwInto(spec: ArenaSpec, answer: Answer, held: string, targetId: string): StompResult {
+  const a = { ...answer, pairs: [...answer.pairs], pending: held };
+  return spec.kind === "match" ? linkTo(spec, answer, a, targetId) : dropInGap(spec, answer, a, targetId);
+}
+
+/**
+ * The hero jumped on a partner, or threw at it: what it carries is paired with
+ * it. A side that may not be in more pairs lets go of its oldest one, so a
+ * mistake is put right by simply pairing again. `a` is the working copy of
+ * `answer`.
+ */
+function linkTo(spec: ArenaSpec, answer: Answer, a: Answer, targetId: string): StompResult {
+  const from = a.pending;
+  if (!from) return { answer, submit: false, nudge: "Your hands are empty. Jump on one from the back row to pick it up first." };
+  a.pending = null;
+  // They are a pair already: just let go.
+  if (a.pairs.some(([l, r]) => l === from && r === targetId)) return { answer: a, submit: false };
+  const fromRoom = roomOf(spec.choices.find((c) => c.id === from));
+  while (a.pairs.filter(([l]) => l === from).length >= fromRoom) a.pairs.splice(a.pairs.findIndex(([l]) => l === from), 1);
+  const targetRoom = roomOf(spec.targets.find((c) => c.id === targetId));
+  while (a.pairs.filter(([, r]) => r === targetId).length >= targetRoom) a.pairs.splice(a.pairs.findIndex(([, r]) => r === targetId), 1);
+  a.pairs.push([from, targetId]);
+  return { answer: a, submit: false };
+}
+
+/**
+ * The hero jumped on a gap, or threw at it. With something in hand it goes in,
+ * and what was there makes room; empty-handed, the hero takes out what is in
+ * the gap. `a` is the working copy of `answer`.
  */
 function dropInGap(spec: ArenaSpec, answer: Answer, a: Answer, gapId: string): StompResult {
   const held = a.pending;
@@ -768,7 +959,7 @@ export function landOnPicture(spec: ArenaSpec, field: Field, answer: Answer, x: 
     const area = areaAt(spec.areas, pixel[0], pixel[1], HOTSPOT_SLACK / scale);
     if (!area)
       return answer.pending
-        ? { answer, submit: false, nudge: "That is not one of the places. Jump on a marked spot to put it down." }
+        ? { answer, submit: false, nudge: "That is not one of the places. Face a marked spot and throw it there." }
         : { answer, submit: false };
     return dropInGap(spec, answer, { ...answer, pairs: [...answer.pairs] }, area.id);
   }
@@ -829,7 +1020,8 @@ export function afterWrong(spec: ArenaSpec, answer: Answer): Answer {
 /** The answer filled in from the item's correct response, for "show answer". */
 export function revealAnswer(spec: ArenaSpec): Answer {
   const a = emptyAnswer();
-  if (spec.kind === "choice" || spec.kind === "order" || spec.kind === "hotspot") a.picked = [...spec.correct];
+  if (spec.kind === "choice" || spec.kind === "hotspot") a.picked = [...spec.correct];
+  else if (spec.kind === "order") a.picked = spec.correct.length === spec.choices.length ? [...spec.correct] : spec.choices.map((choice) => choice.id);
   else if (spec.kind === "point")
     a.points = spec.correct
       .map((value) => value.trim().split(/\s+/).map(Number) as [number, number])
@@ -843,7 +1035,8 @@ export function revealAnswer(spec: ArenaSpec): Answer {
 
 export type Outcome = "playing" | "correct" | "wrong" | "revealed";
 
-export function padViews(spec: ArenaSpec, pads: Pad[], answer: Answer, outcome: Outcome): Record<string, PadView> {
+/** How every pad looks now. `focus` is the pad the hero points at (see `focusOf`), if any. */
+export function padViews(spec: ArenaSpec, pads: Pad[], answer: Answer, outcome: Outcome, focus: string | null = null): Record<string, PadView> {
   const views: Record<string, PadView> = {};
   const done = outcome === "correct" || outcome === "revealed";
   for (const pad of pads) {
@@ -863,10 +1056,23 @@ export function padViews(spec: ArenaSpec, pads: Pad[], answer: Answer, outcome: 
       if (answer.eliminated.includes(pad.id)) view = { look: "gone" };
       else if (answer.picked.includes(pad.id))
         view = { look: done ? "correct" : outcome === "wrong" ? "wrong" : "selected" };
+      // A fork: the side the hero has stepped towards lights up before the gate is reached.
+      else if (focus === pad.id && outcome === "playing") view = { look: "selected" };
     } else if (spec.kind === "order") {
-      const rank = answer.picked.indexOf(pad.id);
-      if (rank >= 0)
-        view = { look: done ? "correct" : outcome === "wrong" ? "wrong" : "selected", badge: String(rank + 1) };
+      if (pad.slot === undefined) continue;
+      const id = answer.picked[pad.slot];
+      const choice = spec.choices.find((c) => c.id === id);
+      const badge = String(pad.slot + 1);
+      // Lifted out of the row: its place is empty until it is put down.
+      if (!choice || id === answer.pending) view = { look: "idle", tint: GAP_EMPTY, mark: "", badge };
+      else
+        view = {
+          look: done ? "correct" : outcome === "wrong" ? "wrong" : "idle",
+          mark: choice.label,
+          ...(choice.html ? { html: choice.html } : {}),
+          badge,
+        };
+      if (focus === pad.id) view.aimed = true;
     } else if (spec.kind === "gap") {
       if (pad.role === "target") {
         // A gap shows what was put in it.
@@ -881,6 +1087,7 @@ export function padViews(spec: ArenaSpec, pads: Pad[], answer: Answer, outcome: 
             ...(rich && inside.length === 1 && !pad.label.includes(GAP_MARK) ? { html: rich } : {}),
           };
         } else view = { look: "idle", tint: GAP_EMPTY };
+        if (focus === pad.id) view.aimed = true;
       } else if (answer.pending === pad.id) view = { look: "selected" };
       else if (answer.pairs.filter(([l]) => l === pad.id).length >= roomOf(spec.choices.find((c) => c.id === pad.id)))
         // Every copy of it is out in a gap: its place on the shelf is empty.
@@ -897,6 +1104,7 @@ export function padViews(spec: ArenaSpec, pads: Pad[], answer: Answer, outcome: 
           tint: done || outcome === "wrong" ? undefined : PAIR_COLORS[target % PAIR_COLORS.length],
         };
       }
+      if (focus === pad.id) view.aimed = true;
     }
     views[pad.id] = view;
   }
@@ -906,17 +1114,19 @@ export function padViews(spec: ArenaSpec, pads: Pad[], answer: Answer, outcome: 
 /** Text for the big board behind the key pads. */
 export function displayText(spec: ArenaSpec, answer: Answer): string | null {
   if (spec.kind !== "entry") return null;
+  // Typed longer than the board has places for: written plainly, in the room there is.
+  if ([...answer.digits].length > spec.maxLength) return `${answer.digits}_`;
   const shown = answer.digits.replace(/ /g, "␣");
   return shown.padEnd(Math.max(1, Math.min(spec.maxLength, shown.length + 1)), "_").split("").join(" ");
 }
 
-export const HOW_TO: Record<ArenaKind, (spec: ArenaSpec) => string> = {
+const HOW_TO: Record<ArenaKind, (spec: ArenaSpec) => string> = {
   choice: (spec) => (spec.multiple ? "Jump on every right answer, then on ✔" : "Jump on the right answer!"),
   entry: (spec) =>
-    lettersOnly(spec) ? "Hop on the letters to spell your answer, then on ✔" : "Hop on the digits to make your number, then on ✔",
-  order: () => "Jump on them in order, first to last, then on ✔",
+    entryMode(spec) === "word" ? "Type your answer in the box, then press ✔" : "Type your number in the box, or hop on the digits. Then ✔",
+  order: () => "Jump on one to lift it, then jump where it belongs in the row. Then on ✔",
   match: (spec) =>
-    spec.tabular ? "Jump on the right box in every row, then on ✔" : "Jump on one, then on its partner. Then on ✔",
+    spec.tabular ? "Jump on the right box in every row, then on ✔" : "Jump on one to pick it up, face its partner and throw it there. Then on ✔",
   slider: () => "Walk along the number line and jump on the right spot",
   hotspot: (spec) =>
     spec.multiple ? "Jump on every right spot in the picture, then on ✔" : "Walk onto the picture and jump on the right spot!",
@@ -924,9 +1134,13 @@ export const HOW_TO: Record<ArenaKind, (spec: ArenaSpec) => string> = {
     spec.multiple ? "Jump on each point you want to mark, then on ✔" : "Walk onto the picture and jump exactly on the right point",
   gap: (spec) =>
     spec.picture
-      ? "Jump on one to pick it up, carry it to its place on the picture and jump again. Then on ✔"
-      : "Jump on one to pick it up, carry it to its gap and jump again. Then on ✔",
+      ? "Jump on one to pick it up, face its place on the picture and throw it there. Then on ✔"
+      : "Jump on one to pick it up, face its gap and throw it in. Then on ✔",
 };
+
+/** One line on how this part is played. */
+export const howTo = (spec: ArenaSpec, field: Field) =>
+  isFork(spec, field) ? "Walk left or right, through the gate of the right answer!" : HOW_TO[spec.kind](spec);
 
 // ── Safe HTML out of item markup ─────────────────────────────────────
 

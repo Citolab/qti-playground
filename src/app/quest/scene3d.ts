@@ -233,6 +233,10 @@ export class QuestScene {
   } | null = null;
   /** What the hero holds up while carrying something. */
   private crate!: THREE.Mesh;
+  /** The same crate, thrown: on its way to a gap. */
+  private flyer!: THREE.Mesh;
+  /** A ring on the floor around what the hero aims at. */
+  private aimRing!: THREE.Mesh;
   private marker = makeSpriteLabel(256, 128);
   private flag = new THREE.Group();
   private flagCloth!: THREE.Mesh;
@@ -980,7 +984,7 @@ export class QuestScene {
       if ((o as THREE.Mesh).isMesh && !(o as THREE.Mesh).material.toString().includes("Basic")) o.castShadow = true;
     });
     this.limbs = { body, legL, legR, armL, armR };
-    // Held above the head while carrying (gap match); what it holds is written on a label above it.
+    // Held above the head while carrying (a word for a gap, one of a match, one out of a row); what it holds is written on a label above it.
     this.crate = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.3, 0.44), smooth(this.theme.arena.accent, { roughness: 0.5 }));
     this.crate.position.set(0, 1.62, 0.02);
     this.crate.castShadow = true;
@@ -1090,6 +1094,19 @@ export class QuestScene {
     this.flag.add(this.flagCloth);
     this.flag.visible = false;
     this.arena.add(this.flag);
+
+    this.flyer = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.3, 0.44), mat(a.accent, { flatShading: false, roughness: 0.5 }));
+    this.flyer.castShadow = true;
+    this.flyer.visible = false;
+    this.arena.add(this.flyer);
+    // A unit ring, scaled to what is aimed at. Amber in every world: it is neither right nor wrong.
+    this.aimRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.86, 1, 40),
+      new THREE.MeshBasicMaterial({ color: "#f59e0b", transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false }),
+    );
+    this.aimRing.rotation.x = -Math.PI / 2;
+    this.aimRing.visible = false;
+    this.arena.add(this.aimRing);
   }
 
   /** Enter (spec + pads) or leave (null) the arena. */
@@ -1115,6 +1132,8 @@ export class QuestScene {
     this.arena.visible = !!spec;
     this.world.visible = !spec;
     this.flag.visible = false;
+    this.flyer.visible = false;
+    this.aimRing.visible = false;
     this.camSnap = true;
     this.applyInset();
     if (!spec) return;
@@ -1182,12 +1201,14 @@ export class QuestScene {
           leg.castShadow = true;
           post.add(leg);
         }
-        post.position.set(0, 0, -pad.size / 2 - 0.45);
+        // Beside a gate's arch rather than behind it, so the arch does not stand in front of the words.
+        post.position.set(pad.gate ? (pad.gate === "left" ? -0.8 : 0.8) : 0, 0, -pad.size / 2 - 0.45);
         group.add(post);
         sign = post;
       }
       this.arenaStage.add(group);
       this.pads.push({ pad, group, top, topMat, label, sign, y: 0 });
+      if (pad.gate) this.buildGate(pad);
     }
 
     if (spec.kind === "entry") {
@@ -1262,6 +1283,46 @@ export class QuestScene {
         }
       }
     }
+  }
+
+  /**
+   * A fork in the road: a road from the middle to this gate, and an arch to
+   * walk through where the gate begins. They stand on the stage itself, so they
+   * stay when a gate that was not the answer sinks away.
+   */
+  private buildGate(pad: Pad) {
+    const a = this.theme.arena;
+    const out = pad.gate === "left" ? -1 : 1;
+    const inner = pad.x - out * (pad.size / 2);
+    const road = new THREE.Mesh(
+      new THREE.BoxGeometry(Math.abs(inner), 0.05, Math.min(1.7, pad.size * 0.62)),
+      mat(a.pad, { flatShading: false, transparent: true, opacity: 0.55 }),
+    );
+    road.position.set(inner / 2, 0.025, pad.z);
+    road.receiveShadow = true;
+    this.arenaStage.add(road);
+    // Arrowheads along the road, pointing at the gate.
+    const steps = Math.max(2, Math.floor(Math.abs(inner) / 1.5));
+    for (let i = 1; i <= steps; i++) {
+      const head = new THREE.Mesh(new THREE.CircleGeometry(0.3, 3), new THREE.MeshBasicMaterial({ color: a.accent, toneMapped: false }));
+      head.rotation.x = -Math.PI / 2;
+      // A three-sided "circle" points along +x; turned half round it points left.
+      head.rotation.z = out > 0 ? 0 : Math.PI;
+      head.position.set((inner * i) / (steps + 0.6), 0.06, pad.z);
+      this.arenaStage.add(head);
+    }
+    const tall = 2.1 * this.heroScale;
+    const half = pad.size / 2 + 0.12;
+    for (const dz of [-half, half]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, tall, 8), mat(a.rim));
+      post.position.set(inner, tall / 2, pad.z + dz);
+      post.castShadow = true;
+      this.arenaStage.add(post);
+    }
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.24, half * 2 + 0.4), mat(a.accent));
+    beam.position.set(inner, tall, pad.z);
+    beam.castShadow = true;
+    this.arenaStage.add(beam);
   }
 
   /** How much larger than life the hero is drawn on the current stage; what floats above its head moves up with it. */
@@ -1471,8 +1532,11 @@ export class QuestScene {
             ? "#64748b"
             : (state?.tint ?? (look === "selected" ? SELECTED : a.pad));
     view.topMat.color.set(base);
-    view.topMat.emissive.set(look === "correct" ? "#15803d" : look === "selected" ? base : "#000000");
-    view.topMat.emissiveIntensity = look === "correct" ? 0.6 + Math.sin(t * 8) * 0.3 : look === "selected" ? 0.25 : 0;
+    // What the hero aims at glows amber, unless it already shows right or wrong.
+    const aimed = !!state?.aimed && look !== "correct" && look !== "wrong";
+    view.topMat.emissive.set(look === "correct" ? "#15803d" : aimed ? "#f59e0b" : look === "selected" ? base : "#000000");
+    view.topMat.emissiveIntensity =
+      look === "correct" ? 0.6 + Math.sin(t * 8) * 0.3 : aimed ? 0.55 + Math.sin(t * 9) * 0.25 : look === "selected" ? 0.25 : 0;
     const targetY = look === "gone" ? -0.5 : look === "selected" ? -0.05 : look === "correct" ? 0.12 + Math.sin(t * 6) * 0.04 : 0;
     view.y += (targetY - view.y) * Math.min(1, dt * 8);
     view.group.position.y = view.y;
@@ -1758,6 +1822,19 @@ export class QuestScene {
         this.picture.key = key;
         this.drawPictureMarks(arena.picture);
       }
+    }
+    this.aimRing.visible = arena.aim !== null;
+    if (arena.aim !== null) {
+      const [x, z, radius] = arena.aim;
+      this.aimRing.position.set(x, 0.27, z);
+      this.aimRing.scale.setScalar(radius * (1 + Math.sin(t * 9) * 0.06));
+    }
+    this.flyer.visible = arena.flying !== null;
+    if (arena.flying !== null) {
+      this.flyer.position.set(...arena.flying);
+      this.flyer.scale.setScalar(this.heroScale);
+      this.flyer.rotation.x += dt * 9;
+      this.flyer.rotation.z += dt * 5;
     }
     this.flag.visible = arena.flag !== null;
     if (arena.flag !== null) {

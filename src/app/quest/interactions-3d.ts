@@ -69,8 +69,9 @@ const asList = (value: string | string[] | null | undefined) =>
   value === null || value === undefined ? [] : Array.isArray(value) ? [...value] : [value];
 
 /**
- * Which pads a text entry needs. A number gets the digits (and a decimal point
- * or minus sign when an expected answer has one); anything else gets letters.
+ * How a text entry is filled in. A number gets pads for the digits (and a
+ * decimal point or minus sign when an expected answer has one), beside the box
+ * to type in; anything else is only typed, and its letters mark it as a word.
  * The answers the item declares decide: its base type alone cannot, because a
  * numeric answer is often declared as a string with a mapping.
  */
@@ -270,7 +271,7 @@ const VARIANTS: [
     }),
   ],
   [
-    // Carry: the words are picked up and put into the gaps of the text.
+    // The words are picked up and thrown into the gaps of the text.
     "qti-gap-match-interaction",
     QtiGapMatchInteraction,
     (el) => ({

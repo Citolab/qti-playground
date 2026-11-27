@@ -18,6 +18,8 @@ export interface PadView {
   mark?: string;
   /** The same as safe HTML, when what was put in a gap is a picture or a formula. */
   html?: string;
+  /** The hero points at this pad: a throw or a put-down would end here. */
+  aimed?: boolean;
 }
 
 export interface ArenaFrame {
@@ -31,8 +33,12 @@ export interface ArenaFrame {
   flagLook: "idle" | "correct" | "wrong";
   /** A hotspot or select-point picture on the floor, or null. */
   picture: PictureView | null;
-  /** Gap match: the hero carries something above its head. */
+  /** Gap match and order: the hero carries something above its head. */
   carrying: boolean;
+  /** Where a throw would land, on the floor, and how wide a ring to draw around it; null when nothing is aimed at. */
+  aim: [number, number, number] | null;
+  /** Something thrown, on its way: where it is now. */
+  flying: [number, number, number] | null;
 }
 
 export interface PictureView {

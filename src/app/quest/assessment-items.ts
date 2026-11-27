@@ -87,7 +87,7 @@ const withResolvedAssets = (xml: string, href: string) => {
 const PICTURE_TAGS = ["qti-hotspot-interaction", "qti-select-point-interaction", "qti-graphic-gap-match-interaction"];
 
 /**
- * A gap match is carried by hand, one piece at a time. With more pieces or gaps
+ * A gap match is picked up and thrown by hand, one piece at a time. With more pieces or gaps
  * than this the arena would be a crowd of tiny pads, and the real interaction
  * (the mini game) serves the question better.
  */

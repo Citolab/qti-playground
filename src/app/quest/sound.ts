@@ -59,6 +59,10 @@ export const sfx = {
     tone(330, 0, 0.08, "sine", 0.07);
     tone(494, 0.05, 0.1, "sine", 0.07);
   },
+  throw: () => {
+    tone(520, 0, 0.07, "sine", 0.06);
+    tone(740, 0.05, 0.12, "sine", 0.05);
+  },
   select: () => tone(660, 0, 0.1, "triangle", 0.1),
   unselect: () => tone(330, 0, 0.1, "triangle", 0.08),
 };

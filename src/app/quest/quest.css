@@ -83,6 +83,9 @@
 .quest-label { font-size: 0.875rem; line-height: 1.25; font-weight: 700; color: #1e293b; }
 .quest-label p { margin: 0; }
 
+/* The gap or place the hero points at: a throw or a put-down would end here. */
+.quest-label-aimed { outline: 4px solid #f59e0b; outline-offset: 2px; }
+
 /* The shared reading text, opened from a question. */
 .quest-reader { font-size: 1.05rem; line-height: 1.6; color: #1e293b; }
 .quest-reader p { margin: 0 0 0.8em; }

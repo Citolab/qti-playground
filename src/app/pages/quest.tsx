@@ -6,6 +6,7 @@ import {
   ArrowUp,
   Feather,
   BookOpen,
+  Check,
   Code2,
   Eye,
   Flame,
@@ -29,14 +30,17 @@ import { availableDevices, type PlayerDevice } from "../qti/session-options";
 import { useStore } from "../store/store";
 import {
   HOTSPOT_SLACK,
-  HOW_TO,
   afterWrong,
   areaAt,
   displayText,
+  entryMode,
   emptyAnswer,
   fieldFor,
+  focusOf,
   fromPicture,
   gapKey,
+  howTo,
+  isFork,
   landOnPicture,
   layoutPads,
   onRunway,
@@ -47,13 +51,19 @@ import {
   revealAnswer,
   runwayPoint,
   runwayValue,
+  spawnOf,
+  startAnswer,
   stemHtml,
   stomp,
+  throwInto,
+  throws,
+  typeInto,
   toPicture,
   toResponse,
   type Answer,
   type ArenaSpec,
   type Field,
+  type Focus,
   type Outcome,
   type Pad,
 } from "../quest/arena";
@@ -539,6 +549,10 @@ interface ArenaState {
   spec: ArenaSpec | null;
   pads: Pad[];
   answer: Answer;
+  /** The pad or hotspot the hero points at: a side of a fork, the gap a throw would land in. */
+  focus: string | null;
+  /** What was thrown and is still in the air. */
+  flying: string | null;
   message: string;
   mood: "idle" | "hint" | "happy";
   earned: number;
@@ -594,6 +608,34 @@ const hotspotUnder = (spec: ArenaSpec, field: Field, x: number, z: number): stri
   const pixel = toPicture(spec.picture, field, x, z);
   const slack = HOTSPOT_SLACK / pictureFrame(spec.picture, field).scale;
   return pixel ? (areaAt(spec.areas, pixel[0], pixel[1], slack)?.id ?? null) : null;
+};
+
+/** Something thrown at a gap, on its way there. Positions are in arena units. */
+interface Flight {
+  held: string;
+  gap: string;
+  from: [number, number, number];
+  to: [number, number];
+  t: number;
+  time: number;
+  /** The question and the part it was thrown in: a throw that outlives them is dropped. */
+  item: string;
+  stage: number;
+}
+
+/** Where a throw is now: an arc from the hero's hands down onto the gap. */
+const flightPoint = (flight: Flight): [number, number, number] => {
+  const p = Math.min(1, flight.t / flight.time);
+  const [x0, y0, z0] = flight.from;
+  const [x1, z1] = flight.to;
+  const rise = 1.1 + 0.12 * Math.hypot(x1 - x0, z1 - z0);
+  return [x0 + (x1 - x0) * p, y0 + (0.4 - y0) * p + Math.sin(Math.PI * p) * rise, z0 + (z1 - z0) * p];
+};
+
+/** How wide the ring around what is aimed at is drawn: around its pad, or around a place on the picture. */
+const aimRadius = (pads: Pad[], focus: Focus) => {
+  const pad = pads.find((candidate) => candidate.id === focus.id);
+  return pad ? pad.size * 0.78 : 0.75;
 };
 
 /** What a part's blank in the question shows: the answer so far. */
@@ -730,6 +772,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
 
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const entryRef = useRef<HTMLInputElement>(null);
   const labelEls = useRef(new Map<string, HTMLElement>());
   const carryEl = useRef<HTMLDivElement>(null);
   /** The question to go straight on to when the current one is left: the next one about the same text. */
@@ -802,6 +845,12 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
     zone: "meadow" as ZoneId,
     /** The on-screen thumb-stick, each axis from -1 to 1. */
     stick: [0, 0] as [number, number],
+    /** What the hero points at in the arena (see `focusOf`). */
+    focus: null as Focus | null,
+    /** The gate of a fork the hero stands in, so that walking in counts once. */
+    onGate: null as string | null,
+    /** What was thrown and has not landed yet. */
+    flight: null as Flight | null,
     frozen: false,
     /** A dialog has the keyboard: the game leaves every key alone. */
     paused: false,
@@ -874,6 +923,8 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
           spec: null,
           pads: [],
           answer: emptyAnswer(),
+          focus: null,
+          flying: null,
           message: spot.boss
             ? `This is the final challenge, ${name}. Take your time!`
             : attempts > 0
@@ -925,12 +976,16 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       scene.setArena(spec, pads, field);
       g.worldPos = [g.x, g.z];
       g.mode = "arena";
-      [g.x, g.z] = field.spawn;
+      [g.x, g.z] = spawnOf(spec, field);
       g.y = 0;
       g.vy = 0;
       g.heading = Math.PI;
+      g.focus = null;
+      g.onGate = null;
+      g.flight = null;
       g.frozen = false;
-      updateArena({ specs, answers: specs.map(emptyAnswer), stage: 0, field, spec, pads, phase: "playing" });
+      const answers = specs.map(startAnswer);
+      updateArena({ specs, answers, answer: answers[0], stage: 0, field, spec, pads, phase: "playing" });
       setFade(false);
     },
     [say, updateArena],
@@ -952,6 +1007,9 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       g.heading = 0;
       g.path = [];
       g.target = null;
+      g.focus = null;
+      g.onGate = null;
+      g.flight = null;
       g.frozen = false;
       handleRef.current = null;
       updateArena(null);
@@ -1054,14 +1112,17 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       const spec = current.specs[index];
       const pads = layoutPads(spec, current.field);
       scene.setArena(spec, pads, current.field);
-      [g.x, g.z] = current.field.spawn;
+      [g.x, g.z] = spawnOf(spec, current.field);
       g.y = 0;
       g.vy = 0;
       g.heading = Math.PI;
       g.path = [];
       g.target = null;
       g.autoJump = false;
-      updateArena({ answers, stage: index, spec, pads, answer: answers[index], ...patch });
+      g.focus = null;
+      g.onGate = null;
+      g.flight = null;
+      updateArena({ answers, stage: index, spec, pads, answer: answers[index], focus: null, flying: null, ...patch });
     },
     [updateArena],
   );
@@ -1148,10 +1209,14 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
     [goToStage, patchChest, spotById, updateArena],
   );
 
-  const handleLand = useCallback(() => {
+  /**
+   * The hero landed a jump, or (`on`) got onto a pad without one: walked into
+   * the gate of a fork, or ✔ was pressed.
+   */
+  const handleLand = useCallback((on?: Pad) => {
     const g = gRef.current;
     const scene = sceneRef.current;
-    scene?.puff(g.x, g.z);
+    if (!on) scene?.puff(g.x, g.z);
     const current = arenaRef.current;
     const handle = handleRef.current;
     if (g.mode !== "arena" || !current?.spec || current.phase !== "playing" || !handle) return;
@@ -1179,7 +1244,12 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       finishPart({ ...current.answer, value: runwayValue(spec, field, g.x, g.z) });
       return;
     }
-    const pad = padAt(current.pads, g.x, g.z);
+    if (on && current.answer.eliminated.includes(on.id)) {
+      sfx.bump();
+      updateArena({ message: "That way is closed: it was not the answer. Try the other side!", mood: "hint" });
+      return;
+    }
+    const pad = on ?? padAt(current.pads, g.x, g.z);
     // On a pad, or on the picture of a hotspot or select-point question.
     const result = pad ? stomp(spec, current.answer, pad) : landOnPicture(spec, field, current.answer, g.x, g.z);
     if (!result) return;
@@ -1228,11 +1298,125 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
     sfx.jump();
   }, []);
 
+  /**
+   * The answer box of a text entry changed: `text` is everything that is in it
+   * now. The digits on the floor fill the same answer, so the two stay in step.
+   */
+  const typeText = useCallback(
+    (text: string) => {
+      const current = arenaRef.current;
+      if (gRef.current.frozen || current?.spec?.kind !== "entry" || current.phase !== "playing") return;
+      const answer = typeInto(current.spec, current.answer, text);
+      if (answer === current.answer) return;
+      if (answer.digits.length >= current.answer.digits.length) sfx.select();
+      else sfx.unselect();
+      handleRef.current?.interactions[current.stage]?.answer(toResponse(current.spec, answer));
+      updateArena({ answer });
+    },
+    [updateArena],
+  );
+
+  /**
+   * A key was pressed outside the answer box, on a text entry: it is typed all
+   * the same, so a keyboard works wherever the focus happens to be. False when
+   * the key is not for the answer.
+   */
+  const typeKey = useCallback(
+    (key: string) => {
+      const current = arenaRef.current;
+      if (gRef.current.mode !== "arena" || current?.spec?.kind !== "entry" || current.phase !== "playing") return false;
+      const typed = current.answer.digits;
+      if (key === "Backspace") {
+        typeText([...typed].slice(0, -1).join(""));
+        return true;
+      }
+      // A number leaves the letters to the hero's legs; a word has nothing to walk to, and takes them all.
+      if (key.length !== 1 || (entryMode(current.spec) === "number" && !/[0-9.,-]/.test(key))) return false;
+      typeText(typed + key);
+      return true;
+    },
+    [typeText],
+  );
+
+  /**
+   * Throw what is carried at a gap, or at its partner in a match. It always lands
+   * there: aiming is choosing, not a test of skill. The answer changes when it lands.
+   */
+  const throwAt = useCallback(
+    (target: Focus) => {
+      const g = gRef.current;
+      const current = arenaRef.current;
+      const held = current?.answer.pending;
+      if (g.frozen || g.y > 0 || g.flight || !current?.spec || !throws(current.spec) || current.phase !== "playing" || !held) return;
+      const far = Math.hypot(target.x - g.x, target.z - g.z);
+      if (far > 0.05) g.heading = Math.atan2(target.x - g.x, target.z - g.z);
+      g.path = [];
+      g.target = null;
+      g.autoJump = false;
+      g.flight = {
+        held,
+        gap: target.id,
+        from: [g.x, 1.62 * (sceneRef.current?.heroScale ?? 1), g.z],
+        to: [target.x, target.z],
+        t: 0,
+        time: 0.32 + 0.035 * far,
+        item: current.item.id,
+        stage: current.stage,
+      };
+      sfx.throw();
+      updateArena({ answer: { ...current.answer, pending: null }, flying: held });
+    },
+    [updateArena],
+  );
+
+  /** What was thrown comes down in its gap, or on its partner. */
+  const landThrow = useCallback(() => {
+    const g = gRef.current;
+    const flight = g.flight;
+    g.flight = null;
+    const current = arenaRef.current;
+    if (!flight || !current) return;
+    // The question or its part changed under the throw, or the answer is being shown: it goes back where it came from.
+    if (!current.spec || current.item.id !== flight.item || current.stage !== flight.stage || current.phase !== "playing") {
+      updateArena({ flying: null });
+      return;
+    }
+    sceneRef.current?.puff(flight.to[0], flight.to[1]);
+    const result = throwInto(current.spec, current.answer, flight.held, flight.gap);
+    sfx.select();
+    handleRef.current?.interactions[current.stage]?.answer(toResponse(current.spec, result.answer));
+    updateArena({ answer: result.answer, flying: null });
+  }, [updateArena]);
+
+  /**
+   * Hand in the answer from where the hero stands, as a jump on ✔ would: the ✔
+   * button, or Enter. False when there is no ✔ to press, so Enter can do
+   * something else.
+   */
+  const check = useCallback(() => {
+    const g = gRef.current;
+    const current = arenaRef.current;
+    const pad = current?.pads.find((candidate) => candidate.role === "check");
+    if (g.mode !== "arena" || g.frozen || !pad || current?.phase !== "playing") return false;
+    // What is still in the air lands first, so it counts.
+    if (g.flight) landThrow();
+    handleLand(pad);
+    return true;
+  }, [handleLand, landThrow]);
+
   const act = useCallback(() => {
     const g = gRef.current;
-    if (g.mode === "world" && g.nearChest) openChest(g.nearChest);
+    if (g.mode === "world" && g.nearChest) {
+      openChest(g.nearChest);
+      return;
+    }
+    // Something is in the air: one thing at a time.
+    if (g.flight) return;
+    const current = arenaRef.current;
+    // Carrying something to throw, and not standing on something a jump is meant for: the jump is a throw.
+    if (g.mode === "arena" && g.focus && g.y === 0 && current?.spec && throws(current.spec) && current.answer.pending) throwAt(g.focus);
     else jump();
-  }, [jump, openChest]);
+  }, [jump, openChest, throwAt]);
 
   /** Walk to a chest and open it on arrival. */
   const goToChest = useCallback(
@@ -1261,15 +1445,25 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
     [openChest, say, spotById],
   );
 
-  /** Walk onto a pad and jump on it. */
+  /** Walk onto a pad and jump on it. With something in hand, a gap or a partner is thrown at from where the hero stands. */
   const goToPad = useCallback((pad: Pad) => {
     const g = gRef.current;
     if (g.frozen || g.mode !== "arena") return;
+    // A click on ✔ hands in at once: walking over to it only costs time.
+    if (pad.role === "check") {
+      check();
+      return;
+    }
+    const current = arenaRef.current;
+    if (pad.role === "target" && current?.spec && throws(current.spec) && current.answer.pending && current.phase === "playing") {
+      throwAt({ id: pad.id, x: pad.x, z: pad.z });
+      return;
+    }
     g.path = [[pad.x, pad.z]];
     g.autoJump = true;
     g.pendingChest = null;
     g.target = [pad.x, pad.z];
-  }, []);
+  }, [check, throwAt]);
 
   /**
    * Back in the world with a next question lined up (the next one about the same
@@ -1306,9 +1500,9 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
   );
 
   // The frame loop calls these through a ref, so it always gets the latest ones.
-  const live = useRef({ openChest, handleLand, act, leaveArena });
+  const live = useRef({ openChest, handleLand, act, check, leaveArena, landThrow, typeKey });
   useEffect(() => {
-    live.current = { openChest, handleLand, act, leaveArena };
+    live.current = { openChest, handleLand, act, check, leaveArena, landThrow, typeKey };
   });
 
   // ── Scene + frame loop ────────────────────────────────────────────
@@ -1433,6 +1627,27 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
           live.current.handleLand();
         }
       }
+      const flight = g.flight;
+      if (flight) {
+        flight.t += dt;
+        if (flight.t >= flight.time) live.current.landThrow();
+      }
+      const a = arenaRef.current;
+      if (g.mode === "arena" && a?.spec) {
+        const playing = a.phase === "playing";
+        g.focus = playing ? focusOf(a.spec, a.pads, a.field, a.answer, g.x, g.z, g.heading) : null;
+        // The labels over the pads are drawn by the page: tell it when the hero points at another one.
+        if ((g.focus?.id ?? null) !== a.focus) updateArena({ focus: g.focus?.id ?? null });
+        if (isFork(a.spec, a.field)) {
+          // A fork is answered by walking: stepping into a gate is the answer, once.
+          const gate = g.y === 0 ? padAt(a.pads, g.x, g.z) : null;
+          const id = gate?.gate ? gate.id : null;
+          if (id !== g.onGate) {
+            g.onGate = id;
+            if (gate && id && playing) live.current.handleLand(gate);
+          }
+        }
+      }
       if (g.mode === "world") {
         let nearest: string | null = null;
         let best = 1.35;
@@ -1469,7 +1684,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
         arena:
           inArena && a?.spec
             ? {
-                pads: padViews(a.spec, a.pads, a.answer, outcome),
+                pads: padViews(a.spec, a.pads, a.answer, outcome, g.focus?.id ?? null),
                 display: displayText(a.spec, a.answer),
                 marker:
                   a.spec.kind === "slider" && a.phase === "playing" && onRunway(a.field, g.x, g.z)
@@ -1481,13 +1696,16 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                   ? {
                       selected: a.answer.picked,
                       eliminated: a.answer.eliminated,
-                      hover: a.phase === "playing" ? hotspotUnder(a.spec, a.field, g.x, g.z) : null,
+                      // The spot a throw would land on, or else the one under the hero's feet.
+                      hover: a.phase === "playing" ? (g.focus?.id ?? hotspotUnder(a.spec, a.field, g.x, g.z)) : null,
                       points: a.answer.points,
                       placed: a.spec.kind === "gap" ? a.answer.pairs.map(([choice, spot]): [string, string] => [spot, choice]) : [],
                       look: outcome === "wrong" ? "wrong" : outcome === "playing" ? "idle" : "correct",
                     }
                   : null,
-                carrying: a.spec.kind === "gap" && a.answer.pending !== null,
+                carrying: (throws(a.spec) || a.spec.kind === "order") && a.answer.pending !== null,
+                aim: throws(a.spec) && g.focus ? [g.focus.x, g.focus.z, aimRadius(a.pads, g.focus)] : null,
+                flying: g.flight ? flightPoint(g.flight) : null,
               }
             : null,
       };
@@ -1501,8 +1719,9 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       if (!scene || g.mode !== "arena" || !a) return;
       const held = carryEl.current;
       if (held) {
-        // Above the crate the hero holds up.
-        const p = scene.screenPoint(g.x, g.y + 2.15 * scene.heroScale, g.z);
+        // Above the crate the hero holds up, or with it through the air.
+        const flown = g.flight ? flightPoint(g.flight) : null;
+        const p = flown ? scene.screenPoint(flown[0], flown[1] + 0.45, flown[2]) : scene.screenPoint(g.x, g.y + 2.15 * scene.heroScale, g.z);
         held.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px) translate(-50%, -100%)`;
       }
       for (const pad of a.pads) {
@@ -1594,8 +1813,23 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       });
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (g.paused || isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (g.paused || e.metaKey || e.ctrlKey || e.altKey) return;
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      const box = e.target instanceof HTMLInputElement ? e.target.dataset.questEntry : undefined;
+      if (box) {
+        if (key === "Escape") {
+          live.current.leaveArena();
+          return;
+        }
+        // The answer box of a text entry. A word takes every key. A number leaves the hero the keys it
+        // has no use for, so the digits on the floor can still be walked to. Enter hands in through the box.
+        if (box === "word" || key === "Enter" || !(MOVE_KEYS[key] || key === " " || key === "e")) return;
+      } else if (isTyping(e.target)) return;
+      // On a text entry a key types the answer, also when the box does not have the focus.
+      else if (!(e.target instanceof HTMLButtonElement && key === " ") && live.current.typeKey(e.key)) {
+        e.preventDefault();
+        return;
+      }
       if (MOVE_KEYS[key]) {
         e.preventDefault();
         g.keys.add(key);
@@ -1603,7 +1837,9 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
         // Leave Enter and Space alone on a focused button.
         if (e.target instanceof HTMLButtonElement) return;
         e.preventDefault();
-        if (!e.repeat) live.current.act();
+        if (e.repeat) return;
+        // Enter hands in where there is a ✔; everywhere else it does what Space does.
+        if (key !== "Enter" || !live.current.check()) live.current.act();
       } else if (key === "Escape" && g.mode === "arena") {
         live.current.leaveArena();
       }
@@ -1627,6 +1863,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
         arena: () => arenaRef.current,
         open: (id: string) => live.current.openChest(id),
         jump: () => live.current.act(),
+        check: () => live.current.check(),
         leave: () => live.current.leaveArena(),
       };
     }
@@ -1645,10 +1882,16 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
       sceneRef.current = null;
       delete debugHost.__quest;
     };
-  }, [layout, theme]);
+  }, [layout, theme, updateArena]);
 
   // On a wide screen the question sits in a panel on the left; frame the arena in what is left.
   const inArena = !!arena && arena.phase !== "loading";
+  // With a keyboard at hand the answer box of a text entry is ready to type in. Not on a touch screen: there
+  // it would raise the on-screen keyboard over the arena before the question was read.
+  const entryKey = arena?.spec?.kind === "entry" && arena.phase === "playing" ? `${arena.item.id}:${arena.stage}` : null;
+  useEffect(() => {
+    if (entryKey && window.matchMedia("(hover: hover) and (pointer: fine)").matches) entryRef.current?.focus({ preventScroll: true });
+  }, [entryKey]);
   useEffect(() => {
     const container = containerRef.current;
     const panel = panelRef.current;
@@ -1690,6 +1933,17 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
         return;
       }
       const picture = arenaRef.current?.spec?.picture;
+      const now = arenaRef.current;
+      if (picture && now?.spec?.kind === "gap" && now.answer.pending && now.phase === "playing") {
+        // With something in hand, a click on a place on the picture throws it there.
+        const spot = focusOf(now.spec, [], field, now.answer, x, z, 0);
+        const pixel = toPicture(picture, field, x, z);
+        const slack = HOTSPOT_SLACK / pictureFrame(picture, field).scale;
+        if (spot && pixel && areaAt(now.spec.areas, pixel[0], pixel[1], slack)?.id === spot.id) {
+          throwAt(spot);
+          return;
+        }
+      }
       g.path = [[x, z]];
       // A click on the picture is an answer: walk there and jump.
       g.autoJump = !!picture && !!toPicture(picture, field, x, z);
@@ -1762,7 +2016,8 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
   const parts = arena?.specs.length ?? 0;
   const canSwitchPart = arena?.phase === "playing" || arena?.phase === "revealed";
   const overlayPads = useMemo(() => (inArena && arena ? arena.pads.filter((pad) => pad.overlay) : []), [arena, inArena]);
-  const labelViews = arena?.spec && overlayPads.length ? padViews(arena.spec, arena.pads, arena.answer, outcomeOf(arena)) : {};
+  const labelViews =
+    arena?.spec && overlayPads.length ? padViews(arena.spec, arena.pads, arena.answer, outcomeOf(arena), arena.focus) : {};
   /** The next unopened question about the same text: the ones after this one first, then the ones before it. */
   const nextAbout = (item: QuestItem | null | undefined): QuestItem | null => {
     if (!item?.group) return null;
@@ -1775,10 +2030,11 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
     );
   };
   const nextUp = nextAbout(arena?.item ?? classic);
-  const carried =
-    inArena && arena?.spec?.kind === "gap" && arena.answer.pending
-      ? (arena.spec.choices.find((choice) => choice.id === arena.answer.pending) ?? null)
-      : null;
+  // In the hero's hands (a word for a gap, one of a match, one out of a row), or thrown and still in the air.
+  const carriedId =
+    inArena && arena?.spec && (throws(arena.spec) || arena.spec.kind === "order") ? (arena.answer.pending ?? arena.flying) : null;
+  const carried = carriedId ? (arena?.spec?.choices.find((choice) => choice.id === carriedId) ?? null) : null;
+  const throwing = !!arena?.spec && throws(arena.spec) && !!arena.answer.pending && !!arena.focus;
   const arenaSpot = arena ? spotById[arena.item.id] : undefined;
   const zoneInfo = theme.zones[arenaSpot ? arenaSpot.zone : zone];
   const topicOf = (zoneId: ZoneId) => (builtIn ? theme.zones[zoneId].topic : `Part ${ZONES.indexOf(zoneId) + 1} of 3`);
@@ -1844,7 +2100,11 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                       : "quest-label-above text-center",
                   "quest-label pointer-events-auto absolute left-0 top-0 rounded-xl border-[3px] shadow-lg transition-colors",
                   pad.side ? "px-2 py-1" : "px-2.5 py-1.5",
+                  // A place in a row always wears its number, and in a list a pair's number sits on a
+                  // small label: keep the text clear of it.
+                  (pad.slot !== undefined || (view.badge && pad.side)) && "pl-5",
                   LABEL_LOOK[view.look],
+                  view.aimed && "quest-label-aimed",
                 )}
               >
                 {view.badge && (
@@ -1859,7 +2119,8 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                 {(view.html ?? (view.mark === undefined ? pad.html : undefined)) ? (
                   <RichLabel html={view.html ?? pad.html ?? ""} stylesheets={arena?.item.stylesheets ?? NO_STYLESHEETS} />
                 ) : (
-                  (view.mark ?? pad.label)
+                  // An empty place in a row keeps its height.
+                  (view.mark ?? pad.label) || "\u00a0"
                 )}
               </button>
             );
@@ -1867,7 +2128,7 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
         </div>
       )}
 
-      {/* What the hero carries (gap match): it rides above the hero's head until it is put down. */}
+      {/* What the hero carries (gap match, order): it rides above the hero's head until it is thrown or put down. */}
       {carried && (
         <div className="pointer-events-none absolute inset-0 z-[6] overflow-hidden">
           <div
@@ -2160,10 +2421,47 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                     })}
                   </div>
                 )}
-                {arena.spec && arena.phase !== "revealed" && (
+                {arena.spec?.kind === "entry" && (arena.phase === "playing" || arena.phase === "checking" || arena.phase === "wrong") && (
+                  // The answer is typed here, with the keyboard the player already has: a phone opens its own.
+                  <form
+                    className="flex shrink-0 items-center gap-2 border-t border-slate-200 px-3 py-1.5"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      check();
+                    }}
+                  >
+                    <input
+                      ref={entryRef}
+                      data-quest-entry={entryMode(arena.spec)}
+                      value={arena.answer.digits}
+                      onChange={(e) => typeText(e.target.value)}
+                      // Not disabled while the answer is checked: that would let go of the focus.
+                      readOnly={arena.phase !== "playing"}
+                      inputMode={entryMode(arena.spec) === "word" || arena.spec.keys.includes("-") ? "text" : "decimal"}
+                      enterKeyHint="done"
+                      autoComplete="off"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      aria-label="Your answer"
+                      placeholder={entryMode(arena.spec) === "word" ? "Type your answer" : "Type your number"}
+                      className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 bg-white px-3 py-1.5 text-lg font-bold text-slate-900 placeholder:font-medium placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      disabled={arena.phase !== "playing"}
+                      title="Check your answer (Enter)"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-xl border-2 border-emerald-600 bg-emerald-500 px-3 py-2 text-sm font-bold text-white shadow-sm hover:bg-emerald-600 disabled:opacity-60"
+                    >
+                      <Check className="h-4 w-4" strokeWidth={3} /> Check
+                    </button>
+                  </form>
+                )}
+                {/* On a phone the card is small, and the answer box says for itself what to do with it. */}
+                {arena.spec && arena.phase !== "revealed" && !(arena.spec.kind === "entry" && arena.field.portrait) && (
                   <div className="flex shrink-0 items-center gap-2 border-t border-slate-200 bg-slate-50 px-4 py-1.5 text-sm font-bold text-slate-700">
                     <ArrowUp className="h-4 w-4 shrink-0 text-emerald-600" />
-                    {HOW_TO[arena.spec.kind](arena.spec)}
+                    {howTo(arena.spec, arena.field)}
                   </div>
                 )}
                 <div
@@ -2202,19 +2500,39 @@ function QuestGame({ theme, items, builtIn, name, world, setWorld, muted, onMute
                     {nextUp ? "Next question" : "Continue"}
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      jump();
-                    }}
-                    className="pointer-events-auto grid h-20 w-20 place-items-center rounded-full bg-emerald-500 text-base font-extrabold text-white shadow-[0_6px_0_#047857] hover:bg-emerald-400 active:translate-y-1 active:shadow-[0_2px_0_#047857]"
-                  >
-                    <span className="flex flex-col items-center leading-none">
-                      <ArrowUp className="h-7 w-7" />
-                      Jump
-                    </span>
-                  </button>
+                  <div className="flex items-end gap-2">
+                    {/* Hands in from anywhere, so nobody has to walk to the ✔ on the floor. On an upright
+                        phone that ✔ lies right here between the controls, and a tap on it does the same. */}
+                    {arena.phase === "playing" && !arena.field.portrait && arena.pads.some((pad) => pad.role === "check") && (
+                      <button
+                        type="button"
+                        title="Check your answer (Enter)"
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          check();
+                        }}
+                        className="pointer-events-auto grid h-16 w-16 place-items-center rounded-full border-4 border-emerald-500 bg-white text-sm font-extrabold text-emerald-700 shadow-[0_5px_0_#047857] hover:bg-emerald-50 active:translate-y-1 active:shadow-[0_2px_0_#047857]"
+                      >
+                        <span className="flex flex-col items-center leading-none">
+                          <Check className="h-6 w-6" strokeWidth={3.5} />
+                          Check
+                        </span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        act();
+                      }}
+                      className="pointer-events-auto grid h-20 w-20 place-items-center rounded-full bg-emerald-500 text-base font-extrabold text-white shadow-[0_6px_0_#047857] hover:bg-emerald-400 active:translate-y-1 active:shadow-[0_2px_0_#047857]"
+                    >
+                      <span className="flex flex-col items-center leading-none">
+                        <ArrowUp className="h-7 w-7" />
+                        {throwing ? "Throw" : "Jump"}
+                      </span>
+                    </button>
+                  </div>
                 )}
               </div>
             </>
